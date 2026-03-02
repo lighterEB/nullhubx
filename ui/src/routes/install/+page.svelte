@@ -1,18 +1,20 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { afterNavigate } from '$app/navigation';
   import ComponentCard from '$lib/components/ComponentCard.svelte';
   import { api } from '$lib/api/client';
 
   let components = $state<any[]>([]);
 
-  onMount(async () => {
+  async function loadComponents() {
     try {
       const data = await api.getComponents();
       components = data.components || [];
     } catch (e) {
       console.error(e);
     }
-  });
+  }
+
+  afterNavigate(loadComponents);
 </script>
 
 <div class="install-page">

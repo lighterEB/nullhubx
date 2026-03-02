@@ -169,10 +169,17 @@ pub fn handleRestart(allocator: std.mem.Allocator, s: *state_mod.State, manager:
 }
 
 /// DELETE /api/instances/{component}/{name}
-pub fn handleDelete(s: *state_mod.State, manager: *manager_mod.Manager, component: []const u8, name: []const u8) ApiResponse {
+pub fn handleDelete(allocator: std.mem.Allocator, s: *state_mod.State, manager: *manager_mod.Manager, paths: paths_mod.Paths, component: []const u8, name: []const u8) ApiResponse {
     if (s.getInstance(component, name) == null) return notFound();
     manager.stopInstance(component, name) catch {};
     if (!s.removeInstance(component, name)) return notFound();
+    s.save() catch return helpers.serverError();
+
+    // Remove instance directory from disk
+    const inst_dir = paths.instanceDir(allocator, component, name) catch return jsonOk("{\"status\":\"deleted\"}");
+    defer allocator.free(inst_dir);
+    std.fs.deleteTreeAbsolute(inst_dir) catch {};
+
     return jsonOk("{\"status\":\"deleted\"}");
 }
 
@@ -294,7 +301,7 @@ pub fn dispatch(allocator: std.mem.Allocator, s: *state_mod.State, manager: *man
 
     // No action — CRUD on the instance itself.
     if (std.mem.eql(u8, method, "GET")) return handleGet(allocator, s, manager, parsed.component, parsed.name);
-    if (std.mem.eql(u8, method, "DELETE")) return handleDelete(s, manager, parsed.component, parsed.name);
+    if (std.mem.eql(u8, method, "DELETE")) return handleDelete(allocator, s, manager, paths, parsed.component, parsed.name);
     if (std.mem.eql(u8, method, "PATCH")) return handlePatch(s, parsed.component, parsed.name, body);
 
     return methodNotAllowed();
@@ -493,7 +500,7 @@ test "handleDelete removes instance" {
 
     try s.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0" });
 
-    const resp = handleDelete(&s, &mctx.manager, "nullclaw", "my-agent");
+    const resp = handleDelete(allocator, &s, &mctx.manager, mctx.paths, "nullclaw", "my-agent");
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expectEqualStrings("{\"status\":\"deleted\"}", resp.body);
 
@@ -508,7 +515,7 @@ test "handleDelete returns 404 for missing instance" {
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
 
-    const resp = handleDelete(&s, &mctx.manager, "nope", "nope");
+    const resp = handleDelete(allocator, &s, &mctx.manager, mctx.paths, "nope", "nope");
     try std.testing.expectEqualStrings("404 Not Found", resp.status);
 }
 
