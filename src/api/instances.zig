@@ -1,5 +1,7 @@
 const std = @import("std");
 const state_mod = @import("../core/state.zig");
+const manager_mod = @import("../supervisor/manager.zig");
+const paths_mod = @import("../core/paths.zig");
 const helpers = @import("helpers.zig");
 
 const ApiResponse = helpers.ApiResponse;
@@ -59,10 +61,10 @@ fn appendInstanceJson(buf: *std.array_list.Managed(u8), entry: state_mod.Instanc
 // ─── Handlers ────────────────────────────────────────────────────────────────
 
 /// GET /api/instances — list all instances grouped by component.
-pub fn handleList(allocator: std.mem.Allocator, s: *state_mod.State) ApiResponse {
+pub fn handleList(allocator: std.mem.Allocator, s: *state_mod.State, manager: *manager_mod.Manager) ApiResponse {
     var buf = std.array_list.Managed(u8).init(allocator);
 
-    buildListJson(&buf, s) catch return .{
+    buildListJson(&buf, s, manager) catch return .{
         .status = "500 Internal Server Error",
         .content_type = "application/json",
         .body = "{\"error\":\"internal error\"}",
@@ -71,7 +73,7 @@ pub fn handleList(allocator: std.mem.Allocator, s: *state_mod.State) ApiResponse
     return jsonOk(buf.items);
 }
 
-fn buildListJson(buf: *std.array_list.Managed(u8), s: *state_mod.State) !void {
+fn buildListJson(buf: *std.array_list.Managed(u8), s: *state_mod.State, manager: *manager_mod.Manager) !void {
     try buf.appendSlice("{\"instances\":{");
 
     var comp_it = s.instances.iterator();
@@ -90,10 +92,12 @@ fn buildListJson(buf: *std.array_list.Managed(u8), s: *state_mod.State) !void {
             if (!first_inst) try buf.append(',');
             first_inst = false;
 
+            const status_str = if (manager.getStatus(comp_entry.key_ptr.*, inst_entry.key_ptr.*)) |st| @tagName(st.status) else "stopped";
+
             try buf.append('"');
             try appendEscaped(buf, inst_entry.key_ptr.*);
             try buf.appendSlice("\":");
-            try appendInstanceJson(buf, inst_entry.value_ptr.*, "stopped");
+            try appendInstanceJson(buf, inst_entry.value_ptr.*, status_str);
         }
 
         try buf.append('}');
@@ -103,11 +107,13 @@ fn buildListJson(buf: *std.array_list.Managed(u8), s: *state_mod.State) !void {
 }
 
 /// GET /api/instances/{component}/{name} — detail for one instance.
-pub fn handleGet(allocator: std.mem.Allocator, s: *state_mod.State, component: []const u8, name: []const u8) ApiResponse {
+pub fn handleGet(allocator: std.mem.Allocator, s: *state_mod.State, manager: *manager_mod.Manager, component: []const u8, name: []const u8) ApiResponse {
     const entry = s.getInstance(component, name) orelse return notFound();
 
+    const status_str = if (manager.getStatus(component, name)) |st| @tagName(st.status) else "stopped";
+
     var buf = std.array_list.Managed(u8).init(allocator);
-    appendInstanceJson(&buf, entry, "stopped") catch return .{
+    appendInstanceJson(&buf, entry, status_str) catch return .{
         .status = "500 Internal Server Error",
         .content_type = "application/json",
         .body = "{\"error\":\"internal error\"}",
@@ -116,27 +122,41 @@ pub fn handleGet(allocator: std.mem.Allocator, s: *state_mod.State, component: [
 }
 
 /// POST /api/instances/{component}/{name}/start
-pub fn handleStart(s: *state_mod.State, component: []const u8, name: []const u8) ApiResponse {
-    _ = s.getInstance(component, name) orelse return notFound();
-    // Lifecycle integration with manager.zig is deferred — for now just
-    // acknowledge the request.
+pub fn handleStart(allocator: std.mem.Allocator, s: *state_mod.State, manager: *manager_mod.Manager, paths: paths_mod.Paths, component: []const u8, name: []const u8) ApiResponse {
+    const entry = s.getInstance(component, name) orelse return notFound();
+
+    // Resolve binary path
+    const bin_path = paths.binary(allocator, component, entry.version) catch return helpers.serverError();
+    defer allocator.free(bin_path);
+
+    // Start via manager
+    manager.startInstance(component, name, bin_path, &.{}, 0, "/health", "", "", "") catch return helpers.serverError();
     return jsonOk("{\"status\":\"started\"}");
 }
 
 /// POST /api/instances/{component}/{name}/stop
-pub fn handleStop(s: *state_mod.State, component: []const u8, name: []const u8) ApiResponse {
+pub fn handleStop(s: *state_mod.State, manager: *manager_mod.Manager, component: []const u8, name: []const u8) ApiResponse {
     _ = s.getInstance(component, name) orelse return notFound();
+    manager.stopInstance(component, name) catch return helpers.serverError();
     return jsonOk("{\"status\":\"stopped\"}");
 }
 
 /// POST /api/instances/{component}/{name}/restart
-pub fn handleRestart(s: *state_mod.State, component: []const u8, name: []const u8) ApiResponse {
+pub fn handleRestart(allocator: std.mem.Allocator, s: *state_mod.State, manager: *manager_mod.Manager, paths: paths_mod.Paths, component: []const u8, name: []const u8) ApiResponse {
     _ = s.getInstance(component, name) orelse return notFound();
+    manager.stopInstance(component, name) catch {};
+    // Re-read entry for version
+    const entry = s.getInstance(component, name) orelse return notFound();
+    const bin_path = paths.binary(allocator, component, entry.version) catch return helpers.serverError();
+    defer allocator.free(bin_path);
+    manager.startInstance(component, name, bin_path, &.{}, 0, "/health", "", "", "") catch return helpers.serverError();
     return jsonOk("{\"status\":\"restarted\"}");
 }
 
 /// DELETE /api/instances/{component}/{name}
-pub fn handleDelete(s: *state_mod.State, component: []const u8, name: []const u8) ApiResponse {
+pub fn handleDelete(s: *state_mod.State, manager: *manager_mod.Manager, component: []const u8, name: []const u8) ApiResponse {
+    if (s.getInstance(component, name) == null) return notFound();
+    manager.stopInstance(component, name) catch {};
     if (!s.removeInstance(component, name)) return notFound();
     return jsonOk("{\"status\":\"deleted\"}");
 }
@@ -173,10 +193,10 @@ pub fn handlePatch(s: *state_mod.State, component: []const u8, name: []const u8,
 /// Route an `/api/instances` request. Called from server.zig.
 /// `method` is the HTTP verb, `target` is the full request path,
 /// `body` is the (possibly empty) request body.
-pub fn dispatch(allocator: std.mem.Allocator, s: *state_mod.State, method: []const u8, target: []const u8, body: []const u8) ?ApiResponse {
+pub fn dispatch(allocator: std.mem.Allocator, s: *state_mod.State, manager: *manager_mod.Manager, paths: paths_mod.Paths, method: []const u8, target: []const u8, body: []const u8) ?ApiResponse {
     // Exact match for the collection endpoint.
     if (std.mem.eql(u8, target, "/api/instances")) {
-        if (std.mem.eql(u8, method, "GET")) return handleList(allocator, s);
+        if (std.mem.eql(u8, method, "GET")) return handleList(allocator, s, manager);
         return methodNotAllowed();
     }
 
@@ -186,22 +206,40 @@ pub fn dispatch(allocator: std.mem.Allocator, s: *state_mod.State, method: []con
         // Only POST is valid for actions.
         if (!std.mem.eql(u8, method, "POST")) return methodNotAllowed();
 
-        if (std.mem.eql(u8, action, "start")) return handleStart(s, parsed.component, parsed.name);
-        if (std.mem.eql(u8, action, "stop")) return handleStop(s, parsed.component, parsed.name);
-        if (std.mem.eql(u8, action, "restart")) return handleRestart(s, parsed.component, parsed.name);
+        if (std.mem.eql(u8, action, "start")) return handleStart(allocator, s, manager, paths, parsed.component, parsed.name);
+        if (std.mem.eql(u8, action, "stop")) return handleStop(s, manager, parsed.component, parsed.name);
+        if (std.mem.eql(u8, action, "restart")) return handleRestart(allocator, s, manager, paths, parsed.component, parsed.name);
 
         return notFound();
     }
 
     // No action — CRUD on the instance itself.
-    if (std.mem.eql(u8, method, "GET")) return handleGet(allocator, s, parsed.component, parsed.name);
-    if (std.mem.eql(u8, method, "DELETE")) return handleDelete(s, parsed.component, parsed.name);
+    if (std.mem.eql(u8, method, "GET")) return handleGet(allocator, s, manager, parsed.component, parsed.name);
+    if (std.mem.eql(u8, method, "DELETE")) return handleDelete(s, manager, parsed.component, parsed.name);
     if (std.mem.eql(u8, method, "PATCH")) return handlePatch(s, parsed.component, parsed.name, body);
 
     return methodNotAllowed();
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
+
+const TestManagerCtx = struct {
+    manager: manager_mod.Manager,
+    paths: paths_mod.Paths,
+
+    fn init(allocator: std.mem.Allocator) TestManagerCtx {
+        const p = paths_mod.Paths.init(allocator, "/tmp/nullhub-test-instances-api") catch @panic("Paths.init failed");
+        return .{
+            .paths = p,
+            .manager = manager_mod.Manager.init(allocator, p),
+        };
+    }
+
+    fn deinit(self: *TestManagerCtx, allocator: std.mem.Allocator) void {
+        self.manager.deinit();
+        self.paths.deinit(allocator);
+    }
+};
 
 test "parsePath: component and name" {
     const p = parsePath("/api/instances/nullclaw/my-agent").?;
@@ -237,11 +275,13 @@ test "handleList returns valid JSON structure" {
     const allocator = std.testing.allocator;
     var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
     defer s.deinit();
+    var mctx = TestManagerCtx.init(allocator);
+    defer mctx.deinit(allocator);
 
     try s.addInstance("nullclaw", "my-agent", .{ .version = "2026.3.1", .auto_start = true });
     try s.addInstance("nullclaw", "staging", .{ .version = "2026.3.1", .auto_start = false });
 
-    const resp = handleList(allocator, &s);
+    const resp = handleList(allocator, &s, &mctx.manager);
     defer allocator.free(resp.body);
 
     try std.testing.expectEqualStrings("200 OK", resp.status);
@@ -275,8 +315,10 @@ test "handleGet returns 404 for missing instance" {
     const allocator = std.testing.allocator;
     var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
     defer s.deinit();
+    var mctx = TestManagerCtx.init(allocator);
+    defer mctx.deinit(allocator);
 
-    const resp = handleGet(allocator, &s, "nonexistent", "nope");
+    const resp = handleGet(allocator, &s, &mctx.manager, "nonexistent", "nope");
     try std.testing.expectEqualStrings("404 Not Found", resp.status);
     try std.testing.expectEqualStrings("{\"error\":\"not found\"}", resp.body);
 }
@@ -285,10 +327,12 @@ test "handleGet returns instance detail JSON" {
     const allocator = std.testing.allocator;
     var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
     defer s.deinit();
+    var mctx = TestManagerCtx.init(allocator);
+    defer mctx.deinit(allocator);
 
     try s.addInstance("nullclaw", "my-agent", .{ .version = "2026.3.1", .auto_start = true });
 
-    const resp = handleGet(allocator, &s, "nullclaw", "my-agent");
+    const resp = handleGet(allocator, &s, &mctx.manager, "nullclaw", "my-agent");
     defer allocator.free(resp.body);
 
     try std.testing.expectEqualStrings("200 OK", resp.status);
@@ -311,55 +355,66 @@ test "handleStart returns 404 for missing instance" {
     const allocator = std.testing.allocator;
     var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
     defer s.deinit();
+    var mctx = TestManagerCtx.init(allocator);
+    defer mctx.deinit(allocator);
 
-    const resp = handleStart(&s, "nope", "nope");
+    const resp = handleStart(allocator, &s, &mctx.manager, mctx.paths, "nope", "nope");
     try std.testing.expectEqualStrings("404 Not Found", resp.status);
 }
 
-test "handleStart returns 200 for existing instance" {
+test "handleStart returns 500 when binary does not exist" {
     const allocator = std.testing.allocator;
     var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
     defer s.deinit();
+    var mctx = TestManagerCtx.init(allocator);
+    defer mctx.deinit(allocator);
 
     try s.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0" });
 
-    const resp = handleStart(&s, "nullclaw", "my-agent");
-    try std.testing.expectEqualStrings("200 OK", resp.status);
-    try std.testing.expectEqualStrings("{\"status\":\"started\"}", resp.body);
+    // Binary doesn't exist at /tmp/nullhub-test-instances-api/bin/nullclaw-1.0.0
+    // so startInstance will fail and handler returns 500.
+    const resp = handleStart(allocator, &s, &mctx.manager, mctx.paths, "nullclaw", "my-agent");
+    try std.testing.expectEqualStrings("500 Internal Server Error", resp.status);
 }
 
 test "handleStop returns 200 for existing instance" {
     const allocator = std.testing.allocator;
     var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
     defer s.deinit();
+    var mctx = TestManagerCtx.init(allocator);
+    defer mctx.deinit(allocator);
 
     try s.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0" });
 
-    const resp = handleStop(&s, "nullclaw", "my-agent");
+    const resp = handleStop(&s, &mctx.manager, "nullclaw", "my-agent");
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expectEqualStrings("{\"status\":\"stopped\"}", resp.body);
 }
 
-test "handleRestart returns 200 for existing instance" {
+test "handleRestart returns 500 when binary does not exist" {
     const allocator = std.testing.allocator;
     var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
     defer s.deinit();
+    var mctx = TestManagerCtx.init(allocator);
+    defer mctx.deinit(allocator);
 
     try s.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0" });
 
-    const resp = handleRestart(&s, "nullclaw", "my-agent");
-    try std.testing.expectEqualStrings("200 OK", resp.status);
-    try std.testing.expectEqualStrings("{\"status\":\"restarted\"}", resp.body);
+    // Binary doesn't exist so startInstance fails => 500
+    const resp = handleRestart(allocator, &s, &mctx.manager, mctx.paths, "nullclaw", "my-agent");
+    try std.testing.expectEqualStrings("500 Internal Server Error", resp.status);
 }
 
 test "handleDelete removes instance" {
     const allocator = std.testing.allocator;
     var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
     defer s.deinit();
+    var mctx = TestManagerCtx.init(allocator);
+    defer mctx.deinit(allocator);
 
     try s.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0" });
 
-    const resp = handleDelete(&s, "nullclaw", "my-agent");
+    const resp = handleDelete(&s, &mctx.manager, "nullclaw", "my-agent");
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expectEqualStrings("{\"status\":\"deleted\"}", resp.body);
 
@@ -371,8 +426,10 @@ test "handleDelete returns 404 for missing instance" {
     const allocator = std.testing.allocator;
     var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
     defer s.deinit();
+    var mctx = TestManagerCtx.init(allocator);
+    defer mctx.deinit(allocator);
 
-    const resp = handleDelete(&s, "nope", "nope");
+    const resp = handleDelete(&s, &mctx.manager, "nope", "nope");
     try std.testing.expectEqualStrings("404 Not Found", resp.status);
 }
 
@@ -414,10 +471,12 @@ test "dispatch routes GET /api/instances" {
     const allocator = std.testing.allocator;
     var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
     defer s.deinit();
+    var mctx = TestManagerCtx.init(allocator);
+    defer mctx.deinit(allocator);
 
     try s.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0" });
 
-    const resp = dispatch(allocator, &s, "GET", "/api/instances", "").?;
+    const resp = dispatch(allocator, &s, &mctx.manager, mctx.paths, "GET", "/api/instances", "").?;
     defer allocator.free(resp.body);
 
     try std.testing.expectEqualStrings("200 OK", resp.status);
@@ -428,17 +487,22 @@ test "dispatch routes POST start action" {
     const allocator = std.testing.allocator;
     var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
     defer s.deinit();
+    var mctx = TestManagerCtx.init(allocator);
+    defer mctx.deinit(allocator);
 
     try s.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0" });
 
-    const resp = dispatch(allocator, &s, "POST", "/api/instances/nullclaw/my-agent/start", "").?;
-    try std.testing.expectEqualStrings("200 OK", resp.status);
+    // Binary doesn't exist so start returns 500
+    const resp = dispatch(allocator, &s, &mctx.manager, mctx.paths, "POST", "/api/instances/nullclaw/my-agent/start", "").?;
+    try std.testing.expectEqualStrings("500 Internal Server Error", resp.status);
 }
 
 test "dispatch returns null for non-matching path" {
     const allocator = std.testing.allocator;
     var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
     defer s.deinit();
+    var mctx = TestManagerCtx.init(allocator);
+    defer mctx.deinit(allocator);
 
-    try std.testing.expect(dispatch(allocator, &s, "GET", "/api/other", "") == null);
+    try std.testing.expect(dispatch(allocator, &s, &mctx.manager, mctx.paths, "GET", "/api/other", "") == null);
 }

@@ -393,7 +393,7 @@ pub const Server = struct {
                     .body = "{\"error\":\"method not allowed\"}",
                 };
             }
-            if (instances_api.dispatch(allocator, self.state, method, target, body)) |api_resp| {
+            if (instances_api.dispatch(allocator, self.state, self.manager, self.paths, method, target, body)) |api_resp| {
                 return .{ .status = api_resp.status, .content_type = api_resp.content_type, .body = api_resp.body };
             }
         }
@@ -729,14 +729,14 @@ test "route GET /api/instances returns empty instances" {
     try std.testing.expectEqualStrings("{\"instances\":{}}", resp.body);
 }
 
-test "route POST /api/instances/{component}/{name}/start returns 200" {
+test "route POST /api/instances/{component}/{name}/start returns 500 without binary" {
     var ctx = TestContext.init(std.testing.allocator);
     defer ctx.deinit(std.testing.allocator);
 
     try ctx.state.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0" });
     const resp = ctx.route(std.testing.allocator, "POST", "/api/instances/nullclaw/my-agent/start", "");
-    try std.testing.expectEqualStrings("200 OK", resp.status);
-    try std.testing.expectEqualStrings("{\"status\":\"started\"}", resp.body);
+    // Binary doesn't exist in test env, so startInstance fails => 500
+    try std.testing.expectEqualStrings("500 Internal Server Error", resp.status);
 }
 
 test "route POST /api/instances/{component}/{name}/stop returns 200" {
@@ -749,14 +749,14 @@ test "route POST /api/instances/{component}/{name}/stop returns 200" {
     try std.testing.expectEqualStrings("{\"status\":\"stopped\"}", resp.body);
 }
 
-test "route POST /api/instances/{component}/{name}/restart returns 200" {
+test "route POST /api/instances/{component}/{name}/restart returns 500 without binary" {
     var ctx = TestContext.init(std.testing.allocator);
     defer ctx.deinit(std.testing.allocator);
 
     try ctx.state.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0" });
     const resp = ctx.route(std.testing.allocator, "POST", "/api/instances/nullclaw/my-agent/restart", "");
-    try std.testing.expectEqualStrings("200 OK", resp.status);
-    try std.testing.expectEqualStrings("{\"status\":\"restarted\"}", resp.body);
+    // Binary doesn't exist in test env, so startInstance fails => 500
+    try std.testing.expectEqualStrings("500 Internal Server Error", resp.status);
 }
 
 test "route DELETE /api/instances/{component}/{name} returns 200" {
