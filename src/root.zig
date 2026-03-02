@@ -13,6 +13,7 @@ pub const process = @import("supervisor/process.zig");
 pub const registry = @import("installer/registry.zig");
 pub const server = @import("server.zig");
 pub const state = @import("core/state.zig");
+pub const ui_modules = @import("installer/ui_modules.zig");
 pub const wizard_engine = @import("wizard/engine.zig");
 
 test {
@@ -31,5 +32,6 @@ test {
     _ = registry;
     _ = server;
     _ = state;
+    _ = ui_modules;
     _ = wizard_engine;
 }
