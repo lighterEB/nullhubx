@@ -29,11 +29,12 @@
     installing = true;
     installMessage = 'Installing...';
     try {
-      const result = await api.postWizard(component, {
+      const payload = {
         instance_name: instanceName,
         version: 'latest',
-        answers
-      });
+        ...answers
+      };
+      const result = await api.postWizard(component, payload);
       installMessage = result.message || 'Installation complete!';
       onComplete?.();
     } catch (e) {

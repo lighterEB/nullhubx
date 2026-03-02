@@ -1,5 +1,8 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const registry = @import("../installer/registry.zig");
+const downloader = @import("../installer/downloader.zig");
+const platform = @import("../core/platform.zig");
 const helpers = @import("helpers.zig");
 const component_cli = @import("../core/component_cli.zig");
 const orchestrator = @import("../installer/orchestrator.zig");
@@ -16,14 +19,17 @@ const appendEscaped = helpers.appendEscaped;
 /// Returns null if the path doesn't match the expected prefix or is empty.
 pub fn extractComponentName(target: []const u8) ?[]const u8 {
     const prefix = "/api/wizard/";
-    if (!std.mem.startsWith(u8, target, prefix)) return null;
-    const rest = target[prefix.len..];
+    const path = stripQuery(target);
+    if (!std.mem.startsWith(u8, path, prefix)) return null;
+    const rest = path[prefix.len..];
     if (rest.len == 0) return null;
 
-    // Check for /models suffix
-    if (std.mem.indexOf(u8, rest, "/models")) |idx| {
-        if (idx == 0) return null;
-        return rest[0..idx];
+    const models_suffix = "/models";
+    if (std.mem.endsWith(u8, rest, models_suffix)) {
+        const component = rest[0 .. rest.len - models_suffix.len];
+        if (component.len == 0) return null;
+        if (std.mem.indexOfScalar(u8, component, '/') != null) return null;
+        return component;
     }
 
     // Reject paths with other additional segments
@@ -39,7 +45,7 @@ pub fn isWizardPath(target: []const u8) bool {
 
 /// Check if this is a models request path.
 pub fn isModelsPath(target: []const u8) bool {
-    return std.mem.endsWith(u8, target, "/models");
+    return std.mem.endsWith(u8, stripQuery(target), "/models");
 }
 
 // ─── Handlers ────────────────────────────────────────────────────────────────
@@ -52,8 +58,8 @@ pub fn handleGetWizard(allocator: std.mem.Allocator, component_name: []const u8,
     // Verify the component is known
     if (registry.findKnownComponent(component_name) == null) return null;
 
-    // Find the component binary
-    const bin_path = findComponentBinary(allocator, component_name, paths) orelse return null;
+    // Find or download the component binary
+    const bin_path = findOrFetchComponentBinary(allocator, component_name, paths) orelse return null;
     defer allocator.free(bin_path);
 
     // Run --export-manifest
@@ -67,7 +73,7 @@ pub fn handleGetWizard(allocator: std.mem.Allocator, component_name: []const u8,
 pub fn handleGetModels(allocator: std.mem.Allocator, component_name: []const u8, paths: paths_mod.Paths, target: []const u8) ?[]const u8 {
     if (registry.findKnownComponent(component_name) == null) return null;
 
-    const bin_path = findComponentBinary(allocator, component_name, paths) orelse return null;
+    const bin_path = findOrFetchComponentBinary(allocator, component_name, paths) orelse return null;
     defer allocator.free(bin_path);
 
     // Parse query string for provider and api_key
@@ -93,29 +99,87 @@ pub fn handleGetModels(allocator: std.mem.Allocator, component_name: []const u8,
     return component_cli.listModels(allocator, bin_path, prov, key) catch null;
 }
 
-/// Find the component binary in the bins/ directory.
-fn findComponentBinary(allocator: std.mem.Allocator, component: []const u8, paths: paths_mod.Paths) ?[]const u8 {
-    // Look for binary in {root}/bins/{component}/ directory
-    const bins_dir = std.fmt.allocPrint(allocator, "{s}/bins/{s}", .{ paths.root, component }) catch return null;
-    defer allocator.free(bins_dir);
+fn stripQuery(target: []const u8) []const u8 {
+    const qmark = std.mem.indexOfScalar(u8, target, '?') orelse return target;
+    return target[0..qmark];
+}
 
-    var dir = std.fs.openDirAbsolute(bins_dir, .{ .iterate = true }) catch return null;
+/// Find a previously downloaded binary for the component under {root}/bin/.
+/// Returns the lexicographically latest version if multiple binaries exist.
+fn findInstalledComponentBinary(allocator: std.mem.Allocator, component: []const u8, paths: paths_mod.Paths) ?[]const u8 {
+    const bin_dir = std.fmt.allocPrint(allocator, "{s}/bin", .{paths.root}) catch return null;
+    defer allocator.free(bin_dir);
+
+    var dir = std.fs.openDirAbsolute(bin_dir, .{ .iterate = true }) catch return null;
     defer dir.close();
 
-    // Find any version directory with the binary
+    const prefix = std.fmt.allocPrint(allocator, "{s}-", .{component}) catch return null;
+    defer allocator.free(prefix);
+
+    var best_name: ?[]const u8 = null;
+    defer if (best_name) |n| allocator.free(n);
+    var best_path: ?[]const u8 = null;
+
     var it = dir.iterate();
     while (it.next() catch null) |entry| {
-        if (entry.kind == .directory) {
-            const bin = paths.binary(allocator, component, entry.name) catch continue;
-            if (std.fs.openFileAbsolute(bin, .{})) |f| {
-                f.close();
-                return bin;
-            } else |_| {
-                allocator.free(bin);
-            }
+        if (entry.kind != .file) continue;
+        if (!std.mem.startsWith(u8, entry.name, prefix)) continue;
+
+        const candidate = std.fmt.allocPrint(allocator, "{s}/{s}", .{ bin_dir, entry.name }) catch continue;
+        if (std.fs.openFileAbsolute(candidate, .{})) |f| {
+            f.close();
+        } else |_| {
+            allocator.free(candidate);
+            continue;
+        }
+
+        if (best_name == null or std.mem.order(u8, entry.name, best_name.?) == .gt) {
+            if (best_name) |n| allocator.free(n);
+            if (best_path) |p| allocator.free(p);
+            best_name = allocator.dupe(u8, entry.name) catch {
+                allocator.free(candidate);
+                continue;
+            };
+            best_path = candidate;
+        } else {
+            allocator.free(candidate);
         }
     }
-    return null;
+
+    return best_path;
+}
+
+fn findOrFetchComponentBinary(allocator: std.mem.Allocator, component: []const u8, paths: paths_mod.Paths) ?[]const u8 {
+    if (findInstalledComponentBinary(allocator, component, paths)) |bin| {
+        return bin;
+    }
+    if (builtin.is_test) return null;
+    return fetchLatestComponentBinary(allocator, component, paths);
+}
+
+fn fetchLatestComponentBinary(allocator: std.mem.Allocator, component: []const u8, paths: paths_mod.Paths) ?[]const u8 {
+    const known = registry.findKnownComponent(component) orelse return null;
+    var release = registry.fetchLatestRelease(allocator, known.repo) catch return null;
+    defer release.deinit();
+
+    const platform_key = comptime platform.detect().toString();
+    const asset_name = std.fmt.allocPrint(allocator, "{s}-{s}", .{ component, platform_key }) catch return null;
+    defer allocator.free(asset_name);
+    const asset = registry.findAssetByName(release.value, asset_name) orelse return null;
+
+    paths.ensureDirs() catch return null;
+    const bin_path = paths.binary(allocator, component, release.value.tag_name) catch return null;
+
+    if (std.fs.openFileAbsolute(bin_path, .{})) |f| {
+        f.close();
+        return bin_path;
+    } else |_| {}
+
+    downloader.download(allocator, asset.browser_download_url, bin_path) catch {
+        allocator.free(bin_path);
+        return null;
+    };
+    return bin_path;
 }
 
 /// Handle POST /api/wizard/{component} — accepts wizard answers and initiates install.
@@ -212,6 +276,10 @@ test "extractComponentName parses wizard paths correctly" {
     try std.testing.expect(name3 != null);
     try std.testing.expectEqualStrings("nullclaw", name3.?);
 
+    const name4 = extractComponentName("/api/wizard/nullclaw/models?provider=openai");
+    try std.testing.expect(name4 != null);
+    try std.testing.expectEqualStrings("nullclaw", name4.?);
+
     // Invalid paths
     try std.testing.expect(extractComponentName("/api/wizard/") == null);
     try std.testing.expect(extractComponentName("/api/wizard") == null);
@@ -231,7 +299,33 @@ test "isWizardPath identifies wizard paths" {
 
 test "isModelsPath detects models suffix" {
     try std.testing.expect(isModelsPath("/api/wizard/nullclaw/models"));
+    try std.testing.expect(isModelsPath("/api/wizard/nullclaw/models?provider=openai"));
     try std.testing.expect(!isModelsPath("/api/wizard/nullclaw"));
+}
+
+test "findInstalledComponentBinary finds binary in bin directory" {
+    const allocator = std.testing.allocator;
+    const tmp_root = "/tmp/nullhub-test-find-installed-binary";
+    std.fs.deleteTreeAbsolute(tmp_root) catch {};
+    defer std.fs.deleteTreeAbsolute(tmp_root) catch {};
+
+    var paths = try paths_mod.Paths.init(allocator, tmp_root);
+    defer paths.deinit(allocator);
+    try paths.ensureDirs();
+
+    const bin_path = try paths.binary(allocator, "nullboiler", "v1.2.3");
+    defer allocator.free(bin_path);
+
+    {
+        const file = try std.fs.createFileAbsolute(bin_path, .{});
+        defer file.close();
+        try file.writeAll("#!/bin/sh\n");
+    }
+
+    const found = findInstalledComponentBinary(allocator, "nullboiler", paths);
+    try std.testing.expect(found != null);
+    defer allocator.free(found.?);
+    try std.testing.expectEqualStrings(bin_path, found.?);
 }
 
 test "handleGetWizard returns null for unknown component" {

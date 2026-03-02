@@ -75,24 +75,6 @@ pub fn install(
     // 5. Create instance directories
     p.ensureDirs() catch return error.DirCreationFailed;
 
-    // Create bins/{component}/ directory
-    const bins_comp_dir = std.fs.path.join(allocator, &.{ p.root, "bins", opts.component }) catch
-        return error.DirCreationFailed;
-    defer allocator.free(bins_comp_dir);
-    std.fs.makeDirAbsolute(bins_comp_dir) catch |err| switch (err) {
-        error.PathAlreadyExists => {},
-        else => return error.DirCreationFailed,
-    };
-
-    // Create bins/{component}/{version}/ directory
-    const bins_ver_dir = std.fs.path.join(allocator, &.{ bins_comp_dir, release.value.tag_name }) catch
-        return error.DirCreationFailed;
-    defer allocator.free(bins_ver_dir);
-    std.fs.makeDirAbsolute(bins_ver_dir) catch |err| switch (err) {
-        error.PathAlreadyExists => {},
-        else => return error.DirCreationFailed,
-    };
-
     // Create instances/{component}/ directory
     const comp_dir = std.fs.path.join(allocator, &.{ p.root, "instances", opts.component }) catch
         return error.DirCreationFailed;
@@ -146,7 +128,7 @@ pub fn install(
     const m = parsed_manifest.value;
 
     // 8. Run --from-json to generate config (component owns its config generation)
-    const from_json_result = component_cli.fromJson(allocator, bin_path, opts.answers_json) catch
+    const from_json_result = component_cli.fromJson(allocator, bin_path, opts.answers_json, inst_dir) catch
         return error.ConfigGenerationFailed;
     defer allocator.free(from_json_result);
 
@@ -158,7 +140,7 @@ pub fn install(
     s.save() catch return error.StateError;
 
     // 10. Start process via Manager
-    const port: u16 = if (m.ports.len > 0) m.ports[0].default else 0;
+    const port = resolveConfiguredPort(allocator, opts.answers_json, if (m.ports.len > 0) m.ports[0].default else 0);
     mgr.startInstance(
         opts.component,
         opts.instance_name,
@@ -178,6 +160,31 @@ pub fn install(
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+fn resolveConfiguredPort(allocator: std.mem.Allocator, answers_json: []const u8, default_port: u16) u16 {
+    const parsed = std.json.parseFromSlice(
+        struct {
+            port: ?u16 = null,
+            gateway_port: ?u16 = null,
+            answers: ?struct {
+                port: ?u16 = null,
+                gateway_port: ?u16 = null,
+            } = null,
+        },
+        allocator,
+        answers_json,
+        .{ .allocate = .alloc_if_needed, .ignore_unknown_fields = true },
+    ) catch return default_port;
+    defer parsed.deinit();
+
+    if (parsed.value.port) |v| return v;
+    if (parsed.value.gateway_port) |v| return v;
+    if (parsed.value.answers) |a| {
+        if (a.port) |v| return v;
+        if (a.gateway_port) |v| return v;
+    }
+    return default_port;
+}
 
 /// Write content to a file at an absolute path, creating the file if needed.
 fn writeFile(path: []const u8, content: []const u8) !void {
@@ -223,6 +230,21 @@ test "install returns FetchFailed for known component (no network)" {
     }, p, &s, &mgr);
     // In test env, GitHub fetch will fail
     try std.testing.expectError(error.FetchFailed, result);
+}
+
+test "resolveConfiguredPort reads top-level port" {
+    const port = resolveConfiguredPort(std.testing.allocator, "{\"port\":9001}", 8080);
+    try std.testing.expectEqual(@as(u16, 9001), port);
+}
+
+test "resolveConfiguredPort reads nested answers port" {
+    const port = resolveConfiguredPort(std.testing.allocator, "{\"answers\":{\"port\":9101}}", 8080);
+    try std.testing.expectEqual(@as(u16, 9101), port);
+}
+
+test "resolveConfiguredPort falls back to default" {
+    const port = resolveConfiguredPort(std.testing.allocator, "{\"foo\":\"bar\"}", 8080);
+    try std.testing.expectEqual(@as(u16, 8080), port);
 }
 
 test "writeFile creates file with correct content" {

@@ -21,7 +21,7 @@
   {#if wizardData}
     <WizardRenderer
       component={componentName}
-      steps={wizardData.steps || []}
+      steps={wizardData?.wizard?.steps || wizardData?.steps || []}
       onComplete={() => goto('/')}
     />
   {:else}
