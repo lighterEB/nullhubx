@@ -1,5 +1,7 @@
 const std = @import("std");
 pub const root = @import("root.zig");
+const cli = root.cli;
+const server = root.server;
 
 const version = "0.1.0";
 
@@ -12,44 +14,54 @@ pub fn main() !void {
     defer args.deinit();
     _ = args.next(); // skip program name
 
-    var command: ?[]const u8 = null;
-    var host: []const u8 = "127.0.0.1";
-    var port: u16 = 9800;
+    const command = cli.parse(&args);
 
-    while (args.next()) |arg| {
-        if (std.mem.eql(u8, arg, "--version")) {
+    switch (command) {
+        .version => std.debug.print("nullhub v{s}\n", .{version}),
+        .serve => |opts| {
             std.debug.print("nullhub v{s}\n", .{version});
-            return;
-        } else if (std.mem.eql(u8, arg, "--host")) {
-            if (args.next()) |val| {
-                host = val;
+            var srv = server.Server.init(allocator, opts.host, opts.port);
+            try srv.run();
+        },
+        .status => |opts| {
+            if (opts.instance) |inst| {
+                std.debug.print("status for {s}/{s} (not yet implemented)\n", .{ inst.component, inst.name });
+            } else {
+                std.debug.print("status: no instances (not yet implemented)\n", .{});
             }
-        } else if (std.mem.eql(u8, arg, "--port")) {
-            if (args.next()) |val| {
-                port = std.fmt.parseInt(u16, val, 10) catch {
-                    std.debug.print("invalid port: {s}\n", .{val});
-                    return;
-                };
-            }
-        } else if (command == null) {
-            command = arg;
-        }
+        },
+        .install => |opts| {
+            std.debug.print("install {s}", .{opts.component});
+            if (opts.name) |n| std.debug.print(" --name {s}", .{n});
+            if (opts.version) |v| std.debug.print(" --version {s}", .{v});
+            std.debug.print(" (not yet implemented)\n", .{});
+        },
+        .start => |ref| std.debug.print("start {s}/{s} (not yet implemented)\n", .{ ref.component, ref.name }),
+        .stop => |ref| std.debug.print("stop {s}/{s} (not yet implemented)\n", .{ ref.component, ref.name }),
+        .restart => |ref| std.debug.print("restart {s}/{s} (not yet implemented)\n", .{ ref.component, ref.name }),
+        .start_all => std.debug.print("start-all (not yet implemented)\n", .{}),
+        .stop_all => std.debug.print("stop-all (not yet implemented)\n", .{}),
+        .logs => |opts| {
+            std.debug.print("logs {s}/{s}", .{ opts.instance.component, opts.instance.name });
+            if (opts.follow) std.debug.print(" -f", .{});
+            std.debug.print(" --lines {d} (not yet implemented)\n", .{opts.lines});
+        },
+        .check_updates => std.debug.print("check-updates (not yet implemented)\n", .{}),
+        .update => |ref| std.debug.print("update {s}/{s} (not yet implemented)\n", .{ ref.component, ref.name }),
+        .update_all => std.debug.print("update-all (not yet implemented)\n", .{}),
+        .config => |opts| {
+            std.debug.print("config {s}/{s}", .{ opts.instance.component, opts.instance.name });
+            if (opts.edit) std.debug.print(" --edit", .{});
+            std.debug.print(" (not yet implemented)\n", .{});
+        },
+        .wizard => |opts| std.debug.print("wizard {s} (not yet implemented)\n", .{opts.component}),
+        .service => |sc| std.debug.print("service {s} (not yet implemented)\n", .{@tagName(sc)}),
+        .uninstall => |opts| {
+            std.debug.print("uninstall {s}/{s}", .{ opts.instance.component, opts.instance.name });
+            if (opts.remove_data) std.debug.print(" --remove-data", .{});
+            std.debug.print(" (not yet implemented)\n", .{});
+        },
+        .add_source => |opts| std.debug.print("add-source {s} (not yet implemented)\n", .{opts.repo}),
+        .help => cli.printUsage(),
     }
-
-    const cmd = command orelse "serve";
-
-    if (std.mem.eql(u8, cmd, "version")) {
-        std.debug.print("nullhub v{s}\n", .{version});
-        return;
-    }
-
-    if (std.mem.eql(u8, cmd, "serve")) {
-        std.debug.print("nullhub v{s}\n", .{version});
-        var server = root.server.Server.init(allocator, host, port);
-        try server.run();
-        return;
-    }
-
-    std.debug.print("nullhub v{s}\n", .{version});
-    std.debug.print("usage: nullhub [serve|install|start|stop|status|version]\n", .{});
 }

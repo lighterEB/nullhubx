@@ -116,7 +116,7 @@ fn route(method: []const u8, target: []const u8, body: []const u8) Response {
             return .{
                 .status = "200 OK",
                 .content_type = "application/json",
-                .body = "{\"hub\":{\"version\":\"" ++ version ++ "\",\"platform\":\"" ++ platform.detect().toString() ++ "\"}}",
+                .body = "{\"hub\":{\"version\":\"" ++ version ++ "\",\"platform\":\"" ++ comptime platform.detect().toString() ++ "\"}}",
             };
         }
     }
