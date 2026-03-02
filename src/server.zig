@@ -150,7 +150,7 @@ pub const Server = struct {
             if (std.mem.eql(u8, target, "/api/status")) {
                 const now = std.time.timestamp();
                 const uptime: u64 = @intCast(@max(0, now - self.start_time));
-                const resp = status_api.handleStatus(allocator, self.state, uptime);
+                const resp = status_api.handleStatus(allocator, self.state, self.manager, uptime);
                 return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
             }
             if (std.mem.eql(u8, target, "/api/components")) {

@@ -1,6 +1,8 @@
 const std = @import("std");
 const state_mod = @import("../core/state.zig");
 const platform = @import("../core/platform.zig");
+const manager_mod = @import("../supervisor/manager.zig");
+const paths_mod = @import("../core/paths.zig");
 const helpers = @import("helpers.zig");
 
 const ApiResponse = helpers.ApiResponse;
@@ -8,21 +10,45 @@ const appendEscaped = helpers.appendEscaped;
 
 const version = "0.1.0";
 
-fn appendInstanceJson(buf: *std.array_list.Managed(u8), entry: state_mod.InstanceEntry) !void {
+fn appendInstanceJson(buf: *std.array_list.Managed(u8), entry: state_mod.InstanceEntry, status_str: []const u8, pid: ?std.process.Child.Id, instance_uptime: ?u64, restart_count: u32) !void {
     try buf.appendSlice("{\"version\":\"");
     try appendEscaped(buf, entry.version);
     try buf.appendSlice("\",\"auto_start\":");
     try buf.appendSlice(if (entry.auto_start) "true" else "false");
-    try buf.appendSlice(",\"status\":\"stopped\"}");
+    try buf.appendSlice(",\"status\":\"");
+    try buf.appendSlice(status_str);
+    try buf.appendSlice("\"");
+    // PID
+    if (pid) |p| {
+        try buf.appendSlice(",\"pid\":");
+        var num_buf: [20]u8 = undefined;
+        const num_str = try std.fmt.bufPrint(&num_buf, "{d}", .{p});
+        try buf.appendSlice(num_str);
+    }
+    // Instance uptime
+    if (instance_uptime) |ut| {
+        try buf.appendSlice(",\"uptime_seconds\":");
+        var num_buf: [20]u8 = undefined;
+        const num_str = try std.fmt.bufPrint(&num_buf, "{d}", .{ut});
+        try buf.appendSlice(num_str);
+    }
+    // Restart count (only if > 0)
+    if (restart_count > 0) {
+        try buf.appendSlice(",\"restart_count\":");
+        var num_buf: [20]u8 = undefined;
+        const num_str = try std.fmt.bufPrint(&num_buf, "{d}", .{restart_count});
+        try buf.appendSlice(num_str);
+    }
+    try buf.append('}');
 }
 
 // ─── Handlers ────────────────────────────────────────────────────────────────
 
 /// GET /api/status — aggregated dashboard data.
-pub fn handleStatus(allocator: std.mem.Allocator, s: *state_mod.State, uptime_seconds: u64) ApiResponse {
+pub fn handleStatus(allocator: std.mem.Allocator, s: *state_mod.State, manager: *manager_mod.Manager, uptime_seconds: u64) ApiResponse {
     var buf = std.array_list.Managed(u8).init(allocator);
 
-    buildStatusJson(&buf, s, uptime_seconds) catch return .{
+    buildStatusJson(&buf, s, manager, uptime_seconds) catch return .{
         .status = "500 Internal Server Error",
         .content_type = "application/json",
         .body = "{\"error\":\"internal error\"}",
@@ -31,7 +57,7 @@ pub fn handleStatus(allocator: std.mem.Allocator, s: *state_mod.State, uptime_se
     return .{ .status = "200 OK", .content_type = "application/json", .body = buf.items };
 }
 
-fn buildStatusJson(buf: *std.array_list.Managed(u8), s: *state_mod.State, uptime_seconds: u64) !void {
+fn buildStatusJson(buf: *std.array_list.Managed(u8), s: *state_mod.State, manager: *manager_mod.Manager, uptime_seconds: u64) !void {
     // Hub info
     try buf.appendSlice("{\"hub\":{\"version\":\"");
     try buf.appendSlice(version);
@@ -62,10 +88,18 @@ fn buildStatusJson(buf: *std.array_list.Managed(u8), s: *state_mod.State, uptime
             if (!first_inst) try buf.append(',');
             first_inst = false;
 
+            const comp_name = comp_entry.key_ptr.*;
+            const inst_name = inst_entry.key_ptr.*;
+            const mgr_status = manager.getStatus(comp_name, inst_name);
+            const status_str = if (mgr_status) |st| @tagName(st.status) else "stopped";
+            const pid = if (mgr_status) |st| st.pid else null;
+            const instance_uptime = if (mgr_status) |st| st.uptime_seconds else null;
+            const restart_count: u32 = if (mgr_status) |st| st.restart_count else 0;
+
             try buf.append('"');
-            try appendEscaped(buf, inst_entry.key_ptr.*);
+            try appendEscaped(buf, inst_name);
             try buf.appendSlice("\":");
-            try appendInstanceJson(buf, inst_entry.value_ptr.*);
+            try appendInstanceJson(buf, inst_entry.value_ptr.*, status_str, pid, instance_uptime, restart_count);
         }
 
         try buf.append('}');
@@ -80,8 +114,12 @@ test "handleStatus returns valid JSON with hub version" {
     const allocator = std.testing.allocator;
     var s = state_mod.State.init(allocator, "/tmp/nullhub-test-status-api.json");
     defer s.deinit();
+    var p = try paths_mod.Paths.init(allocator, "/tmp/nullhub-test-status-api");
+    defer p.deinit(allocator);
+    var mgr = manager_mod.Manager.init(allocator, p);
+    defer mgr.deinit();
 
-    const resp = handleStatus(allocator, &s, 3600);
+    const resp = handleStatus(allocator, &s, &mgr, 3600);
     defer allocator.free(resp.body);
 
     try std.testing.expectEqualStrings("200 OK", resp.status);
@@ -116,10 +154,14 @@ test "handleStatus includes instances" {
     const allocator = std.testing.allocator;
     var s = state_mod.State.init(allocator, "/tmp/nullhub-test-status-api.json");
     defer s.deinit();
+    var p = try paths_mod.Paths.init(allocator, "/tmp/nullhub-test-status-api");
+    defer p.deinit(allocator);
+    var mgr = manager_mod.Manager.init(allocator, p);
+    defer mgr.deinit();
 
     try s.addInstance("nullclaw", "my-agent", .{ .version = "2026.3.1", .auto_start = true });
 
-    const resp = handleStatus(allocator, &s, 0);
+    const resp = handleStatus(allocator, &s, &mgr, 0);
     defer allocator.free(resp.body);
 
     try std.testing.expectEqualStrings("200 OK", resp.status);
@@ -154,8 +196,12 @@ test "handleStatus with empty state returns empty instances" {
     const allocator = std.testing.allocator;
     var s = state_mod.State.init(allocator, "/tmp/nullhub-test-status-api.json");
     defer s.deinit();
+    var p = try paths_mod.Paths.init(allocator, "/tmp/nullhub-test-status-api");
+    defer p.deinit(allocator);
+    var mgr = manager_mod.Manager.init(allocator, p);
+    defer mgr.deinit();
 
-    const resp = handleStatus(allocator, &s, 42);
+    const resp = handleStatus(allocator, &s, &mgr, 42);
     defer allocator.free(resp.body);
 
     try std.testing.expectEqualStrings("200 OK", resp.status);
