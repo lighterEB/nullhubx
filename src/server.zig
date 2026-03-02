@@ -77,6 +77,10 @@ const Response = struct {
     body: []const u8,
 };
 
+fn jsonResponse(body: []const u8) Response {
+    return .{ .status = "200 OK", .content_type = "application/json", .body = body };
+}
+
 fn readBody(raw: []const u8, n: usize, stream: std.net.Stream, alloc: std.mem.Allocator) ![]const u8 {
     if (extractHeader(raw, "Content-Length")) |cl_str| {
         const content_length = std.fmt.parseInt(usize, cl_str, 10) catch 0;
@@ -171,6 +175,51 @@ fn route(allocator: std.mem.Allocator, method: []const u8, target: []const u8, b
                     .body = "{\"error\":\"internal server error\"}",
                 };
             }
+        }
+    }
+
+    // Instances API — route matching only (State integration pending).
+    if (std.mem.startsWith(u8, target, "/api/instances")) {
+        if (std.mem.eql(u8, target, "/api/instances")) {
+            if (std.mem.eql(u8, method, "GET")) {
+                return .{
+                    .status = "200 OK",
+                    .content_type = "application/json",
+                    .body = "{\"instances\":{}}",
+                };
+            }
+            return .{
+                .status = "405 Method Not Allowed",
+                .content_type = "application/json",
+                .body = "{\"error\":\"method not allowed\"}",
+            };
+        }
+        if (instances_api.parsePath(target)) |parsed| {
+            if (parsed.action) |action| {
+                if (!std.mem.eql(u8, method, "POST")) {
+                    return .{
+                        .status = "405 Method Not Allowed",
+                        .content_type = "application/json",
+                        .body = "{\"error\":\"method not allowed\"}",
+                    };
+                }
+                if (std.mem.eql(u8, action, "start")) return jsonResponse("{\"status\":\"started\"}");
+                if (std.mem.eql(u8, action, "stop")) return jsonResponse("{\"status\":\"stopped\"}");
+                if (std.mem.eql(u8, action, "restart")) return jsonResponse("{\"status\":\"restarted\"}");
+                return .{
+                    .status = "404 Not Found",
+                    .content_type = "application/json",
+                    .body = "{\"error\":\"not found\"}",
+                };
+            }
+            if (std.mem.eql(u8, method, "GET")) return jsonResponse("{\"error\":\"state not initialized\"}");
+            if (std.mem.eql(u8, method, "DELETE")) return jsonResponse("{\"status\":\"deleted\"}");
+            if (std.mem.eql(u8, method, "PATCH")) return jsonResponse("{\"status\":\"updated\"}");
+            return .{
+                .status = "405 Method Not Allowed",
+                .content_type = "application/json",
+                .body = "{\"error\":\"method not allowed\"}",
+            };
         }
     }
 
@@ -305,6 +354,47 @@ test "extractBody returns body after headers" {
 test "extractBody returns empty for no body" {
     const raw = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n";
     try std.testing.expectEqualStrings("", extractBody(raw));
+}
+
+test "route GET /api/instances returns empty instances" {
+    const resp = route(std.testing.allocator, "GET", "/api/instances", "");
+    try std.testing.expectEqualStrings("200 OK", resp.status);
+    try std.testing.expectEqualStrings("{\"instances\":{}}", resp.body);
+}
+
+test "route POST /api/instances/{component}/{name}/start returns 200" {
+    const resp = route(std.testing.allocator, "POST", "/api/instances/nullclaw/my-agent/start", "");
+    try std.testing.expectEqualStrings("200 OK", resp.status);
+    try std.testing.expectEqualStrings("{\"status\":\"started\"}", resp.body);
+}
+
+test "route POST /api/instances/{component}/{name}/stop returns 200" {
+    const resp = route(std.testing.allocator, "POST", "/api/instances/nullclaw/my-agent/stop", "");
+    try std.testing.expectEqualStrings("200 OK", resp.status);
+    try std.testing.expectEqualStrings("{\"status\":\"stopped\"}", resp.body);
+}
+
+test "route POST /api/instances/{component}/{name}/restart returns 200" {
+    const resp = route(std.testing.allocator, "POST", "/api/instances/nullclaw/my-agent/restart", "");
+    try std.testing.expectEqualStrings("200 OK", resp.status);
+    try std.testing.expectEqualStrings("{\"status\":\"restarted\"}", resp.body);
+}
+
+test "route DELETE /api/instances/{component}/{name} returns 200" {
+    const resp = route(std.testing.allocator, "DELETE", "/api/instances/nullclaw/my-agent", "");
+    try std.testing.expectEqualStrings("200 OK", resp.status);
+    try std.testing.expectEqualStrings("{\"status\":\"deleted\"}", resp.body);
+}
+
+test "route PATCH /api/instances/{component}/{name} returns 200" {
+    const resp = route(std.testing.allocator, "PATCH", "/api/instances/nullclaw/my-agent", "{\"auto_start\":true}");
+    try std.testing.expectEqualStrings("200 OK", resp.status);
+    try std.testing.expectEqualStrings("{\"status\":\"updated\"}", resp.body);
+}
+
+test "route GET /api/instances with wrong method returns 405" {
+    const resp = route(std.testing.allocator, "POST", "/api/instances", "");
+    try std.testing.expectEqualStrings("405 Method Not Allowed", resp.status);
 }
 
 test "Server init sets fields" {
