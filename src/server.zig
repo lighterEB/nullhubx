@@ -315,7 +315,7 @@ pub const Server = struct {
                     };
                 }
                 if (std.mem.eql(u8, method, "POST")) {
-                    if (wizard_api.handlePostWizard(allocator, comp_name, body)) |json| {
+                    if (wizard_api.handlePostWizard(allocator, comp_name, body, self.paths, self.state, self.manager)) |json| {
                         return .{
                             .status = "200 OK",
                             .content_type = "application/json",

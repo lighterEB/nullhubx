@@ -2,6 +2,10 @@ const std = @import("std");
 const registry = @import("../installer/registry.zig");
 const helpers = @import("helpers.zig");
 const manifest_mod = @import("../core/manifest.zig");
+const orchestrator = @import("../installer/orchestrator.zig");
+const paths_mod = @import("../core/paths.zig");
+const state_mod = @import("../core/state.zig");
+const manager_mod = @import("../supervisor/manager.zig");
 
 const appendEscaped = helpers.appendEscaped;
 
@@ -81,10 +85,17 @@ fn buildGetResponse(buf: *std.array_list.Managed(u8), component_name: []const u8
 }
 
 /// Handle POST /api/wizard/{component} — accepts wizard answers and initiates install.
-/// For now, validates the body is JSON and returns a success response.
+/// Calls orchestrator.install() to perform the full install flow.
 /// Returns null if the component is unknown (caller should return 404).
 /// Caller owns the returned memory on success.
-pub fn handlePostWizard(allocator: std.mem.Allocator, component_name: []const u8, body: []const u8) ?[]const u8 {
+pub fn handlePostWizard(
+    allocator: std.mem.Allocator,
+    component_name: []const u8,
+    body: []const u8,
+    paths: paths_mod.Paths,
+    state: *state_mod.State,
+    manager: *manager_mod.Manager,
+) ?[]const u8 {
     // Verify the component is known
     if (registry.findKnownComponent(component_name) == null) return null;
 
@@ -101,21 +112,53 @@ pub fn handlePostWizard(allocator: std.mem.Allocator, component_name: []const u8
     ) catch return allocator.dupe(u8, "{\"error\":\"invalid JSON body\"}") catch null;
     defer parsed.deinit();
 
-    const instance_name = parsed.value.instance_name;
+    // Call orchestrator to perform the install
+    const result = orchestrator.install(allocator, .{
+        .component = component_name,
+        .instance_name = parsed.value.instance_name,
+        .version = parsed.value.version,
+        .answers = parsed.value.answers,
+    }, paths, state, manager) catch |err| {
+        return buildErrorResponse(allocator, err);
+    };
 
     var buf = std.array_list.Managed(u8).init(allocator);
     errdefer buf.deinit();
 
-    buildPostResponse(&buf, component_name, instance_name) catch return null;
+    buildPostResponse(&buf, component_name, result.instance_name, result.version) catch return null;
     return buf.toOwnedSlice() catch null;
 }
 
-fn buildPostResponse(buf: *std.array_list.Managed(u8), component_name: []const u8, instance_name: []const u8) !void {
+fn buildPostResponse(buf: *std.array_list.Managed(u8), component_name: []const u8, instance_name: []const u8, ver: []const u8) !void {
     try buf.appendSlice("{\"status\":\"ok\",\"component\":\"");
     try appendEscaped(buf, component_name);
     try buf.appendSlice("\",\"instance\":\"");
     try appendEscaped(buf, instance_name);
-    try buf.appendSlice("\",\"message\":\"Installation started\"}");
+    try buf.appendSlice("\",\"version\":\"");
+    try appendEscaped(buf, ver);
+    try buf.appendSlice("\"}");
+}
+
+/// Build a JSON error response string for an InstallError.
+fn buildErrorResponse(allocator: std.mem.Allocator, err: orchestrator.InstallError) ?[]const u8 {
+    const msg = switch (err) {
+        error.UnknownComponent => "unknown component",
+        error.ManifestNotFound => "manifest not found",
+        error.ManifestParseError => "manifest parse error",
+        error.FetchFailed => "failed to fetch release info",
+        error.NoPlatformAsset => "no binary available for this platform",
+        error.DownloadFailed => "binary download failed",
+        error.DirCreationFailed => "failed to create instance directories",
+        error.ConfigGenerationFailed => "config generation failed",
+        error.StateError => "failed to update state",
+        error.StartFailed => "failed to start instance",
+    };
+    var buf = std.array_list.Managed(u8).init(allocator);
+    errdefer buf.deinit();
+    buf.appendSlice("{\"error\":\"") catch return null;
+    buf.appendSlice(msg) catch return null;
+    buf.appendSlice("\"}") catch return null;
+    return buf.toOwnedSlice() catch null;
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -178,24 +221,35 @@ test "handleGetWizard returns null for unknown component" {
     try std.testing.expect(result == null);
 }
 
-test "handlePostWizard returns success JSON" {
+test "handlePostWizard returns error JSON for known component (no GitHub in test env)" {
     const allocator = std.testing.allocator;
+    var paths = paths_mod.Paths.init(allocator, "/tmp/nullhub-test-wizard-post") catch @panic("Paths.init");
+    defer paths.deinit(allocator);
+    var state = state_mod.State.init(allocator, "/tmp/nullhub-test-wizard-post/state.json");
+    defer state.deinit();
+    var mgr = manager_mod.Manager.init(allocator, paths);
+    defer mgr.deinit();
 
     const body = "{\"instance_name\":\"my-agent\",\"version\":\"latest\",\"answers\":{\"provider\":\"openrouter\"}}";
-    const json = handlePostWizard(allocator, "nullclaw", body);
+    const json = handlePostWizard(allocator, "nullclaw", body, paths, &state, &mgr);
+    // In test environment, orchestrator.install will fail (no GitHub/binary), so we get an error JSON
     try std.testing.expect(json != null);
     defer allocator.free(json.?);
 
-    // Verify it contains expected fields
-    try std.testing.expect(std.mem.indexOf(u8, json.?, "\"status\":\"ok\"") != null);
-    try std.testing.expect(std.mem.indexOf(u8, json.?, "\"component\":\"nullclaw\"") != null);
-    try std.testing.expect(std.mem.indexOf(u8, json.?, "\"instance\":\"my-agent\"") != null);
-    try std.testing.expect(std.mem.indexOf(u8, json.?, "\"message\":\"Installation started\"") != null);
+    // Should contain an error field (e.g. fetch failed or manifest not found)
+    try std.testing.expect(std.mem.indexOf(u8, json.?, "\"error\":\"") != null);
 }
 
 test "handlePostWizard returns null for unknown component" {
     const allocator = std.testing.allocator;
+    var paths = paths_mod.Paths.init(allocator, "/tmp/nullhub-test-wizard-post2") catch @panic("Paths.init");
+    defer paths.deinit(allocator);
+    var state = state_mod.State.init(allocator, "/tmp/nullhub-test-wizard-post2/state.json");
+    defer state.deinit();
+    var mgr = manager_mod.Manager.init(allocator, paths);
+    defer mgr.deinit();
+
     const body = "{\"instance_name\":\"my-agent\",\"version\":\"latest\",\"answers\":{}}";
-    const result = handlePostWizard(allocator, "nonexistent", body);
+    const result = handlePostWizard(allocator, "nonexistent", body, paths, &state, &mgr);
     try std.testing.expect(result == null);
 }
