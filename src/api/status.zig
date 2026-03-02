@@ -10,7 +10,7 @@ const appendEscaped = helpers.appendEscaped;
 
 const version = "0.1.0";
 
-fn appendInstanceJson(buf: *std.array_list.Managed(u8), entry: state_mod.InstanceEntry, status_str: []const u8, pid: ?std.process.Child.Id, instance_uptime: ?u64, restart_count: u32) !void {
+fn appendInstanceJson(buf: *std.array_list.Managed(u8), entry: state_mod.InstanceEntry, status_str: []const u8, pid: ?std.process.Child.Id, instance_uptime: ?u64, restart_count: u32, port: u16) !void {
     try buf.appendSlice("{\"version\":\"");
     try appendEscaped(buf, entry.version);
     try buf.appendSlice("\",\"auto_start\":");
@@ -38,6 +38,13 @@ fn appendInstanceJson(buf: *std.array_list.Managed(u8), entry: state_mod.Instanc
         var num_buf: [20]u8 = undefined;
         const num_str = try std.fmt.bufPrint(&num_buf, "{d}", .{restart_count});
         try buf.appendSlice(num_str);
+    }
+    // Port (only if > 0)
+    if (port > 0) {
+        try buf.appendSlice(",\"port\":");
+        var num_buf2: [10]u8 = undefined;
+        const port_str = try std.fmt.bufPrint(&num_buf2, "{d}", .{port});
+        try buf.appendSlice(port_str);
     }
     try buf.append('}');
 }
@@ -95,11 +102,12 @@ fn buildStatusJson(buf: *std.array_list.Managed(u8), s: *state_mod.State, manage
             const pid = if (mgr_status) |st| st.pid else null;
             const instance_uptime = if (mgr_status) |st| st.uptime_seconds else null;
             const restart_count: u32 = if (mgr_status) |st| st.restart_count else 0;
+            const port: u16 = if (mgr_status) |st| st.port else 0;
 
             try buf.append('"');
             try appendEscaped(buf, inst_name);
             try buf.appendSlice("\":");
-            try appendInstanceJson(buf, inst_entry.value_ptr.*, status_str, pid, instance_uptime, restart_count);
+            try appendInstanceJson(buf, inst_entry.value_ptr.*, status_str, pid, instance_uptime, restart_count, port);
         }
 
         try buf.append('}');

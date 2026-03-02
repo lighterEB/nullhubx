@@ -2,7 +2,7 @@
   import StatusBadge from './StatusBadge.svelte';
   import { api } from '$lib/api/client';
 
-  let { component = '', name = '', version = '', status = 'stopped', autoStart = false, onAction = () => {} } = $props();
+  let { component = '', name = '', version = '', status = 'stopped', autoStart = false, port = 0, onAction = () => {} } = $props();
   let loading = $state(false);
   let localStatus = $state(status);
 
@@ -39,6 +39,12 @@
     <span class="component-tag">{component}</span>
     <span class="version">v{version}</span>
   </div>
+  {#if localStatus === 'running' && port > 0}
+    <div class="gateway-addr">
+      <span class="gateway-label">Gateway:</span>
+      <code>127.0.0.1:{port}</code>
+    </div>
+  {/if}
   <div class="card-actions">
     {#if localStatus === 'running' || localStatus === 'stopping'}
       <button onclick={stop} disabled={loading}>
@@ -113,5 +119,20 @@
   .card-actions button:hover {
     background: var(--bg-hover);
     border-color: var(--accent);
+  }
+  .gateway-addr {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+  }
+  .gateway-label {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+  }
+  .gateway-addr code {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--accent);
   }
 </style>
