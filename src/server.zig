@@ -1,7 +1,9 @@
 const std = @import("std");
+const auth = @import("auth.zig");
 const instances_api = @import("api/instances.zig");
 const platform = @import("core/platform.zig");
 const components_api = @import("api/components.zig");
+const wizard_api = @import("api/wizard.zig");
 
 const version = "0.1.0";
 const max_request_size: usize = 65_536;
@@ -10,6 +12,7 @@ pub const Server = struct {
     allocator: std.mem.Allocator,
     host: []const u8,
     port: u16,
+    auth_token: ?[]const u8 = null,
 
     pub fn init(allocator: std.mem.Allocator, host: []const u8, port: u16) Server {
         return .{ .allocator = allocator, .host = host, .port = port };
@@ -39,7 +42,6 @@ pub const Server = struct {
     }
 
     fn handleConnection(self: *Server, conn: std.net.Server.Connection, alloc: std.mem.Allocator) !void {
-        _ = self;
         var req_buf: [max_request_size]u8 = undefined;
         const n = conn.stream.read(&req_buf) catch return;
         if (n == 0) return;
@@ -63,6 +65,18 @@ pub const Server = struct {
                 .body = "",
             });
             return;
+        }
+
+        // Auth check for protected API paths
+        if (self.auth_token != null and !auth.isPublicPath(target)) {
+            if (!auth.checkAuth(raw, self.auth_token)) {
+                try sendResponse(conn.stream, .{
+                    .status = "401 Unauthorized",
+                    .content_type = "application/json",
+                    .body = "{\"error\":\"unauthorized\"}",
+                });
+                return;
+            }
         }
 
         // Route dispatch
@@ -109,7 +123,6 @@ fn readBody(raw: []const u8, n: usize, stream: std.net.Stream, alloc: std.mem.Al
 }
 
 fn route(allocator: std.mem.Allocator, method: []const u8, target: []const u8, body: []const u8) Response {
-    _ = body;
     if (std.mem.eql(u8, method, "GET")) {
         if (std.mem.eql(u8, target, "/health")) {
             return .{
@@ -175,6 +188,45 @@ fn route(allocator: std.mem.Allocator, method: []const u8, target: []const u8, b
                     .body = "{\"error\":\"internal server error\"}",
                 };
             }
+        }
+    }
+
+    // Wizard API
+    if (wizard_api.isWizardPath(target)) {
+        if (wizard_api.extractComponentName(target)) |comp_name| {
+            if (std.mem.eql(u8, method, "GET")) {
+                if (wizard_api.handleGetWizard(allocator, comp_name)) |json| {
+                    return .{
+                        .status = "200 OK",
+                        .content_type = "application/json",
+                        .body = json,
+                    };
+                }
+                return .{
+                    .status = "404 Not Found",
+                    .content_type = "application/json",
+                    .body = "{\"error\":\"component not found\"}",
+                };
+            }
+            if (std.mem.eql(u8, method, "POST")) {
+                if (wizard_api.handlePostWizard(allocator, comp_name, body)) |json| {
+                    return .{
+                        .status = "200 OK",
+                        .content_type = "application/json",
+                        .body = json,
+                    };
+                }
+                return .{
+                    .status = "404 Not Found",
+                    .content_type = "application/json",
+                    .body = "{\"error\":\"component not found\"}",
+                };
+            }
+            return .{
+                .status = "405 Method Not Allowed",
+                .content_type = "application/json",
+                .body = "{\"error\":\"method not allowed\"}",
+            };
         }
     }
 

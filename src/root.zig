@@ -1,3 +1,4 @@
+pub const auth = @import("auth.zig");
 pub const cli = @import("cli.zig");
 pub const components_api = @import("api/components.zig");
 pub const config_writer = @import("wizard/config_writer.zig");
@@ -14,9 +15,11 @@ pub const registry = @import("installer/registry.zig");
 pub const server = @import("server.zig");
 pub const state = @import("core/state.zig");
 pub const ui_modules = @import("installer/ui_modules.zig");
+pub const wizard_api = @import("api/wizard.zig");
 pub const wizard_engine = @import("wizard/engine.zig");
 
 test {
+    _ = auth;
     _ = cli;
     _ = components_api;
     _ = config_writer;
@@ -33,5 +36,6 @@ test {
     _ = server;
     _ = state;
     _ = ui_modules;
+    _ = wizard_api;
     _ = wizard_engine;
 }
