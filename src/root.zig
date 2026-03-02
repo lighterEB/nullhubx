@@ -1,7 +1,9 @@
 pub const cli = @import("cli.zig");
+pub const components_api = @import("api/components.zig");
 pub const config_writer = @import("wizard/config_writer.zig");
 pub const downloader = @import("installer/downloader.zig");
 pub const health = @import("supervisor/health.zig");
+pub const instances_api = @import("api/instances.zig");
 pub const main = @import("main.zig");
 pub const manager = @import("supervisor/manager.zig");
 pub const manifest = @import("core/manifest.zig");
@@ -15,9 +17,11 @@ pub const wizard_engine = @import("wizard/engine.zig");
 
 test {
     _ = cli;
+    _ = components_api;
     _ = config_writer;
     _ = downloader;
     _ = health;
+    _ = instances_api;
     _ = main;
     _ = manager;
     _ = manifest;

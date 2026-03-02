@@ -1,5 +1,7 @@
 const std = @import("std");
+const instances_api = @import("api/instances.zig");
 const platform = @import("core/platform.zig");
+const components_api = @import("api/components.zig");
 
 const version = "0.1.0";
 const max_request_size: usize = 65_536;
@@ -64,7 +66,7 @@ pub const Server = struct {
         }
 
         // Route dispatch
-        const response = route(method, target, body);
+        const response = route(alloc, method, target, body);
         try sendResponse(conn.stream, response);
     }
 };
@@ -102,7 +104,7 @@ fn readBody(raw: []const u8, n: usize, stream: std.net.Stream, alloc: std.mem.Al
     return extractBody(raw);
 }
 
-fn route(method: []const u8, target: []const u8, body: []const u8) Response {
+fn route(allocator: std.mem.Allocator, method: []const u8, target: []const u8, body: []const u8) Response {
     _ = body;
     if (std.mem.eql(u8, method, "GET")) {
         if (std.mem.eql(u8, target, "/health")) {
@@ -118,6 +120,57 @@ fn route(method: []const u8, target: []const u8, body: []const u8) Response {
                 .content_type = "application/json",
                 .body = "{\"hub\":{\"version\":\"" ++ version ++ "\",\"platform\":\"" ++ comptime platform.detect().toString() ++ "\"}}",
             };
+        }
+        if (std.mem.eql(u8, target, "/api/components")) {
+            if (components_api.handleList(allocator)) |json| {
+                return .{
+                    .status = "200 OK",
+                    .content_type = "application/json",
+                    .body = json,
+                };
+            } else |_| {
+                return .{
+                    .status = "500 Internal Server Error",
+                    .content_type = "application/json",
+                    .body = "{\"error\":\"internal server error\"}",
+                };
+            }
+        }
+        if (components_api.isManifestPath(target)) {
+            if (components_api.extractComponentName(target)) |comp_name| {
+                if (components_api.handleManifest(allocator, comp_name)) |maybe_json| {
+                    if (maybe_json) |json| {
+                        return .{
+                            .status = "200 OK",
+                            .content_type = "application/json",
+                            .body = json,
+                        };
+                    }
+                } else |_| {}
+            }
+            return .{
+                .status = "404 Not Found",
+                .content_type = "application/json",
+                .body = "{\"error\":\"manifest not found\"}",
+            };
+        }
+    }
+
+    if (std.mem.eql(u8, method, "POST")) {
+        if (std.mem.eql(u8, target, "/api/components/refresh")) {
+            if (components_api.handleRefresh(allocator)) |json| {
+                return .{
+                    .status = "200 OK",
+                    .content_type = "application/json",
+                    .body = json,
+                };
+            } else |_| {
+                return .{
+                    .status = "500 Internal Server Error",
+                    .content_type = "application/json",
+                    .body = "{\"error\":\"internal server error\"}",
+                };
+            }
         }
     }
 
@@ -176,14 +229,14 @@ pub fn extractHeader(raw: []const u8, name: []const u8) ?[]const u8 {
 // --- Tests ---
 
 test "route GET /health returns 200 OK" {
-    const resp = route("GET", "/health", "");
+    const resp = route(std.testing.allocator, "GET", "/health", "");
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expectEqualStrings("application/json", resp.content_type);
     try std.testing.expectEqualStrings("{\"status\":\"ok\"}", resp.body);
 }
 
 test "route GET /api/status returns version and platform" {
-    const resp = route("GET", "/api/status", "");
+    const resp = route(std.testing.allocator, "GET", "/api/status", "");
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expectEqualStrings("application/json", resp.content_type);
     // Body should contain version
@@ -193,14 +246,36 @@ test "route GET /api/status returns version and platform" {
 }
 
 test "route unknown path returns 404" {
-    const resp = route("GET", "/nonexistent", "");
+    const resp = route(std.testing.allocator, "GET", "/nonexistent", "");
     try std.testing.expectEqualStrings("404 Not Found", resp.status);
     try std.testing.expectEqualStrings("{\"error\":\"not found\"}", resp.body);
 }
 
 test "route POST to GET-only route returns 404" {
-    const resp = route("POST", "/health", "");
+    const resp = route(std.testing.allocator, "POST", "/health", "");
     try std.testing.expectEqualStrings("404 Not Found", resp.status);
+}
+
+test "route GET /api/components returns component list" {
+    const resp = route(std.testing.allocator, "GET", "/api/components", "");
+    defer std.testing.allocator.free(resp.body);
+    try std.testing.expectEqualStrings("200 OK", resp.status);
+    try std.testing.expectEqualStrings("application/json", resp.content_type);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"components\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"nullclaw\"") != null);
+}
+
+test "route GET /api/components/{name}/manifest returns 404 for uncached" {
+    const resp = route(std.testing.allocator, "GET", "/api/components/nullclaw/manifest", "");
+    try std.testing.expectEqualStrings("404 Not Found", resp.status);
+    try std.testing.expectEqualStrings("{\"error\":\"manifest not found\"}", resp.body);
+}
+
+test "route POST /api/components/refresh returns 200" {
+    const resp = route(std.testing.allocator, "POST", "/api/components/refresh", "");
+    defer std.testing.allocator.free(resp.body);
+    try std.testing.expectEqualStrings("200 OK", resp.status);
+    try std.testing.expectEqualStrings("{\"status\":\"ok\"}", resp.body);
 }
 
 test "extractHeader finds Content-Length" {
