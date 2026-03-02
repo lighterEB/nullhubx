@@ -21,9 +21,46 @@ pub const Server = struct {
     host: []const u8,
     port: u16,
     auth_token: ?[]const u8 = null,
+    state: *state_mod.State,
+    paths: paths_mod.Paths,
+    start_time: i64,
 
-    pub fn init(allocator: std.mem.Allocator, host: []const u8, port: u16) Server {
-        return .{ .allocator = allocator, .host = host, .port = port };
+    pub fn init(allocator: std.mem.Allocator, host: []const u8, port: u16) !Server {
+        var paths = try paths_mod.Paths.init(allocator, null);
+        errdefer paths.deinit(allocator);
+
+        const state_path = try paths.state(allocator);
+        defer allocator.free(state_path);
+
+        const state = try allocator.create(state_mod.State);
+        state.* = state_mod.State.load(allocator, state_path) catch state_mod.State.init(allocator, state_path);
+
+        return .{
+            .allocator = allocator,
+            .host = host,
+            .port = port,
+            .state = state,
+            .paths = paths,
+            .start_time = std.time.timestamp(),
+        };
+    }
+
+    /// Initialize a server with an explicit state and paths (used by tests).
+    fn initWithState(allocator: std.mem.Allocator, state: *state_mod.State, paths: paths_mod.Paths) Server {
+        return .{
+            .allocator = allocator,
+            .host = "127.0.0.1",
+            .port = 9800,
+            .state = state,
+            .paths = paths,
+            .start_time = std.time.timestamp(),
+        };
+    }
+
+    pub fn deinit(self: *Server) void {
+        self.state.deinit();
+        self.allocator.destroy(self.state);
+        self.paths.deinit(self.allocator);
     }
 
     pub fn run(self: *Server) !void {
@@ -88,8 +125,280 @@ pub const Server = struct {
         }
 
         // Route dispatch
-        const response = route(alloc, method, target, body);
+        const response = self.route(alloc, method, target, body);
         try sendResponse(conn.stream, response);
+    }
+
+    fn route(self: *Server, allocator: std.mem.Allocator, method: []const u8, target: []const u8, body: []const u8) Response {
+        if (std.mem.eql(u8, method, "GET")) {
+            if (std.mem.eql(u8, target, "/health")) {
+                return .{
+                    .status = "200 OK",
+                    .content_type = "application/json",
+                    .body = "{\"status\":\"ok\"}",
+                };
+            }
+            if (std.mem.eql(u8, target, "/api/status")) {
+                const now = std.time.timestamp();
+                const uptime: u64 = @intCast(@max(0, now - self.start_time));
+                const resp = status_api.handleStatus(allocator, self.state, uptime);
+                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
+            }
+            if (std.mem.eql(u8, target, "/api/components")) {
+                if (components_api.handleList(allocator)) |json| {
+                    return .{
+                        .status = "200 OK",
+                        .content_type = "application/json",
+                        .body = json,
+                    };
+                } else |_| {
+                    return .{
+                        .status = "500 Internal Server Error",
+                        .content_type = "application/json",
+                        .body = "{\"error\":\"internal server error\"}",
+                    };
+                }
+            }
+            if (components_api.isManifestPath(target)) {
+                if (components_api.extractComponentName(target)) |comp_name| {
+                    if (components_api.handleManifest(allocator, comp_name)) |maybe_json| {
+                        if (maybe_json) |json| {
+                            return .{
+                                .status = "200 OK",
+                                .content_type = "application/json",
+                                .body = json,
+                            };
+                        }
+                    } else |_| {}
+                }
+                return .{
+                    .status = "404 Not Found",
+                    .content_type = "application/json",
+                    .body = "{\"error\":\"manifest not found\"}",
+                };
+            }
+            if (std.mem.eql(u8, target, "/api/updates")) {
+                const ur = updates_api.handleCheckUpdates(allocator, self.state);
+                return .{ .status = ur.status, .content_type = ur.content_type, .body = ur.body };
+            }
+        }
+
+        if (std.mem.eql(u8, method, "POST")) {
+            if (std.mem.eql(u8, target, "/api/components/refresh")) {
+                if (components_api.handleRefresh(allocator)) |json| {
+                    return .{
+                        .status = "200 OK",
+                        .content_type = "application/json",
+                        .body = json,
+                    };
+                } else |_| {
+                    return .{
+                        .status = "500 Internal Server Error",
+                        .content_type = "application/json",
+                        .body = "{\"error\":\"internal server error\"}",
+                    };
+                }
+            }
+        }
+
+        // Settings API
+        if (std.mem.eql(u8, target, "/api/settings")) {
+            if (std.mem.eql(u8, method, "GET")) {
+                if (settings_api.handleGetSettings(allocator)) |json| {
+                    return jsonResponse(json);
+                } else |_| {
+                    return .{
+                        .status = "500 Internal Server Error",
+                        .content_type = "application/json",
+                        .body = "{\"error\":\"internal server error\"}",
+                    };
+                }
+            }
+            if (std.mem.eql(u8, method, "PUT")) {
+                if (settings_api.handlePutSettings(allocator, body)) |json| {
+                    return jsonResponse(json);
+                } else |_| {
+                    return .{
+                        .status = "500 Internal Server Error",
+                        .content_type = "application/json",
+                        .body = "{\"error\":\"internal server error\"}",
+                    };
+                }
+            }
+            return .{
+                .status = "405 Method Not Allowed",
+                .content_type = "application/json",
+                .body = "{\"error\":\"method not allowed\"}",
+            };
+        }
+
+        // Service API
+        if (std.mem.eql(u8, target, "/api/service/install")) {
+            if (std.mem.eql(u8, method, "POST")) {
+                if (settings_api.handleServiceInstall(allocator)) |json| {
+                    return jsonResponse(json);
+                } else |_| {
+                    return .{
+                        .status = "500 Internal Server Error",
+                        .content_type = "application/json",
+                        .body = "{\"error\":\"internal server error\"}",
+                    };
+                }
+            }
+            return .{
+                .status = "405 Method Not Allowed",
+                .content_type = "application/json",
+                .body = "{\"error\":\"method not allowed\"}",
+            };
+        }
+        if (std.mem.eql(u8, target, "/api/service/uninstall")) {
+            if (std.mem.eql(u8, method, "POST")) {
+                if (settings_api.handleServiceUninstall(allocator)) |json| {
+                    return jsonResponse(json);
+                } else |_| {
+                    return .{
+                        .status = "500 Internal Server Error",
+                        .content_type = "application/json",
+                        .body = "{\"error\":\"internal server error\"}",
+                    };
+                }
+            }
+            return .{
+                .status = "405 Method Not Allowed",
+                .content_type = "application/json",
+                .body = "{\"error\":\"method not allowed\"}",
+            };
+        }
+        if (std.mem.eql(u8, target, "/api/service/status")) {
+            if (std.mem.eql(u8, method, "GET")) {
+                if (settings_api.handleServiceStatus(allocator)) |json| {
+                    return jsonResponse(json);
+                } else |_| {
+                    return .{
+                        .status = "500 Internal Server Error",
+                        .content_type = "application/json",
+                        .body = "{\"error\":\"internal server error\"}",
+                    };
+                }
+            }
+            return .{
+                .status = "405 Method Not Allowed",
+                .content_type = "application/json",
+                .body = "{\"error\":\"method not allowed\"}",
+            };
+        }
+
+        // Wizard API
+        if (wizard_api.isWizardPath(target)) {
+            if (wizard_api.extractComponentName(target)) |comp_name| {
+                if (std.mem.eql(u8, method, "GET")) {
+                    if (wizard_api.handleGetWizard(allocator, comp_name)) |json| {
+                        return .{
+                            .status = "200 OK",
+                            .content_type = "application/json",
+                            .body = json,
+                        };
+                    }
+                    return .{
+                        .status = "404 Not Found",
+                        .content_type = "application/json",
+                        .body = "{\"error\":\"component not found\"}",
+                    };
+                }
+                if (std.mem.eql(u8, method, "POST")) {
+                    if (wizard_api.handlePostWizard(allocator, comp_name, body)) |json| {
+                        return .{
+                            .status = "200 OK",
+                            .content_type = "application/json",
+                            .body = json,
+                        };
+                    }
+                    return .{
+                        .status = "404 Not Found",
+                        .content_type = "application/json",
+                        .body = "{\"error\":\"component not found\"}",
+                    };
+                }
+                return .{
+                    .status = "405 Method Not Allowed",
+                    .content_type = "application/json",
+                    .body = "{\"error\":\"method not allowed\"}",
+                };
+            }
+        }
+
+        // Config API — /api/instances/{c}/{n}/config
+        if (config_api.isConfigPath(target)) {
+            if (config_api.parseConfigPath(target)) |parsed| {
+                if (std.mem.eql(u8, method, "GET")) {
+                    const resp = config_api.handleGet(allocator, self.paths, parsed.component, parsed.name);
+                    return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
+                }
+                if (std.mem.eql(u8, method, "PUT")) {
+                    const resp = config_api.handlePut(allocator, self.paths, parsed.component, parsed.name, body);
+                    return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
+                }
+                if (std.mem.eql(u8, method, "PATCH")) {
+                    const resp = config_api.handlePatch(allocator, self.paths, parsed.component, parsed.name, body);
+                    return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
+                }
+                return .{
+                    .status = "405 Method Not Allowed",
+                    .content_type = "application/json",
+                    .body = "{\"error\":\"method not allowed\"}",
+                };
+            }
+        }
+
+        // Logs API — /api/instances/{c}/{n}/logs and /api/instances/{c}/{n}/logs/stream
+        if (logs_api.isLogsPath(target)) {
+            if (logs_api.parseLogsPath(target)) |parsed| {
+                if (!std.mem.eql(u8, method, "GET")) {
+                    return .{
+                        .status = "405 Method Not Allowed",
+                        .content_type = "application/json",
+                        .body = "{\"error\":\"method not allowed\"}",
+                    };
+                }
+                if (parsed.is_stream) {
+                    const resp = logs_api.handleStream();
+                    return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
+                }
+                const max_lines = logs_api.parseLines(target);
+                const resp = logs_api.handleGet(allocator, self.paths, parsed.component, parsed.name, max_lines);
+                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
+            }
+        }
+
+        // Instances API — delegate to instances_api.dispatch and updates_api.
+        if (std.mem.startsWith(u8, target, "/api/instances")) {
+            // Updates API — POST /api/instances/{c}/{n}/update
+            if (updates_api.parseUpdatePath(target)) |up| {
+                if (std.mem.eql(u8, method, "POST")) {
+                    const ur = updates_api.handleApplyUpdate(allocator, self.state, up.component, up.name);
+                    return .{ .status = ur.status, .content_type = ur.content_type, .body = ur.body };
+                }
+                return .{
+                    .status = "405 Method Not Allowed",
+                    .content_type = "application/json",
+                    .body = "{\"error\":\"method not allowed\"}",
+                };
+            }
+            if (instances_api.dispatch(allocator, self.state, method, target, body)) |api_resp| {
+                return .{ .status = api_resp.status, .content_type = api_resp.content_type, .body = api_resp.body };
+            }
+        }
+
+        // For non-API paths, attempt to serve static files from ui/build
+        if (!std.mem.startsWith(u8, target, "/api/")) {
+            return serveStaticFile(allocator, target);
+        }
+
+        return .{
+            .status = "404 Not Found",
+            .content_type = "application/json",
+            .body = "{\"error\":\"not found\"}",
+        };
     }
 };
 
@@ -130,333 +439,8 @@ fn readBody(raw: []const u8, n: usize, stream: std.net.Stream, alloc: std.mem.Al
     return extractBody(raw);
 }
 
-fn route(allocator: std.mem.Allocator, method: []const u8, target: []const u8, body: []const u8) Response {
-    if (std.mem.eql(u8, method, "GET")) {
-        if (std.mem.eql(u8, target, "/health")) {
-            return .{
-                .status = "200 OK",
-                .content_type = "application/json",
-                .body = "{\"status\":\"ok\"}",
-            };
-        }
-        if (std.mem.eql(u8, target, "/api/status")) {
-            return .{
-                .status = "200 OK",
-                .content_type = "application/json",
-                .body = "{\"hub\":{\"version\":\"" ++ version ++ "\",\"platform\":\"" ++ comptime platform.detect().toString() ++ "\"}}",
-            };
-        }
-        if (std.mem.eql(u8, target, "/api/components")) {
-            if (components_api.handleList(allocator)) |json| {
-                return .{
-                    .status = "200 OK",
-                    .content_type = "application/json",
-                    .body = json,
-                };
-            } else |_| {
-                return .{
-                    .status = "500 Internal Server Error",
-                    .content_type = "application/json",
-                    .body = "{\"error\":\"internal server error\"}",
-                };
-            }
-        }
-        if (components_api.isManifestPath(target)) {
-            if (components_api.extractComponentName(target)) |comp_name| {
-                if (components_api.handleManifest(allocator, comp_name)) |maybe_json| {
-                    if (maybe_json) |json| {
-                        return .{
-                            .status = "200 OK",
-                            .content_type = "application/json",
-                            .body = json,
-                        };
-                    }
-                } else |_| {}
-            }
-            return .{
-                .status = "404 Not Found",
-                .content_type = "application/json",
-                .body = "{\"error\":\"manifest not found\"}",
-            };
-        }
-        if (std.mem.eql(u8, target, "/api/updates")) {
-            var s = state_mod.State.init(allocator, "/tmp/nullhub-state.json");
-            defer s.deinit();
-            const ur = updates_api.handleCheckUpdates(allocator, &s);
-            return .{ .status = ur.status, .content_type = ur.content_type, .body = ur.body };
-        }
-    }
-
-    if (std.mem.eql(u8, method, "POST")) {
-        if (std.mem.eql(u8, target, "/api/components/refresh")) {
-            if (components_api.handleRefresh(allocator)) |json| {
-                return .{
-                    .status = "200 OK",
-                    .content_type = "application/json",
-                    .body = json,
-                };
-            } else |_| {
-                return .{
-                    .status = "500 Internal Server Error",
-                    .content_type = "application/json",
-                    .body = "{\"error\":\"internal server error\"}",
-                };
-            }
-        }
-    }
-
-    // Settings API
-    if (std.mem.eql(u8, target, "/api/settings")) {
-        if (std.mem.eql(u8, method, "GET")) {
-            if (settings_api.handleGetSettings(allocator)) |json| {
-                return jsonResponse(json);
-            } else |_| {
-                return .{
-                    .status = "500 Internal Server Error",
-                    .content_type = "application/json",
-                    .body = "{\"error\":\"internal server error\"}",
-                };
-            }
-        }
-        if (std.mem.eql(u8, method, "PUT")) {
-            if (settings_api.handlePutSettings(allocator, body)) |json| {
-                return jsonResponse(json);
-            } else |_| {
-                return .{
-                    .status = "500 Internal Server Error",
-                    .content_type = "application/json",
-                    .body = "{\"error\":\"internal server error\"}",
-                };
-            }
-        }
-        return .{
-            .status = "405 Method Not Allowed",
-            .content_type = "application/json",
-            .body = "{\"error\":\"method not allowed\"}",
-        };
-    }
-
-    // Service API
-    if (std.mem.eql(u8, target, "/api/service/install")) {
-        if (std.mem.eql(u8, method, "POST")) {
-            if (settings_api.handleServiceInstall(allocator)) |json| {
-                return jsonResponse(json);
-            } else |_| {
-                return .{
-                    .status = "500 Internal Server Error",
-                    .content_type = "application/json",
-                    .body = "{\"error\":\"internal server error\"}",
-                };
-            }
-        }
-        return .{
-            .status = "405 Method Not Allowed",
-            .content_type = "application/json",
-            .body = "{\"error\":\"method not allowed\"}",
-        };
-    }
-    if (std.mem.eql(u8, target, "/api/service/uninstall")) {
-        if (std.mem.eql(u8, method, "POST")) {
-            if (settings_api.handleServiceUninstall(allocator)) |json| {
-                return jsonResponse(json);
-            } else |_| {
-                return .{
-                    .status = "500 Internal Server Error",
-                    .content_type = "application/json",
-                    .body = "{\"error\":\"internal server error\"}",
-                };
-            }
-        }
-        return .{
-            .status = "405 Method Not Allowed",
-            .content_type = "application/json",
-            .body = "{\"error\":\"method not allowed\"}",
-        };
-    }
-    if (std.mem.eql(u8, target, "/api/service/status")) {
-        if (std.mem.eql(u8, method, "GET")) {
-            if (settings_api.handleServiceStatus(allocator)) |json| {
-                return jsonResponse(json);
-            } else |_| {
-                return .{
-                    .status = "500 Internal Server Error",
-                    .content_type = "application/json",
-                    .body = "{\"error\":\"internal server error\"}",
-                };
-            }
-        }
-        return .{
-            .status = "405 Method Not Allowed",
-            .content_type = "application/json",
-            .body = "{\"error\":\"method not allowed\"}",
-        };
-    }
-
-    // Wizard API
-    if (wizard_api.isWizardPath(target)) {
-        if (wizard_api.extractComponentName(target)) |comp_name| {
-            if (std.mem.eql(u8, method, "GET")) {
-                if (wizard_api.handleGetWizard(allocator, comp_name)) |json| {
-                    return .{
-                        .status = "200 OK",
-                        .content_type = "application/json",
-                        .body = json,
-                    };
-                }
-                return .{
-                    .status = "404 Not Found",
-                    .content_type = "application/json",
-                    .body = "{\"error\":\"component not found\"}",
-                };
-            }
-            if (std.mem.eql(u8, method, "POST")) {
-                if (wizard_api.handlePostWizard(allocator, comp_name, body)) |json| {
-                    return .{
-                        .status = "200 OK",
-                        .content_type = "application/json",
-                        .body = json,
-                    };
-                }
-                return .{
-                    .status = "404 Not Found",
-                    .content_type = "application/json",
-                    .body = "{\"error\":\"component not found\"}",
-                };
-            }
-            return .{
-                .status = "405 Method Not Allowed",
-                .content_type = "application/json",
-                .body = "{\"error\":\"method not allowed\"}",
-            };
-        }
-    }
-
-    // Config API — /api/instances/{c}/{n}/config
-    if (config_api.isConfigPath(target)) {
-        if (config_api.parseConfigPath(target)) |parsed| {
-            const p = paths_mod.Paths.init(allocator, null) catch return .{
-                .status = "500 Internal Server Error",
-                .content_type = "application/json",
-                .body = "{\"error\":\"internal error\"}",
-            };
-            if (std.mem.eql(u8, method, "GET")) {
-                const resp = config_api.handleGet(allocator, p, parsed.component, parsed.name);
-                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
-            }
-            if (std.mem.eql(u8, method, "PUT")) {
-                const resp = config_api.handlePut(allocator, p, parsed.component, parsed.name, body);
-                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
-            }
-            if (std.mem.eql(u8, method, "PATCH")) {
-                const resp = config_api.handlePatch(allocator, p, parsed.component, parsed.name, body);
-                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
-            }
-            return .{
-                .status = "405 Method Not Allowed",
-                .content_type = "application/json",
-                .body = "{\"error\":\"method not allowed\"}",
-            };
-        }
-    }
-
-    // Logs API — /api/instances/{c}/{n}/logs and /api/instances/{c}/{n}/logs/stream
-    if (logs_api.isLogsPath(target)) {
-        if (logs_api.parseLogsPath(target)) |parsed| {
-            if (!std.mem.eql(u8, method, "GET")) {
-                return .{
-                    .status = "405 Method Not Allowed",
-                    .content_type = "application/json",
-                    .body = "{\"error\":\"method not allowed\"}",
-                };
-            }
-            if (parsed.is_stream) {
-                const resp = logs_api.handleStream();
-                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
-            }
-            const p = paths_mod.Paths.init(allocator, null) catch return .{
-                .status = "500 Internal Server Error",
-                .content_type = "application/json",
-                .body = "{\"error\":\"internal error\"}",
-            };
-            const max_lines = logs_api.parseLines(target);
-            const resp = logs_api.handleGet(allocator, p, parsed.component, parsed.name, max_lines);
-            return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
-        }
-    }
-
-    // Instances API — route matching only (State integration pending).
-    if (std.mem.startsWith(u8, target, "/api/instances")) {
-        if (std.mem.eql(u8, target, "/api/instances")) {
-            if (std.mem.eql(u8, method, "GET")) {
-                return .{
-                    .status = "200 OK",
-                    .content_type = "application/json",
-                    .body = "{\"instances\":{}}",
-                };
-            }
-            return .{
-                .status = "405 Method Not Allowed",
-                .content_type = "application/json",
-                .body = "{\"error\":\"method not allowed\"}",
-            };
-        }
-        // Updates API — POST /api/instances/{c}/{n}/update
-        if (updates_api.parseUpdatePath(target)) |up| {
-            if (std.mem.eql(u8, method, "POST")) {
-                var s = state_mod.State.init(allocator, "/tmp/nullhub-state.json");
-                defer s.deinit();
-                const ur = updates_api.handleApplyUpdate(allocator, &s, up.component, up.name);
-                return .{ .status = ur.status, .content_type = ur.content_type, .body = ur.body };
-            }
-            return .{
-                .status = "405 Method Not Allowed",
-                .content_type = "application/json",
-                .body = "{\"error\":\"method not allowed\"}",
-            };
-        }
-        if (instances_api.parsePath(target)) |parsed| {
-            if (parsed.action) |action| {
-                if (!std.mem.eql(u8, method, "POST")) {
-                    return .{
-                        .status = "405 Method Not Allowed",
-                        .content_type = "application/json",
-                        .body = "{\"error\":\"method not allowed\"}",
-                    };
-                }
-                if (std.mem.eql(u8, action, "start")) return jsonResponse("{\"status\":\"started\"}");
-                if (std.mem.eql(u8, action, "stop")) return jsonResponse("{\"status\":\"stopped\"}");
-                if (std.mem.eql(u8, action, "restart")) return jsonResponse("{\"status\":\"restarted\"}");
-                return .{
-                    .status = "404 Not Found",
-                    .content_type = "application/json",
-                    .body = "{\"error\":\"not found\"}",
-                };
-            }
-            if (std.mem.eql(u8, method, "GET")) return jsonResponse("{\"error\":\"state not initialized\"}");
-            if (std.mem.eql(u8, method, "DELETE")) return jsonResponse("{\"status\":\"deleted\"}");
-            if (std.mem.eql(u8, method, "PATCH")) return jsonResponse("{\"status\":\"updated\"}");
-            return .{
-                .status = "405 Method Not Allowed",
-                .content_type = "application/json",
-                .body = "{\"error\":\"method not allowed\"}",
-            };
-        }
-    }
-
-    // For non-API paths, attempt to serve static files from ui/build
-    if (!std.mem.startsWith(u8, target, "/api/")) {
-        return serveStaticFile(allocator, target);
-    }
-
-    return .{
-        .status = "404 Not Found",
-        .content_type = "application/json",
-        .body = "{\"error\":\"not found\"}",
-    };
-}
-
 fn sendResponse(stream: std.net.Stream, response: Response) !void {
-    var buf: [512]u8 = undefined;
+    var buf: [1024]u8 = undefined;
     const header = try std.fmt.bufPrint(&buf,
         "HTTP/1.1 {s}\r\n" ++
             "Content-Type: {s}\r\n" ++
@@ -512,6 +496,11 @@ fn contentType(path: []const u8) []const u8 {
 }
 
 fn serveStaticFile(allocator: std.mem.Allocator, target: []const u8) Response {
+    // Path traversal protection
+    if (std.mem.indexOf(u8, target, "..") != null) {
+        return .{ .status = "400 Bad Request", .content_type = "text/plain", .body = "bad request" };
+    }
+
     // Determine the file path relative to ui/build
     const rel_path = if (std.mem.eql(u8, target, "/"))
         "index.html"
@@ -571,46 +560,96 @@ fn serveStaticFile(allocator: std.mem.Allocator, target: []const u8) Response {
     };
 }
 
+// --- Test helpers ---
+
+const TestContext = struct {
+    state: *state_mod.State,
+    paths: paths_mod.Paths,
+    server: Server,
+
+    fn init(allocator: std.mem.Allocator) TestContext {
+        const state = allocator.create(state_mod.State) catch @panic("OOM");
+        state.* = state_mod.State.init(allocator, "/tmp/nullhub-test-server-state.json");
+        const paths = paths_mod.Paths.init(allocator, "/tmp/nullhub-test-server") catch @panic("Paths.init failed");
+        return .{
+            .state = state,
+            .paths = paths,
+            .server = Server.initWithState(allocator, state, paths),
+        };
+    }
+
+    fn deinit(self: *TestContext, allocator: std.mem.Allocator) void {
+        self.state.deinit();
+        allocator.destroy(self.state);
+        self.paths.deinit(allocator);
+    }
+
+    fn route(self: *TestContext, allocator: std.mem.Allocator, method: []const u8, target: []const u8, body: []const u8) Response {
+        return self.server.route(allocator, method, target, body);
+    }
+};
+
 // --- Tests ---
 
 test "route GET /health returns 200 OK" {
-    const resp = route(std.testing.allocator, "GET", "/health", "");
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    const resp = ctx.route(std.testing.allocator, "GET", "/health", "");
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expectEqualStrings("application/json", resp.content_type);
     try std.testing.expectEqualStrings("{\"status\":\"ok\"}", resp.body);
 }
 
 test "route GET /api/status returns version and platform" {
-    const resp = route(std.testing.allocator, "GET", "/api/status", "");
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    const resp = ctx.route(std.testing.allocator, "GET", "/api/status", "");
+    defer std.testing.allocator.free(resp.body);
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expectEqualStrings("application/json", resp.content_type);
     // Body should contain version
     try std.testing.expect(std.mem.indexOf(u8, resp.body, "0.1.0") != null);
     // Body should contain platform key
     try std.testing.expect(std.mem.indexOf(u8, resp.body, "platform") != null);
+    // Body should contain uptime_seconds
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "uptime_seconds") != null);
 }
 
 test "route unknown non-API path attempts static file serving" {
-    const resp = route(std.testing.allocator, "GET", "/nonexistent", "");
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    const resp = ctx.route(std.testing.allocator, "GET", "/nonexistent", "");
     // Without ui/build directory, static file serving returns 404
     try std.testing.expectEqualStrings("404 Not Found", resp.status);
 }
 
 test "route POST to GET-only route falls through to static serving" {
-    const resp = route(std.testing.allocator, "POST", "/health", "");
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    const resp = ctx.route(std.testing.allocator, "POST", "/health", "");
     // POST /health doesn't match any route, falls through to static file serving
     try std.testing.expectEqualStrings("404 Not Found", resp.status);
 }
 
 test "route unknown API path returns JSON 404" {
-    const resp = route(std.testing.allocator, "GET", "/api/nonexistent", "");
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    const resp = ctx.route(std.testing.allocator, "GET", "/api/nonexistent", "");
     try std.testing.expectEqualStrings("404 Not Found", resp.status);
     try std.testing.expectEqualStrings("application/json", resp.content_type);
     try std.testing.expectEqualStrings("{\"error\":\"not found\"}", resp.body);
 }
 
 test "route GET /api/components returns component list" {
-    const resp = route(std.testing.allocator, "GET", "/api/components", "");
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    const resp = ctx.route(std.testing.allocator, "GET", "/api/components", "");
     defer std.testing.allocator.free(resp.body);
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expectEqualStrings("application/json", resp.content_type);
@@ -619,13 +658,19 @@ test "route GET /api/components returns component list" {
 }
 
 test "route GET /api/components/{name}/manifest returns 404 for uncached" {
-    const resp = route(std.testing.allocator, "GET", "/api/components/nullclaw/manifest", "");
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    const resp = ctx.route(std.testing.allocator, "GET", "/api/components/nullclaw/manifest", "");
     try std.testing.expectEqualStrings("404 Not Found", resp.status);
     try std.testing.expectEqualStrings("{\"error\":\"manifest not found\"}", resp.body);
 }
 
 test "route POST /api/components/refresh returns 200" {
-    const resp = route(std.testing.allocator, "POST", "/api/components/refresh", "");
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    const resp = ctx.route(std.testing.allocator, "POST", "/api/components/refresh", "");
     defer std.testing.allocator.free(resp.body);
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expectEqualStrings("{\"status\":\"ok\"}", resp.body);
@@ -661,48 +706,78 @@ test "extractBody returns empty for no body" {
 }
 
 test "route GET /api/instances returns empty instances" {
-    const resp = route(std.testing.allocator, "GET", "/api/instances", "");
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    const resp = ctx.route(std.testing.allocator, "GET", "/api/instances", "");
+    defer std.testing.allocator.free(resp.body);
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expectEqualStrings("{\"instances\":{}}", resp.body);
 }
 
 test "route POST /api/instances/{component}/{name}/start returns 200" {
-    const resp = route(std.testing.allocator, "POST", "/api/instances/nullclaw/my-agent/start", "");
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    try ctx.state.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0" });
+    const resp = ctx.route(std.testing.allocator, "POST", "/api/instances/nullclaw/my-agent/start", "");
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expectEqualStrings("{\"status\":\"started\"}", resp.body);
 }
 
 test "route POST /api/instances/{component}/{name}/stop returns 200" {
-    const resp = route(std.testing.allocator, "POST", "/api/instances/nullclaw/my-agent/stop", "");
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    try ctx.state.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0" });
+    const resp = ctx.route(std.testing.allocator, "POST", "/api/instances/nullclaw/my-agent/stop", "");
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expectEqualStrings("{\"status\":\"stopped\"}", resp.body);
 }
 
 test "route POST /api/instances/{component}/{name}/restart returns 200" {
-    const resp = route(std.testing.allocator, "POST", "/api/instances/nullclaw/my-agent/restart", "");
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    try ctx.state.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0" });
+    const resp = ctx.route(std.testing.allocator, "POST", "/api/instances/nullclaw/my-agent/restart", "");
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expectEqualStrings("{\"status\":\"restarted\"}", resp.body);
 }
 
 test "route DELETE /api/instances/{component}/{name} returns 200" {
-    const resp = route(std.testing.allocator, "DELETE", "/api/instances/nullclaw/my-agent", "");
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    try ctx.state.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0" });
+    const resp = ctx.route(std.testing.allocator, "DELETE", "/api/instances/nullclaw/my-agent", "");
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expectEqualStrings("{\"status\":\"deleted\"}", resp.body);
 }
 
 test "route PATCH /api/instances/{component}/{name} returns 200" {
-    const resp = route(std.testing.allocator, "PATCH", "/api/instances/nullclaw/my-agent", "{\"auto_start\":true}");
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    try ctx.state.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0", .auto_start = false });
+    const resp = ctx.route(std.testing.allocator, "PATCH", "/api/instances/nullclaw/my-agent", "{\"auto_start\":true}");
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expectEqualStrings("{\"status\":\"updated\"}", resp.body);
 }
 
 test "route GET /api/instances with wrong method returns 405" {
-    const resp = route(std.testing.allocator, "POST", "/api/instances", "");
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    const resp = ctx.route(std.testing.allocator, "POST", "/api/instances", "");
     try std.testing.expectEqualStrings("405 Method Not Allowed", resp.status);
 }
 
 test "route GET /api/settings returns defaults" {
-    const resp = route(std.testing.allocator, "GET", "/api/settings", "");
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    const resp = ctx.route(std.testing.allocator, "GET", "/api/settings", "");
     defer std.testing.allocator.free(resp.body);
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"port\":9800") != null);
@@ -710,35 +785,50 @@ test "route GET /api/settings returns defaults" {
 }
 
 test "route PUT /api/settings returns ok" {
-    const resp = route(std.testing.allocator, "PUT", "/api/settings", "{\"port\":9801}");
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    const resp = ctx.route(std.testing.allocator, "PUT", "/api/settings", "{\"port\":9801}");
     defer std.testing.allocator.free(resp.body);
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"status\":\"ok\"") != null);
 }
 
 test "route POST /api/service/install returns platform info" {
-    const resp = route(std.testing.allocator, "POST", "/api/service/install", "");
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    const resp = ctx.route(std.testing.allocator, "POST", "/api/service/install", "");
     defer std.testing.allocator.free(resp.body);
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"status\":\"ok\"") != null);
 }
 
 test "route POST /api/service/uninstall returns ok" {
-    const resp = route(std.testing.allocator, "POST", "/api/service/uninstall", "");
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    const resp = ctx.route(std.testing.allocator, "POST", "/api/service/uninstall", "");
     defer std.testing.allocator.free(resp.body);
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"status\":\"ok\"") != null);
 }
 
 test "route GET /api/service/status returns status" {
-    const resp = route(std.testing.allocator, "GET", "/api/service/status", "");
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    const resp = ctx.route(std.testing.allocator, "GET", "/api/service/status", "");
     defer std.testing.allocator.free(resp.body);
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"registered\":false") != null);
 }
 
 test "route GET /api/updates returns empty updates" {
-    const resp = route(std.testing.allocator, "GET", "/api/updates", "");
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    const resp = ctx.route(std.testing.allocator, "GET", "/api/updates", "");
     defer std.testing.allocator.free(resp.body);
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expectEqualStrings("application/json", resp.content_type);
@@ -746,14 +836,19 @@ test "route GET /api/updates returns empty updates" {
 }
 
 test "route POST /api/instances/{c}/{n}/update returns 404 for empty state" {
-    const resp = route(std.testing.allocator, "POST", "/api/instances/nullclaw/my-agent/update", "");
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    const resp = ctx.route(std.testing.allocator, "POST", "/api/instances/nullclaw/my-agent/update", "");
     try std.testing.expectEqualStrings("404 Not Found", resp.status);
 }
 
 test "Server init sets fields" {
-    const s = Server.init(std.testing.allocator, "127.0.0.1", 9800);
+    var s = try Server.init(std.testing.allocator, "127.0.0.1", 9800);
+    defer s.deinit();
     try std.testing.expectEqualStrings("127.0.0.1", s.host);
     try std.testing.expectEqual(@as(u16, 9800), s.port);
+    try std.testing.expect(s.start_time > 0);
 }
 
 test "contentType returns correct MIME type for .html" {
@@ -793,8 +888,17 @@ test "serveStaticFile returns 404 when ui/build does not exist" {
     try std.testing.expectEqualStrings("404 Not Found", resp.status);
 }
 
+test "serveStaticFile rejects path traversal" {
+    const resp = serveStaticFile(std.testing.allocator, "/../etc/passwd");
+    try std.testing.expectEqualStrings("400 Bad Request", resp.status);
+    try std.testing.expectEqualStrings("bad request", resp.body);
+}
+
 test "route GET / attempts static file serving" {
-    const resp = route(std.testing.allocator, "GET", "/", "");
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    const resp = ctx.route(std.testing.allocator, "GET", "/", "");
     // Without ui/build/index.html, falls back to 404
     try std.testing.expectEqualStrings("404 Not Found", resp.status);
 }
