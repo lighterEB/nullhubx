@@ -8,6 +8,7 @@ pub const platform = @import("core/platform.zig");
 pub const process = @import("supervisor/process.zig");
 pub const server = @import("server.zig");
 pub const state = @import("core/state.zig");
+pub const wizard_engine = @import("wizard/engine.zig");
 
 test {
     _ = cli;
@@ -20,4 +21,5 @@ test {
     _ = process;
     _ = server;
     _ = state;
+    _ = wizard_engine;
 }
