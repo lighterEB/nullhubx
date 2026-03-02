@@ -4,6 +4,7 @@ pub const cli = @import("cli.zig");
 pub const components_api = @import("api/components.zig");
 pub const config_api = @import("api/config.zig");
 pub const config_writer = @import("wizard/config_writer.zig");
+pub const discovery = @import("discovery.zig");
 pub const downloader = @import("installer/downloader.zig");
 pub const health = @import("supervisor/health.zig");
 pub const instances_api = @import("api/instances.zig");
@@ -31,6 +32,7 @@ test {
     _ = components_api;
     _ = config_api;
     _ = config_writer;
+    _ = discovery;
     _ = downloader;
     _ = health;
     _ = instances_api;
