@@ -1,4 +1,5 @@
 pub const cli = @import("cli.zig");
+pub const config_writer = @import("wizard/config_writer.zig");
 pub const health = @import("supervisor/health.zig");
 pub const main = @import("main.zig");
 pub const manager = @import("supervisor/manager.zig");
@@ -12,6 +13,7 @@ pub const wizard_engine = @import("wizard/engine.zig");
 
 test {
     _ = cli;
+    _ = config_writer;
     _ = health;
     _ = main;
     _ = manager;
