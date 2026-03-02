@@ -71,8 +71,7 @@
     <p class="hint">Register NullHub as a system service for automatic startup</p>
     <button class="btn" onclick={async () => {
       try {
-        const result = await fetch('/api/service/install', { method: 'POST' });
-        const data = await result.json();
+        const data = await api.serviceInstall();
         message = data.message;
       } catch (e) { message = 'Failed to register service'; }
     }}>Enable Autostart</button>

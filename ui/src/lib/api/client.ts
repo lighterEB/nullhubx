@@ -33,4 +33,23 @@ export const api = {
   getSettings: () => request<any>('/settings'),
   putSettings: (settings: any) =>
     request<any>('/settings', { method: 'PUT', body: JSON.stringify(settings) }),
+
+  patchConfig: (c: string, n: string, config: any) =>
+    request<any>(`/instances/${c}/${n}/config`, { method: 'PATCH', body: JSON.stringify(config) }),
+
+  patchInstance: (c: string, n: string, settings: any) =>
+    request<any>(`/instances/${c}/${n}`, { method: 'PATCH', body: JSON.stringify(settings) }),
+
+  getComponentManifest: (name: string) => request<any>(`/components/${name}/manifest`),
+
+  refreshComponents: () => request<any>('/components/refresh', { method: 'POST' }),
+
+  applyUpdate: (c: string, n: string) =>
+    request<any>(`/instances/${c}/${n}/update`, { method: 'POST' }),
+
+  serviceInstall: () => request<any>('/service/install', { method: 'POST' }),
+
+  serviceUninstall: () => request<any>('/service/uninstall', { method: 'POST' }),
+
+  serviceStatus: () => request<any>('/service/status'),
 };
