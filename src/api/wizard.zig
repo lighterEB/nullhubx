@@ -73,13 +73,20 @@ pub fn handleGetWizard(allocator: std.mem.Allocator, component_name: []const u8,
     // Verify the component is known
     if (registry.findKnownComponent(component_name) == null) return null;
 
-    // Find or download the component binary
-    const bin_path = findOrFetchComponentBinary(allocator, component_name, paths) orelse return null;
-    defer allocator.free(bin_path);
+    // Try existing binary first
+    if (findOrFetchComponentBinary(allocator, component_name, paths)) |bin_path| {
+        defer allocator.free(bin_path);
+        if (component_cli.exportManifest(allocator, bin_path)) |json| return json else |_| {}
+        // Existing binary doesn't support --export-manifest, try fetching latest
+    }
 
-    // Run --export-manifest
-    const manifest_json = component_cli.exportManifest(allocator, bin_path) catch return null;
-    return manifest_json;
+    // Download latest release and retry
+    if (fetchLatestComponentBinary(allocator, component_name, paths)) |bin_path| {
+        defer allocator.free(bin_path);
+        if (component_cli.exportManifest(allocator, bin_path)) |json| return json else |_| {}
+    }
+
+    return allocator.dupe(u8, "{\"error\":\"no compatible version found, check GitHub releases\"}") catch null;
 }
 
 /// Handle GET /api/wizard/{component}/models — runs component --list-models.
@@ -126,12 +133,14 @@ pub fn handleGetVersions(allocator: std.mem.Allocator, component_name: []const u
         return allocator.dupe(u8, "[{\"value\":\"latest\",\"label\":\"latest\",\"recommended\":true}]") catch null;
     defer releases.deinit();
 
-    // Build JSON array of version options
+    // Build JSON array of version options, filtering by min_version
     var buf = std.array_list.Managed(u8).init(allocator);
     buf.appendSlice("[") catch return null;
     var count: usize = 0;
     for (releases.value) |rel| {
         if (rel.prerelease) continue;
+        // Skip versions older than min_version
+        if (known.min_version.len > 0 and std.mem.order(u8, rel.tag_name, known.min_version) == .lt) continue;
         if (count > 0) buf.append(',') catch return null;
         buf.appendSlice("{\"value\":\"") catch return null;
         buf.appendSlice(rel.tag_name) catch return null;
@@ -322,10 +331,15 @@ fn buildErrorResponse(allocator: std.mem.Allocator, err: orchestrator.InstallErr
         error.StateError => "failed to update state",
         error.StartFailed => "failed to start instance",
     };
+    const detail = orchestrator.getLastErrorDetail();
     var buf = std.array_list.Managed(u8).init(allocator);
     errdefer buf.deinit();
     buf.appendSlice("{\"error\":\"") catch return null;
     buf.appendSlice(msg) catch return null;
+    if (detail.len > 0) {
+        buf.appendSlice(": ") catch return null;
+        appendEscaped(&buf, detail) catch return null;
+    }
     buf.appendSlice("\"}") catch return null;
     return buf.toOwnedSlice() catch null;
 }

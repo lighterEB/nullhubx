@@ -3,11 +3,21 @@ const manifest = @import("../core/manifest.zig");
 
 // ─── Known components ────────────────────────────────────────────────────────
 
+pub const UiModuleRef = struct {
+    name: []const u8,
+    repo: []const u8,
+};
+
 pub const KnownComponent = struct {
     name: []const u8,
     display_name: []const u8,
     description: []const u8,
     repo: []const u8,
+    default_launch_command: []const u8 = "gateway",
+    default_health_endpoint: []const u8 = "/health",
+    default_port: u16 = 3000,
+    min_version: []const u8 = "",
+    ui_modules: []const UiModuleRef = &.{},
 };
 
 pub const known_components = [_]KnownComponent{
@@ -16,6 +26,10 @@ pub const known_components = [_]KnownComponent{
         .display_name = "NullClaw",
         .description = "Autonomous AI agent runtime. Connects to 30+ LLM providers, runs tools, manages memory, and exposes a gateway API. The core brain of the null stack.",
         .repo = "nullclaw/nullclaw",
+        .min_version = "v2026.3.2",
+        .ui_modules = &.{
+            .{ .name = "nullclaw-chat-ui", .repo = "nullclaw/nullclaw-chat-ui" },
+        },
     },
     .{
         .name = "nullboiler",

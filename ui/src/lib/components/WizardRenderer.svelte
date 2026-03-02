@@ -51,18 +51,7 @@
   // Apply default values from steps
   $effect(() => {
     for (const step of steps) {
-      if (step.id === 'gateway_port' && !(step.id in answers)) {
-        // Fetch a free port from the server
-        api.getFreePort().then((data: any) => {
-          if (data?.port && !('gateway_port' in answers)) {
-            answers['gateway_port'] = String(data.port);
-          }
-        }).catch(() => {
-          if (!('gateway_port' in answers)) {
-            answers['gateway_port'] = step.default_value || '3000';
-          }
-        });
-      } else if (step.default_value && !(step.id in answers)) {
+      if (step.default_value && !(step.id in answers)) {
         answers[step.id] = step.default_value;
       } else if (step.options?.length && !(step.id in answers)) {
         // Auto-select recommended option
@@ -110,7 +99,15 @@
         ...rest
       };
       if (_providers) {
-        try { payload.providers = JSON.parse(_providers); } catch {}
+        try {
+          const parsed = JSON.parse(_providers);
+          payload.providers = parsed;
+          // Flatten primary provider fields for component --from-json
+          if (parsed.length > 0) {
+            if (!payload.api_key && parsed[0].api_key) payload.api_key = parsed[0].api_key;
+            if (!payload.model && parsed[0].model) payload.model = parsed[0].model;
+          }
+        } catch {}
       }
       const result = await api.postWizard(component, payload);
       installMessage = result.message || 'Installation complete!';

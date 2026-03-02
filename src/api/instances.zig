@@ -14,6 +14,42 @@ const notFound = helpers.notFound;
 const badRequest = helpers.badRequest;
 const methodNotAllowed = helpers.methodNotAllowed;
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/// Read a port value from an instance's config.json using a dot-separated key
+/// (e.g. "gateway.port" → config["gateway"]["port"]).
+fn readPortFromConfig(allocator: std.mem.Allocator, paths: paths_mod.Paths, component: []const u8, name: []const u8, dot_key: []const u8) ?u16 {
+    const config_path = paths.instanceConfig(allocator, component, name) catch return null;
+    defer allocator.free(config_path);
+
+    const file = std.fs.openFileAbsolute(config_path, .{}) catch return null;
+    defer file.close();
+    const contents = file.readToEndAlloc(allocator, 4 * 1024 * 1024) catch return null;
+    defer allocator.free(contents);
+
+    // Parse as generic JSON and walk the dot-path
+    const parsed = std.json.parseFromSlice(std.json.Value, allocator, contents, .{
+        .allocate = .alloc_always,
+    }) catch return null;
+    defer parsed.deinit();
+
+    var current = parsed.value;
+    var it = std.mem.splitScalar(u8, dot_key, '.');
+    while (it.next()) |segment| {
+        switch (current) {
+            .object => |obj| {
+                current = obj.get(segment) orelse return null;
+            },
+            else => return null,
+        }
+    }
+
+    switch (current) {
+        .integer => |v| return if (v >= 0 and v <= 65535) @intCast(v) else null,
+        else => return null,
+    }
+}
+
 // ─── Path Parsing ────────────────────────────────────────────────────────────
 
 pub const ParsedPath = struct {
@@ -152,25 +188,38 @@ pub fn handleStart(allocator: std.mem.Allocator, s: *state_mod.State, manager: *
     // Read manifest from binary to get health endpoint and port
     var health_endpoint: []const u8 = "/health";
     var port: u16 = 0;
+    var port_from_config: []const u8 = "";
     const manifest_json = component_cli.exportManifest(allocator, bin_path) catch null;
     var parsed_manifest: ?std.json.Parsed(manifest_mod.Manifest) = null;
     if (manifest_json) |mj| {
         parsed_manifest = manifest_mod.parseManifest(allocator, mj) catch null;
         if (parsed_manifest) |pm| {
             health_endpoint = pm.value.health.endpoint;
+            port_from_config = pm.value.health.port_from_config;
             if (pm.value.ports.len > 0) port = pm.value.ports[0].default;
         }
     }
     defer if (manifest_json) |mj| allocator.free(mj);
     defer if (parsed_manifest) |*pm| pm.deinit();
 
+    // Try to read actual port from instance config.json using port_from_config key
+    if (port_from_config.len > 0) {
+        if (readPortFromConfig(allocator, paths, component, name, port_from_config)) |config_port| {
+            port = config_port;
+        }
+    }
+
     // Agent mode has no HTTP health endpoint — skip health checks (port=0).
     const effective_port: u16 = if (std.mem.eql(u8, launch_cmd, "agent")) 0 else port;
+
+    // Resolve instance working directory so the binary can find its config.
+    const inst_dir = paths.instanceDir(allocator, component, name) catch return helpers.serverError();
+    defer allocator.free(inst_dir);
 
     // Start via manager — pass launch_cmd as an argv argument so the binary
     // actually receives it (e.g. "nullclaw gateway" or "nullclaw agent").
     const launch_args: []const []const u8 = &.{launch_cmd};
-    manager.startInstance(component, name, bin_path, launch_args, effective_port, health_endpoint, "", "", launch_cmd) catch return helpers.serverError();
+    manager.startInstance(component, name, bin_path, launch_args, effective_port, health_endpoint, inst_dir, "", launch_cmd) catch return helpers.serverError();
     return jsonOk("{\"status\":\"started\"}");
 }
 

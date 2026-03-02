@@ -6,6 +6,7 @@ pub const CliError = error{
 
 pub const RunResult = struct {
     stdout: []const u8,
+    stderr: []const u8,
     success: bool,
 };
 
@@ -23,10 +24,10 @@ pub fn run(allocator: std.mem.Allocator, binary_path: []const u8, args: []const 
         .argv = argv.items,
         .cwd = cwd,
     }) catch return error.CommandFailed;
-    defer allocator.free(result.stderr);
 
     return .{
         .stdout = result.stdout,
+        .stderr = result.stderr,
         .success = switch (result.term) {
             .Exited => |code| code == 0,
             else => false,
@@ -37,6 +38,7 @@ pub fn run(allocator: std.mem.Allocator, binary_path: []const u8, args: []const 
 /// Run --export-manifest on a component binary and return the raw JSON.
 pub fn exportManifest(allocator: std.mem.Allocator, binary_path: []const u8) ![]const u8 {
     const result = try run(allocator, binary_path, &.{"--export-manifest"}, null);
+    defer allocator.free(result.stderr);
     if (!result.success) {
         allocator.free(result.stdout);
         return error.CommandFailed;
@@ -47,6 +49,7 @@ pub fn exportManifest(allocator: std.mem.Allocator, binary_path: []const u8) ![]
 /// Run --list-models on a component binary and return the raw JSON array.
 pub fn listModels(allocator: std.mem.Allocator, binary_path: []const u8, provider: []const u8, api_key: []const u8) ![]const u8 {
     const result = try run(allocator, binary_path, &.{ "--list-models", "--provider", provider, "--api-key", api_key }, null);
+    defer allocator.free(result.stderr);
     if (!result.success) {
         allocator.free(result.stdout);
         return error.CommandFailed;
@@ -54,12 +57,19 @@ pub fn listModels(allocator: std.mem.Allocator, binary_path: []const u8, provide
     return result.stdout;
 }
 
+pub const FromJsonResult = struct {
+    stdout: []const u8,
+    stderr: []const u8,
+    success: bool,
+};
+
 /// Run --from-json on a component binary with the given JSON answers.
-pub fn fromJson(allocator: std.mem.Allocator, binary_path: []const u8, json_answers: []const u8, cwd: ?[]const u8) ![]const u8 {
+/// On success returns stdout. On failure returns error with stderr detail available via fromJsonDetail().
+pub fn fromJson(allocator: std.mem.Allocator, binary_path: []const u8, json_answers: []const u8, cwd: ?[]const u8) !FromJsonResult {
     const result = try run(allocator, binary_path, &.{ "--from-json", json_answers }, cwd);
-    if (!result.success) {
-        allocator.free(result.stdout);
-        return error.CommandFailed;
-    }
-    return result.stdout;
+    return .{
+        .stdout = result.stdout,
+        .stderr = result.stderr,
+        .success = result.success,
+    };
 }

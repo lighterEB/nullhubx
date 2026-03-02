@@ -12,6 +12,9 @@ const state_mod = @import("core/state.zig");
 const paths_mod = @import("core/paths.zig");
 const manager_mod = @import("supervisor/manager.zig");
 const wizard_api = @import("api/wizard.zig");
+const ui_modules = @import("installer/ui_modules.zig");
+const orchestrator = @import("installer/orchestrator.zig");
+const registry = @import("installer/registry.zig");
 
 const version = "0.1.0";
 const max_request_size: usize = 65_536;
@@ -68,6 +71,159 @@ pub const Server = struct {
         self.state.deinit();
         self.allocator.destroy(self.state);
         self.paths.deinit(self.allocator);
+    }
+
+    /// Start all instances that have auto_start enabled.
+    pub fn autoStartAll(self: *Server) void {
+        var comp_it = self.state.instances.iterator();
+        while (comp_it.next()) |comp_entry| {
+            var inst_it = comp_entry.value_ptr.iterator();
+            while (inst_it.next()) |inst_entry| {
+                if (inst_entry.value_ptr.auto_start) {
+                    const comp_name = comp_entry.key_ptr.*;
+                    const inst_name = inst_entry.key_ptr.*;
+                    _ = instances_api.handleStart(self.allocator, self.state, self.manager, self.paths, comp_name, inst_name, "");
+                }
+            }
+        }
+    }
+
+    fn handleUiModules(self: *Server, allocator: std.mem.Allocator) Response {
+        const ui_path = std.fs.path.join(allocator, &.{ self.paths.root, "ui" }) catch {
+            return jsonResponse("{\"modules\":{}}");
+        };
+        defer allocator.free(ui_path);
+
+        var dir = std.fs.openDirAbsolute(ui_path, .{ .iterate = true }) catch {
+            return jsonResponse("{\"modules\":{}}");
+        };
+        defer dir.close();
+
+        var buf: [4096]u8 = undefined;
+        var stream = std.io.fixedBufferStream(&buf);
+        const writer = stream.writer();
+
+        writer.writeAll("{\"modules\":{") catch return jsonResponse("{\"modules\":{}}");
+
+        var first = true;
+        var it = dir.iterate();
+        while (it.next() catch null) |entry| {
+            if (entry.kind != .directory) continue;
+            const at_idx = std.mem.indexOfScalar(u8, entry.name, '@') orelse continue;
+            const mod_name = entry.name[0..at_idx];
+            const mod_version = entry.name[at_idx + 1 ..];
+            if (mod_name.len == 0 or mod_version.len == 0) continue;
+
+            if (!first) writer.writeAll(",") catch {};
+            first = false;
+            writer.print("\"{s}\":\"{s}\"", .{ mod_name, mod_version }) catch {};
+        }
+
+        writer.writeAll("}}") catch {};
+
+        const json = allocator.dupe(u8, stream.getWritten()) catch return jsonResponse("{\"modules\":{}}");
+        return jsonResponse(json);
+    }
+
+    fn handleAvailableUiModules(self: *Server, allocator: std.mem.Allocator) Response {
+        _ = self;
+        var buf: [4096]u8 = undefined;
+        var stream = std.io.fixedBufferStream(&buf);
+        const writer = stream.writer();
+        writer.writeAll("[") catch return jsonResponse("[]");
+        var first = true;
+        for (&registry.known_components) |comp| {
+            for (comp.ui_modules) |ui_mod| {
+                if (!first) writer.writeAll(",") catch {};
+                first = false;
+                writer.print("{{\"name\":\"{s}\",\"repo\":\"{s}\",\"component\":\"{s}\"}}", .{ ui_mod.name, ui_mod.repo, comp.name }) catch {};
+            }
+        }
+        writer.writeAll("]") catch {};
+        const json = allocator.dupe(u8, stream.getWritten()) catch return jsonResponse("[]");
+        return jsonResponse(json);
+    }
+
+    fn handleInstallUiModule(self: *Server, allocator: std.mem.Allocator, mod_name: []const u8) Response {
+        // Find the module in the registry
+        var ui_mod_ref: ?registry.UiModuleRef = null;
+        for (&registry.known_components) |comp| {
+            for (comp.ui_modules) |ui_mod| {
+                if (std.mem.eql(u8, ui_mod.name, mod_name)) {
+                    ui_mod_ref = ui_mod;
+                    break;
+                }
+            }
+        }
+        const ui_mod = ui_mod_ref orelse return .{
+            .status = "404 Not Found",
+            .content_type = "application/json",
+            .body = "{\"error\":\"unknown module\"}",
+        };
+        orchestrator.installUiModule(allocator, self.paths, ui_mod, "latest") catch {
+            return .{
+                .status = "500 Internal Server Error",
+                .content_type = "application/json",
+                .body = "{\"error\":\"module install failed\"}",
+            };
+        };
+        return jsonResponse("{\"status\":\"ok\"}");
+    }
+
+    fn handleUninstallUiModule(self: *Server, allocator: std.mem.Allocator, mod_name: []const u8) Response {
+        // Scan ui/ dir for any version of this module
+        const ui_path = std.fs.path.join(allocator, &.{ self.paths.root, "ui" }) catch {
+            return .{ .status = "404 Not Found", .content_type = "application/json", .body = "{\"error\":\"not found\"}" };
+        };
+        defer allocator.free(ui_path);
+
+        var dir = std.fs.openDirAbsolute(ui_path, .{ .iterate = true }) catch {
+            return .{ .status = "404 Not Found", .content_type = "application/json", .body = "{\"error\":\"not found\"}" };
+        };
+        defer dir.close();
+
+        var deleted = false;
+        var it = dir.iterate();
+        while (it.next() catch null) |entry| {
+            if (entry.kind != .directory) continue;
+            const at_idx = std.mem.indexOfScalar(u8, entry.name, '@') orelse continue;
+            if (std.mem.eql(u8, entry.name[0..at_idx], mod_name)) {
+                dir.deleteTree(entry.name) catch continue;
+                deleted = true;
+            }
+        }
+
+        if (!deleted) {
+            return .{ .status = "404 Not Found", .content_type = "application/json", .body = "{\"error\":\"module not installed\"}" };
+        }
+        return jsonResponse("{\"status\":\"ok\"}");
+    }
+
+    fn serveUiModuleFile(self: *Server, allocator: std.mem.Allocator, target: []const u8) Response {
+        if (std.mem.indexOf(u8, target, "..") != null) {
+            return .{ .status = "400 Bad Request", .content_type = "text/plain", .body = "bad request" };
+        }
+
+        const rel = if (target.len > 1) target[1..] else return .{
+            .status = "404 Not Found",
+            .content_type = "text/plain",
+            .body = "not found",
+        };
+        const full_path = std.fs.path.join(allocator, &.{ self.paths.root, rel }) catch {
+            return .{ .status = "500 Internal Server Error", .content_type = "text/plain", .body = "internal server error" };
+        };
+        defer allocator.free(full_path);
+
+        const file = std.fs.openFileAbsolute(full_path, .{}) catch {
+            return .{ .status = "404 Not Found", .content_type = "text/plain", .body = "not found" };
+        };
+        defer file.close();
+
+        const content = file.readToEndAlloc(allocator, 10 * 1024 * 1024) catch {
+            return .{ .status = "500 Internal Server Error", .content_type = "text/plain", .body = "internal server error" };
+        };
+
+        return .{ .status = "200 OK", .content_type = contentType(full_path), .body = content };
     }
 
     pub fn run(self: *Server) !void {
@@ -196,6 +352,28 @@ pub const Server = struct {
             if (std.mem.eql(u8, target, "/api/updates")) {
                 const ur = updates_api.handleCheckUpdates(allocator, self.state);
                 return .{ .status = ur.status, .content_type = ur.content_type, .body = ur.body };
+            }
+            if (std.mem.eql(u8, target, "/api/ui-modules")) {
+                return self.handleUiModules(allocator);
+            }
+            if (std.mem.eql(u8, target, "/api/ui-modules/available")) {
+                return self.handleAvailableUiModules(allocator);
+            }
+        }
+
+        // UI module install/uninstall
+        if (std.mem.startsWith(u8, target, "/api/ui-modules/") and !std.mem.eql(u8, target, "/api/ui-modules/available")) {
+            const rest = target["/api/ui-modules/".len..];
+            if (std.mem.eql(u8, method, "POST") and std.mem.endsWith(u8, rest, "/install")) {
+                const mod_name = rest[0 .. rest.len - "/install".len];
+                if (mod_name.len > 0) {
+                    return self.handleInstallUiModule(allocator, mod_name);
+                }
+            }
+            if (std.mem.eql(u8, method, "DELETE")) {
+                if (rest.len > 0 and std.mem.indexOfScalar(u8, rest, '/') == null) {
+                    return self.handleUninstallUiModule(allocator, rest);
+                }
             }
         }
 
@@ -345,8 +523,12 @@ pub const Server = struct {
             if (wizard_api.extractComponentName(target)) |comp_name| {
                 if (std.mem.eql(u8, method, "GET")) {
                     if (wizard_api.handleGetWizard(allocator, comp_name, self.paths)) |json| {
+                        const status = if (std.mem.indexOf(u8, json, "\"error\"") != null)
+                            "400 Bad Request"
+                        else
+                            "200 OK";
                         return .{
-                            .status = "200 OK",
+                            .status = status,
                             .content_type = "application/json",
                             .body = json,
                         };
@@ -447,6 +629,17 @@ pub const Server = struct {
             }
             if (instances_api.dispatch(allocator, self.state, self.manager, self.paths, method, target, body)) |api_resp| {
                 return .{ .status = api_resp.status, .content_type = api_resp.content_type, .body = api_resp.body };
+            }
+        }
+
+        // Serve UI module files from data directory (~/.nullhub/ui/{name}@{version}/...)
+        if (!std.mem.startsWith(u8, target, "/api/") and std.mem.startsWith(u8, target, "/ui/")) {
+            // Check if this looks like a module path: /ui/{name}@{version}/...
+            if (target.len > 4) {
+                const after_ui = target[4..]; // after "/ui/"
+                if (std.mem.indexOfScalar(u8, after_ui, '@') != null) {
+                    return self.serveUiModuleFile(allocator, target);
+                }
             }
         }
 

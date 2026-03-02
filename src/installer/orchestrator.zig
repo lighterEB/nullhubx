@@ -9,6 +9,7 @@ const state_mod = @import("../core/state.zig");
 const platform = @import("../core/platform.zig");
 const local_binary = @import("../core/local_binary.zig");
 const manager_mod = @import("../supervisor/manager.zig");
+const ui_modules_mod = @import("ui_modules.zig");
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -36,6 +37,24 @@ pub const InstallError = error{
     StateError,
     StartFailed,
 };
+
+/// Last error detail (for diagnostics in API responses).
+var last_error_detail: [512]u8 = undefined;
+var last_error_detail_len: usize = 0;
+
+pub fn getLastErrorDetail() []const u8 {
+    return last_error_detail[0..last_error_detail_len];
+}
+
+fn setLastErrorDetail(msg: []const u8) void {
+    const n = @min(msg.len, last_error_detail.len);
+    @memcpy(last_error_detail[0..n], msg[0..n]);
+    last_error_detail_len = n;
+}
+
+fn clearLastErrorDetail() void {
+    last_error_detail_len = 0;
+}
 
 // ─── Install orchestrator ────────────────────────────────────────────────────
 
@@ -147,39 +166,54 @@ pub fn install(
     defer allocator.free(bin_path);
 
     // 4. Run --export-manifest to get launch/health/port info
-    const manifest_json = component_cli.exportManifest(allocator, bin_path) catch
-        return error.ManifestNotFound;
-    defer allocator.free(manifest_json);
-    const parsed_manifest = manifest_mod.parseManifest(allocator, manifest_json) catch
-        return error.ManifestParseError;
-    defer parsed_manifest.deinit();
-    const m = parsed_manifest.value;
+    var parsed_manifest: ?std.json.Parsed(manifest_mod.Manifest) = null;
+    if (component_cli.exportManifest(allocator, bin_path)) |json| {
+        defer allocator.free(json);
+        parsed_manifest = manifest_mod.parseManifest(allocator, json) catch null;
+    } else |_| {}
+
+    // Use parsed manifest values or fall back to registry defaults
+    const launch_command = if (parsed_manifest) |pm| pm.value.launch.command else comp.default_launch_command;
+    const health_endpoint = if (parsed_manifest) |pm| pm.value.health.endpoint else comp.default_health_endpoint;
+    const default_port = if (parsed_manifest) |pm| (if (pm.value.ports.len > 0) pm.value.ports[0].default else comp.default_port) else comp.default_port;
+    defer if (parsed_manifest) |pm| pm.deinit();
 
     // 5. Run --from-json to generate config (component owns its config generation)
-    const from_json_result = component_cli.fromJson(allocator, bin_path, opts.answers_json, inst_dir) catch
+    clearLastErrorDetail();
+    const from_json_result = component_cli.fromJson(allocator, bin_path, opts.answers_json, inst_dir) catch {
+        setLastErrorDetail("failed to execute binary");
         return error.ConfigGenerationFailed;
-    defer allocator.free(from_json_result);
+    };
+    defer allocator.free(from_json_result.stdout);
+    defer allocator.free(from_json_result.stderr);
+    if (!from_json_result.success) {
+        if (from_json_result.stderr.len > 0) {
+            std.debug.print("--from-json stderr: {s}\n", .{from_json_result.stderr});
+            setLastErrorDetail(from_json_result.stderr);
+        }
+        return error.ConfigGenerationFailed;
+    }
 
     // 6. Register in state.json
     s.addInstance(opts.component, opts.instance_name, .{
         .version = version,
         .auto_start = true,
-        .launch_mode = m.launch.command,
+        .launch_mode = launch_command,
     }) catch return error.StateError;
     s.save() catch return error.StateError;
 
     // 7. Start process via Manager
-    const port = resolveConfiguredPort(allocator, opts.answers_json, if (m.ports.len > 0) m.ports[0].default else 0);
+    const port = resolveConfiguredPort(allocator, opts.answers_json, default_port);
     mgr.startInstance(
         opts.component,
         opts.instance_name,
         bin_path,
         &.{},
         port,
-        m.health.endpoint,
+        health_endpoint,
         inst_dir,
         "",
-        m.launch.command,
+        launch_command,
     ) catch return error.StartFailed;
 
     return .{
@@ -203,7 +237,7 @@ fn resolveConfiguredPort(allocator: std.mem.Allocator, answers_json: []const u8,
         allocator,
         answers_json,
         .{ .allocate = .alloc_if_needed, .ignore_unknown_fields = true },
-    ) catch return default_port;
+    ) catch return findFreePort(default_port);
     defer parsed.deinit();
 
     if (parsed.value.port) |v| return v;
@@ -212,7 +246,19 @@ fn resolveConfiguredPort(allocator: std.mem.Allocator, answers_json: []const u8,
         if (a.port) |v| return v;
         if (a.gateway_port) |v| return v;
     }
-    return default_port;
+    return findFreePort(default_port);
+}
+
+fn findFreePort(start: u16) u16 {
+    var port: u16 = start;
+    while (port < 65535) : (port += 1) {
+        const addr = std.net.Address.resolveIp("127.0.0.1", port) catch continue;
+        const sock = std.posix.socket(addr.any.family, std.posix.SOCK.STREAM, std.posix.IPPROTO.TCP) catch continue;
+        defer std.posix.close(sock);
+        std.posix.bind(sock, &addr.any, addr.getOsSockLen()) catch continue;
+        return port;
+    }
+    return start;
 }
 
 fn stageLocalBinary(allocator: std.mem.Allocator, p: paths_mod.Paths, component: []const u8) ?struct { version: []const u8, bin_path: []const u8 } {
@@ -237,6 +283,101 @@ fn stageLocalBinary(allocator: std.mem.Allocator, p: paths_mod.Paths, component:
     } else |_| {}
 
     return .{ .version = version, .bin_path = bin_path };
+}
+
+/// Install a UI module: try local dev build first, then GitHub download.
+pub fn installUiModule(
+    allocator: std.mem.Allocator,
+    p: paths_mod.Paths,
+    ui_mod: registry.UiModuleRef,
+    version: []const u8,
+) !void {
+    const dest = try p.uiModule(allocator, ui_mod.name, version);
+    defer allocator.free(dest);
+
+    // Skip if already installed
+    if (ui_modules_mod.isModuleInstalled(dest)) return;
+
+    // Try local dev build first (look for sibling repo)
+    if (!builtin.is_test) {
+        if (buildLocalUiModule(allocator, ui_mod.name, dest)) return;
+    }
+
+    // Fall back to downloading from GitHub releases
+    ui_modules_mod.downloadUiModule(allocator, ui_mod.repo, ui_mod.name, version, dest) catch {
+        return error.DownloadFailed;
+    };
+}
+
+/// Build a UI module from a local sibling repository.
+/// Looks for ../{module_name}/ relative to CWD, runs `npm run build:module`,
+/// and copies the dist/ output to dest_dir.
+fn buildLocalUiModule(allocator: std.mem.Allocator, module_name: []const u8, dest_dir: []const u8) bool {
+    const cwd = std.fs.cwd().realpathAlloc(allocator, ".") catch return false;
+    defer allocator.free(cwd);
+
+    const parent = std.fs.path.dirname(cwd) orelse return false;
+    const module_dir = std.fs.path.join(allocator, &.{ parent, module_name }) catch return false;
+    defer allocator.free(module_dir);
+
+    // Check if the module repo exists locally
+    {
+        var dir = std.fs.openDirAbsolute(module_dir, .{}) catch return false;
+        dir.close();
+    }
+
+    std.debug.print("Building UI module '{s}' from local source: {s}\n", .{ module_name, module_dir });
+
+    const module_dir_z = allocator.dupeZ(u8, module_dir) catch return false;
+    defer allocator.free(module_dir_z);
+
+    // Run npm run build:module
+    const build_result = std.process.Child.run(.{
+        .allocator = allocator,
+        .argv = &.{ "npm", "run", "build:module" },
+        .cwd = module_dir_z,
+    }) catch return false;
+    defer allocator.free(build_result.stdout);
+    defer allocator.free(build_result.stderr);
+
+    switch (build_result.term) {
+        .Exited => |code| if (code != 0) {
+            std.debug.print("UI module build failed (exit {d}):\n{s}\n", .{ code, build_result.stderr });
+            return false;
+        },
+        else => return false,
+    }
+
+    // Create dest_dir
+    std.fs.makeDirAbsolute(dest_dir) catch |err| switch (err) {
+        error.PathAlreadyExists => {},
+        error.FileNotFound => {
+            if (std.fs.path.dirname(dest_dir)) |p| {
+                std.fs.makeDirAbsolute(p) catch return false;
+                std.fs.makeDirAbsolute(dest_dir) catch return false;
+            } else return false;
+        },
+        else => return false,
+    };
+
+    // Copy dist/ contents to dest_dir
+    const dist_path = std.fs.path.join(allocator, &.{ module_dir, "dist" }) catch return false;
+    defer allocator.free(dist_path);
+
+    const copy_cmd = std.fmt.allocPrint(allocator, "cp -r {s}/. {s}/", .{ dist_path, dest_dir }) catch return false;
+    defer allocator.free(copy_cmd);
+
+    const cp_result = std.process.Child.run(.{
+        .allocator = allocator,
+        .argv = &.{ "sh", "-c", copy_cmd },
+    }) catch return false;
+    defer allocator.free(cp_result.stdout);
+    defer allocator.free(cp_result.stderr);
+
+    return switch (cp_result.term) {
+        .Exited => |code| code == 0,
+        else => false,
+    };
 }
 
 /// Write content to a file at an absolute path, creating the file if needed.

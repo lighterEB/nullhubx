@@ -38,6 +38,8 @@ pub fn main() !void {
             const sup_thread = try std.Thread.spawn(.{}, supervisorLoop, .{ &mgr, &mutex });
             sup_thread.detach();
 
+            srv.autoStartAll();
+
             if (!opts.no_open) openBrowser(allocator, opts.host, opts.port);
 
             try srv.run();

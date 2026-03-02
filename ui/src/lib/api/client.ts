@@ -5,7 +5,10 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json' },
     ...options
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `HTTP ${res.status}`);
+  }
   return res.json();
 }
 
@@ -62,4 +65,9 @@ export const api = {
 
   importInstance: (component: string) =>
     request<any>(`/instances/${component}/import`, { method: 'POST' }),
+
+  getUiModules: () => request<{ modules: Record<string, string> }>('/ui-modules'),
+  getAvailableUiModules: () => request<{ name: string; repo: string; component: string }[]>('/ui-modules/available'),
+  installUiModule: (name: string) => request<any>(`/ui-modules/${name}/install`, { method: 'POST' }),
+  uninstallUiModule: (name: string) => request<any>(`/ui-modules/${name}`, { method: 'DELETE' }),
 };

@@ -2,7 +2,13 @@
   import { onMount, onDestroy } from 'svelte';
   import { mount, unmount } from 'svelte';
 
-  let { moduleName = '', moduleVersion = '', instanceUrl = '', token = '' } = $props();
+  let { moduleName = '', moduleVersion = '', instanceUrl = '', token = '', moduleProps = {} } = $props<{
+    moduleName?: string;
+    moduleVersion?: string;
+    instanceUrl?: string;
+    token?: string;
+    moduleProps?: Record<string, any>;
+  }>();
   let container: HTMLElement;
   let mountedComponent: any = null;
   let error = $state('');
@@ -11,16 +17,18 @@
     try {
       const moduleUrl = `/ui/${moduleName}@${moduleVersion}/module.js`;
       const mod = await import(/* @vite-ignore */ moduleUrl);
+      const opts = {
+        instanceUrl,
+        token,
+        theme: 'dark',
+        ...moduleProps
+      };
       if (mod.create && container) {
-        mountedComponent = mod.create(container, {
-          instanceUrl,
-          token,
-          theme: 'dark'
-        });
+        mountedComponent = mod.create(container, opts);
       } else if (mod.default && container) {
         mountedComponent = mount(mod.default, {
           target: container,
-          props: { instanceUrl, token, theme: 'dark' }
+          props: opts
         });
       }
     } catch (e) {
@@ -29,8 +37,12 @@
   });
 
   onDestroy(() => {
-    if (mountedComponent && typeof unmount === 'function') {
-      try { unmount(mountedComponent); } catch {}
+    if (mountedComponent) {
+      if (mountedComponent.destroy && typeof mountedComponent.destroy === 'function') {
+        try { mountedComponent.destroy(); } catch {}
+      } else if (typeof unmount === 'function') {
+        try { unmount(mountedComponent); } catch {}
+      }
     }
   });
 </script>
