@@ -7,6 +7,7 @@ pub const config_writer = @import("wizard/config_writer.zig");
 pub const discovery = @import("discovery.zig");
 pub const downloader = @import("installer/downloader.zig");
 pub const health = @import("supervisor/health.zig");
+pub const helpers = @import("api/helpers.zig");
 pub const instances_api = @import("api/instances.zig");
 pub const logs_api = @import("api/logs.zig");
 pub const main = @import("main.zig");
@@ -35,6 +36,7 @@ test {
     _ = discovery;
     _ = downloader;
     _ = health;
+    _ = helpers;
     _ = instances_api;
     _ = logs_api;
     _ = main;

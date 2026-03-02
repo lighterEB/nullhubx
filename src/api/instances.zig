@@ -1,5 +1,13 @@
 const std = @import("std");
 const state_mod = @import("../core/state.zig");
+const helpers = @import("helpers.zig");
+
+const ApiResponse = helpers.ApiResponse;
+const appendEscaped = helpers.appendEscaped;
+const jsonOk = helpers.jsonOk;
+const notFound = helpers.notFound;
+const badRequest = helpers.badRequest;
+const methodNotAllowed = helpers.methodNotAllowed;
 
 // ─── Path Parsing ────────────────────────────────────────────────────────────
 
@@ -36,56 +44,7 @@ pub fn parsePath(target: []const u8) ?ParsedPath {
     return .{ .component = component, .name = name, .action = action };
 }
 
-// ─── Response helpers ────────────────────────────────────────────────────────
-
-pub const ApiResponse = struct {
-    status: []const u8,
-    content_type: []const u8,
-    body: []const u8,
-};
-
-fn jsonOk(body: []const u8) ApiResponse {
-    return .{ .status = "200 OK", .content_type = "application/json", .body = body };
-}
-
-fn notFound() ApiResponse {
-    return .{
-        .status = "404 Not Found",
-        .content_type = "application/json",
-        .body = "{\"error\":\"not found\"}",
-    };
-}
-
-fn badRequest(msg: []const u8) ApiResponse {
-    return .{
-        .status = "400 Bad Request",
-        .content_type = "application/json",
-        .body = msg,
-    };
-}
-
-fn methodNotAllowed() ApiResponse {
-    return .{
-        .status = "405 Method Not Allowed",
-        .content_type = "application/json",
-        .body = "{\"error\":\"method not allowed\"}",
-    };
-}
-
 // ─── JSON helpers ────────────────────────────────────────────────────────────
-
-fn appendEscaped(buf: *std.array_list.Managed(u8), s: []const u8) !void {
-    for (s) |c| {
-        switch (c) {
-            '"' => try buf.appendSlice("\\\""),
-            '\\' => try buf.appendSlice("\\\\"),
-            '\n' => try buf.appendSlice("\\n"),
-            '\r' => try buf.appendSlice("\\r"),
-            '\t' => try buf.appendSlice("\\t"),
-            else => try buf.append(c),
-        }
-    }
-}
 
 fn appendInstanceJson(buf: *std.array_list.Managed(u8), entry: state_mod.InstanceEntry, status_str: []const u8) !void {
     try buf.appendSlice("{\"version\":\"");

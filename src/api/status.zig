@@ -1,31 +1,12 @@
 const std = @import("std");
 const state_mod = @import("../core/state.zig");
 const platform = @import("../core/platform.zig");
+const helpers = @import("helpers.zig");
+
+const ApiResponse = helpers.ApiResponse;
+const appendEscaped = helpers.appendEscaped;
 
 const version = "0.1.0";
-
-// ─── Response types ──────────────────────────────────────────────────────────
-
-pub const ApiResponse = struct {
-    status: []const u8,
-    content_type: []const u8,
-    body: []const u8,
-};
-
-// ─── JSON helpers ────────────────────────────────────────────────────────────
-
-fn appendEscaped(buf: *std.array_list.Managed(u8), s: []const u8) !void {
-    for (s) |c| {
-        switch (c) {
-            '"' => try buf.appendSlice("\\\""),
-            '\\' => try buf.appendSlice("\\\\"),
-            '\n' => try buf.appendSlice("\\n"),
-            '\r' => try buf.appendSlice("\\r"),
-            '\t' => try buf.appendSlice("\\t"),
-            else => try buf.append(c),
-        }
-    }
-}
 
 fn appendInstanceJson(buf: *std.array_list.Managed(u8), entry: state_mod.InstanceEntry) !void {
     try buf.appendSlice("{\"version\":\"");

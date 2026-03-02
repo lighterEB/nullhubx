@@ -1,48 +1,12 @@
 const std = @import("std");
 const state_mod = @import("../core/state.zig");
+const helpers = @import("helpers.zig");
 
-// ─── Response helpers ────────────────────────────────────────────────────────
-
-pub const ApiResponse = struct {
-    status: []const u8,
-    content_type: []const u8,
-    body: []const u8,
-};
-
-fn jsonOk(body: []const u8) ApiResponse {
-    return .{ .status = "200 OK", .content_type = "application/json", .body = body };
-}
-
-fn notFound() ApiResponse {
-    return .{
-        .status = "404 Not Found",
-        .content_type = "application/json",
-        .body = "{\"error\":\"not found\"}",
-    };
-}
-
-fn serverError() ApiResponse {
-    return .{
-        .status = "500 Internal Server Error",
-        .content_type = "application/json",
-        .body = "{\"error\":\"internal error\"}",
-    };
-}
-
-// ─── JSON helpers ────────────────────────────────────────────────────────────
-
-fn appendEscaped(buf: *std.array_list.Managed(u8), s: []const u8) !void {
-    for (s) |c| {
-        switch (c) {
-            '"' => try buf.appendSlice("\\\""),
-            '\\' => try buf.appendSlice("\\\\"),
-            '\n' => try buf.appendSlice("\\n"),
-            '\r' => try buf.appendSlice("\\r"),
-            '\t' => try buf.appendSlice("\\t"),
-            else => try buf.append(c),
-        }
-    }
-}
+const ApiResponse = helpers.ApiResponse;
+const appendEscaped = helpers.appendEscaped;
+const jsonOk = helpers.jsonOk;
+const notFound = helpers.notFound;
+const serverError = helpers.serverError;
 
 // ─── Path Parsing ────────────────────────────────────────────────────────────
 

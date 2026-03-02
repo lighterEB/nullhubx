@@ -1,5 +1,8 @@
 const std = @import("std");
 const registry = @import("../installer/registry.zig");
+const helpers = @import("helpers.zig");
+
+const appendEscaped = helpers.appendEscaped;
 
 // ─── Path Parsing ────────────────────────────────────────────────────────────
 
@@ -82,21 +85,6 @@ fn buildPostResponse(buf: *std.array_list.Managed(u8), component_name: []const u
     try buf.appendSlice("\",\"instance\":\"");
     try appendEscaped(buf, instance_name);
     try buf.appendSlice("\",\"message\":\"Installation started\"}");
-}
-
-// ─── JSON helpers ────────────────────────────────────────────────────────────
-
-fn appendEscaped(buf: *std.array_list.Managed(u8), s: []const u8) !void {
-    for (s) |c| {
-        switch (c) {
-            '"' => try buf.appendSlice("\\\""),
-            '\\' => try buf.appendSlice("\\\\"),
-            '\n' => try buf.appendSlice("\\n"),
-            '\r' => try buf.appendSlice("\\r"),
-            '\t' => try buf.appendSlice("\\t"),
-            else => try buf.append(c),
-        }
-    }
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
