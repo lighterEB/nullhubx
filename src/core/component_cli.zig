@@ -2,7 +2,6 @@ const std = @import("std");
 
 pub const CliError = error{
     CommandFailed,
-    SpawnFailed,
 };
 
 pub const RunResult = struct {
