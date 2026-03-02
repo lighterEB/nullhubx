@@ -2,6 +2,8 @@ const std = @import("std");
 pub const root = @import("root.zig");
 const cli = root.cli;
 const server = root.server;
+const paths_mod = root.paths;
+const manager_mod = root.manager;
 
 const version = "0.1.0";
 
@@ -20,7 +22,21 @@ pub fn main() !void {
         .version => std.debug.print("nullhub v{s}\n", .{version}),
         .serve => |opts| {
             std.debug.print("nullhub v{s}\n", .{version});
-            var srv = server.Server.init(allocator, opts.host, opts.port);
+
+            var paths = try paths_mod.Paths.init(allocator, null);
+            defer paths.deinit(allocator);
+            try paths.ensureDirs();
+
+            var mgr = manager_mod.Manager.init(allocator, paths);
+            defer mgr.deinit();
+            var mutex = std.Thread.Mutex{};
+
+            var srv = try server.Server.init(allocator, opts.host, opts.port, &mgr, &mutex);
+            defer srv.deinit();
+
+            const sup_thread = try std.Thread.spawn(.{}, supervisorLoop, .{ &mgr, &mutex });
+            sup_thread.detach();
+
             try srv.run();
         },
         .status => |opts| {
@@ -63,5 +79,16 @@ pub fn main() !void {
         },
         .add_source => |opts| std.debug.print("add-source {s} (not yet implemented)\n", .{opts.repo}),
         .help => cli.printUsage(),
+    }
+}
+
+fn supervisorLoop(manager: *manager_mod.Manager, mutex: *std.Thread.Mutex) void {
+    while (true) {
+        {
+            mutex.lock();
+            defer mutex.unlock();
+            manager.tick();
+        }
+        std.time.sleep(1_000_000_000); // 1 second
     }
 }

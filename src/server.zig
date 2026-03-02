@@ -10,6 +10,7 @@ const settings_api = @import("api/settings.zig");
 const updates_api = @import("api/updates.zig");
 const state_mod = @import("core/state.zig");
 const paths_mod = @import("core/paths.zig");
+const manager_mod = @import("supervisor/manager.zig");
 const wizard_api = @import("api/wizard.zig");
 
 const version = "0.1.0";
@@ -23,9 +24,11 @@ pub const Server = struct {
     auth_token: ?[]const u8 = null,
     state: *state_mod.State,
     paths: paths_mod.Paths,
+    manager: *manager_mod.Manager,
+    mutex: *std.Thread.Mutex,
     start_time: i64,
 
-    pub fn init(allocator: std.mem.Allocator, host: []const u8, port: u16) !Server {
+    pub fn init(allocator: std.mem.Allocator, host: []const u8, port: u16, manager: *manager_mod.Manager, mutex: *std.Thread.Mutex) !Server {
         var paths = try paths_mod.Paths.init(allocator, null);
         errdefer paths.deinit(allocator);
 
@@ -41,18 +44,22 @@ pub const Server = struct {
             .port = port,
             .state = state,
             .paths = paths,
+            .manager = manager,
+            .mutex = mutex,
             .start_time = std.time.timestamp(),
         };
     }
 
     /// Initialize a server with an explicit state and paths (used by tests).
-    fn initWithState(allocator: std.mem.Allocator, state: *state_mod.State, paths: paths_mod.Paths) Server {
+    fn initWithState(allocator: std.mem.Allocator, state: *state_mod.State, paths: paths_mod.Paths, manager: *manager_mod.Manager, mutex: *std.Thread.Mutex) Server {
         return .{
             .allocator = allocator,
             .host = "127.0.0.1",
             .port = 9800,
             .state = state,
             .paths = paths,
+            .manager = manager,
+            .mutex = mutex,
             .start_time = std.time.timestamp(),
         };
     }
@@ -124,7 +131,9 @@ pub const Server = struct {
             }
         }
 
-        // Route dispatch
+        // Route dispatch (lock mutex so supervisor thread doesn't race)
+        self.mutex.lock();
+        defer self.mutex.unlock();
         const response = self.route(alloc, method, target, body);
         try sendResponse(conn.stream, response);
     }
@@ -565,20 +574,25 @@ fn serveStaticFile(allocator: std.mem.Allocator, target: []const u8) Response {
 const TestContext = struct {
     state: *state_mod.State,
     paths: paths_mod.Paths,
+    manager: manager_mod.Manager,
+    mutex: std.Thread.Mutex,
     server: Server,
 
     fn init(allocator: std.mem.Allocator) TestContext {
         const state = allocator.create(state_mod.State) catch @panic("OOM");
         state.* = state_mod.State.init(allocator, "/tmp/nullhub-test-server-state.json");
         const paths = paths_mod.Paths.init(allocator, "/tmp/nullhub-test-server") catch @panic("Paths.init failed");
-        return .{
-            .state = state,
-            .paths = paths,
-            .server = Server.initWithState(allocator, state, paths),
-        };
+        var ctx: TestContext = undefined;
+        ctx.state = state;
+        ctx.paths = paths;
+        ctx.manager = manager_mod.Manager.init(allocator, paths);
+        ctx.mutex = .{};
+        ctx.server = Server.initWithState(allocator, state, paths, &ctx.manager, &ctx.mutex);
+        return ctx;
     }
 
     fn deinit(self: *TestContext, allocator: std.mem.Allocator) void {
+        self.manager.deinit();
         self.state.deinit();
         allocator.destroy(self.state);
         self.paths.deinit(allocator);
@@ -844,7 +858,11 @@ test "route POST /api/instances/{c}/{n}/update returns 404 for empty state" {
 }
 
 test "Server init sets fields" {
-    var s = try Server.init(std.testing.allocator, "127.0.0.1", 9800);
+    const paths = try paths_mod.Paths.init(std.testing.allocator, null);
+    var mgr = manager_mod.Manager.init(std.testing.allocator, paths);
+    defer mgr.deinit();
+    var mutex = std.Thread.Mutex{};
+    var s = try Server.init(std.testing.allocator, "127.0.0.1", 9800, &mgr, &mutex);
     defer s.deinit();
     try std.testing.expectEqualStrings("127.0.0.1", s.host);
     try std.testing.expectEqual(@as(u16, 9800), s.port);
