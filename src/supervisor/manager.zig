@@ -21,6 +21,15 @@ pub const ManagedInstance = struct {
     port: u16 = 0,
     health_endpoint: []const u8 = "/health",
 
+    // Launch config (needed for restart)
+    binary_path: []const u8 = "",
+    working_dir: []const u8 = "",
+    config_path: []const u8 = "",
+    launch_command: []const u8 = "",
+    // NOTE: Arguments containing spaces won't round-trip correctly through
+    // this space-separated representation. Prefer arguments without spaces.
+    launch_args_str: []const u8 = "", // space-separated additional args
+
     // Timing
     started_at: ?i64 = null,
     last_health_check: ?i64 = null,
@@ -67,6 +76,9 @@ pub const Manager = struct {
     pub fn deinit(self: *Manager) void {
         var it = self.instances.iterator();
         while (it.next()) |entry| {
+            if (entry.value_ptr.launch_args_str.len > 0) {
+                self.allocator.free(entry.value_ptr.launch_args_str);
+            }
             self.allocator.free(entry.key_ptr.*);
         }
         self.instances.deinit();
@@ -81,12 +93,26 @@ pub const Manager = struct {
         launch_args: []const []const u8,
         port: u16,
         health_endpoint: []const u8,
+        working_dir: []const u8,
+        config_path: []const u8,
+        launch_command: []const u8,
     ) !void {
         const key = try std.fmt.allocPrint(self.allocator, "{s}/{s}", .{ component, name });
 
+        // Build space-separated args string for restart
+        var args_buf = std.ArrayList(u8).init(self.allocator);
+        defer args_buf.deinit();
+        for (launch_args, 0..) |arg, i| {
+            if (i > 0) try args_buf.append(' ');
+            try args_buf.appendSlice(arg);
+        }
+        const launch_args_str = try args_buf.toOwnedSlice();
+
+        const cwd: ?[]const u8 = if (working_dir.len > 0) working_dir else null;
         const result = try process.spawn(self.allocator, .{
             .binary = binary_path,
             .argv = launch_args,
+            .cwd = cwd,
         });
 
         const now = std.time.milliTimestamp();
@@ -98,6 +124,11 @@ pub const Manager = struct {
             .child = result.child,
             .port = port,
             .health_endpoint = health_endpoint,
+            .binary_path = binary_path,
+            .working_dir = working_dir,
+            .config_path = config_path,
+            .launch_command = launch_command,
+            .launch_args_str = launch_args_str,
             .started_at = now,
             .starting_since = now,
         });
@@ -250,7 +281,7 @@ pub const Manager = struct {
         }
     }
 
-    fn tickRestarting(_: *Manager, inst: *ManagedInstance, now: i64) void {
+    fn tickRestarting(self: *Manager, inst: *ManagedInstance, now: i64) void {
         if (inst.restart_count >= inst.max_restarts) {
             inst.status = .failed;
             return;
@@ -269,10 +300,49 @@ pub const Manager = struct {
         inst.restart_count += 1;
         inst.last_restart_attempt = now;
 
-        // Mark as failed since we cannot restart without the binary path.
-        // A future iteration will store binary_path in ManagedInstance to
-        // allow automatic re-spawn.
-        inst.status = .failed;
+        // Reap the old child process before spawning a new one to avoid zombies
+        if (inst.child) |*old_child| {
+            _ = old_child.wait() catch {};
+            inst.child = null;
+        }
+
+        if (inst.binary_path.len == 0) {
+            inst.status = .failed;
+            return;
+        }
+
+        // Build argv from launch_args_str
+        var argv_list = std.ArrayList([]const u8).init(self.allocator);
+        defer argv_list.deinit();
+
+        if (inst.launch_args_str.len > 0) {
+            var it = std.mem.splitScalar(u8, inst.launch_args_str, ' ');
+            while (it.next()) |arg| {
+                if (arg.len > 0) {
+                    argv_list.append(arg) catch {
+                        inst.status = .failed;
+                        return;
+                    };
+                }
+            }
+        }
+
+        const cwd: ?[]const u8 = if (inst.working_dir.len > 0) inst.working_dir else null;
+        const result = process.spawn(self.allocator, .{
+            .binary = inst.binary_path,
+            .argv = argv_list.items,
+            .cwd = cwd,
+        }) catch {
+            inst.status = .failed;
+            return;
+        };
+
+        inst.pid = result.pid;
+        inst.child = result.child;
+        inst.status = .starting;
+        inst.started_at = now;
+        inst.starting_since = now;
+        inst.health_consecutive_failures = 0;
     }
 };
 
@@ -486,6 +556,45 @@ test "tick: starting instance without pid transitions to failed" {
 
     const inst = mgr.instances.get("comp/dead-start").?;
     try std.testing.expectEqual(Status.failed, inst.status);
+}
+
+test "tick: restarting with binary_path spawns new process" {
+    const builtin = @import("builtin");
+    if (comptime builtin.os.tag == .windows) return error.SkipZigTest;
+
+    const allocator = std.testing.allocator;
+    var p = try paths_mod.Paths.init(allocator, "/tmp/test-nullhub-mgr");
+    defer p.deinit(allocator);
+
+    var mgr = Manager.init(allocator, p);
+    defer mgr.deinit();
+
+    const key = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ "comp", "restartable" });
+    try mgr.instances.put(key, .{
+        .component = "comp",
+        .name = "restartable",
+        .status = .restarting,
+        .restart_count = 0,
+        .max_restarts = 5,
+        .binary_path = "/bin/sleep",
+        .launch_args_str = "60",
+        .last_restart_attempt = std.time.milliTimestamp() - 10_000,
+    });
+
+    mgr.tick();
+
+    const inst_ptr = mgr.instances.getPtr("comp/restartable").?;
+    // Should have spawned a new process and moved to .starting
+    try std.testing.expectEqual(Status.starting, inst_ptr.status);
+    try std.testing.expect(inst_ptr.pid != null);
+    try std.testing.expectEqual(@as(u32, 1), inst_ptr.restart_count);
+
+    // Clean up the spawned process
+    if (inst_ptr.child) |*child| {
+        process.terminate(child.id) catch {};
+        _ = child.wait() catch {};
+        inst_ptr.child = null;
+    }
 }
 
 test "tick: running instance with dead pid transitions to restarting" {
