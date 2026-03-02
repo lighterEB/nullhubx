@@ -100,7 +100,7 @@ pub const Manager = struct {
         const key = try std.fmt.allocPrint(self.allocator, "{s}/{s}", .{ component, name });
 
         // Build space-separated args string for restart
-        var args_buf = std.ArrayList(u8).init(self.allocator);
+        var args_buf = std.array_list.Managed(u8).init(self.allocator);
         defer args_buf.deinit();
         for (launch_args, 0..) |arg, i| {
             if (i > 0) try args_buf.append(' ');
@@ -312,7 +312,7 @@ pub const Manager = struct {
         }
 
         // Build argv from launch_args_str
-        var argv_list = std.ArrayList([]const u8).init(self.allocator);
+        var argv_list = std.array_list.Managed([]const u8).init(self.allocator);
         defer argv_list.deinit();
 
         if (inst.launch_args_str.len > 0) {

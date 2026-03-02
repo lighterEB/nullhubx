@@ -89,6 +89,6 @@ fn supervisorLoop(manager: *manager_mod.Manager, mutex: *std.Thread.Mutex) void 
             defer mutex.unlock();
             manager.tick();
         }
-        std.time.sleep(1_000_000_000); // 1 second
+        std.Thread.sleep(1_000_000_000); // 1 second
     }
 }

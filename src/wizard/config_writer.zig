@@ -245,8 +245,8 @@ fn writeJsonValue(buf: *std.array_list.Managed(u8), value: JsonValue, indent: us
         },
         .integer => |n| {
             var tmp: [32]u8 = undefined;
-            const len = std.fmt.formatIntBuf(&tmp, n, 10, .lower, .{});
-            try buf.appendSlice(tmp[0..len]);
+            const printed = std.fmt.bufPrint(&tmp, "{d}", .{n}) catch unreachable;
+            try buf.appendSlice(printed);
         },
         .boolean => |b| {
             try buf.appendSlice(if (b) "true" else "false");
