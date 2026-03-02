@@ -178,6 +178,12 @@ fn route(allocator: std.mem.Allocator, method: []const u8, target: []const u8, b
                 .body = "{\"error\":\"manifest not found\"}",
             };
         }
+        if (std.mem.eql(u8, target, "/api/updates")) {
+            var s = state_mod.State.init(allocator, "/tmp/nullhub-state.json");
+            defer s.deinit();
+            const ur = updates_api.handleCheckUpdates(allocator, &s);
+            return .{ .status = ur.status, .content_type = ur.content_type, .body = ur.body };
+        }
     }
 
     if (std.mem.eql(u8, method, "POST")) {
@@ -386,6 +392,20 @@ fn route(allocator: std.mem.Allocator, method: []const u8, target: []const u8, b
                     .content_type = "application/json",
                     .body = "{\"instances\":{}}",
                 };
+            }
+            return .{
+                .status = "405 Method Not Allowed",
+                .content_type = "application/json",
+                .body = "{\"error\":\"method not allowed\"}",
+            };
+        }
+        // Updates API — POST /api/instances/{c}/{n}/update
+        if (updates_api.parseUpdatePath(target)) |up| {
+            if (std.mem.eql(u8, method, "POST")) {
+                var s = state_mod.State.init(allocator, "/tmp/nullhub-state.json");
+                defer s.deinit();
+                const ur = updates_api.handleApplyUpdate(allocator, &s, up.component, up.name);
+                return .{ .status = ur.status, .content_type = ur.content_type, .body = ur.body };
             }
             return .{
                 .status = "405 Method Not Allowed",
@@ -630,6 +650,19 @@ test "route GET /api/service/status returns status" {
     defer std.testing.allocator.free(resp.body);
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"registered\":false") != null);
+}
+
+test "route GET /api/updates returns empty updates" {
+    const resp = route(std.testing.allocator, "GET", "/api/updates", "");
+    defer std.testing.allocator.free(resp.body);
+    try std.testing.expectEqualStrings("200 OK", resp.status);
+    try std.testing.expectEqualStrings("application/json", resp.content_type);
+    try std.testing.expectEqualStrings("{\"updates\":[]}", resp.body);
+}
+
+test "route POST /api/instances/{c}/{n}/update returns 404 for empty state" {
+    const resp = route(std.testing.allocator, "POST", "/api/instances/nullclaw/my-agent/update", "");
+    try std.testing.expectEqualStrings("404 Not Found", resp.status);
 }
 
 test "Server init sets fields" {
