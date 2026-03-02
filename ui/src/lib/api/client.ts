@@ -1,0 +1,36 @@
+const BASE = '/api';
+
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    headers: { 'Content-Type': 'application/json' },
+    ...options
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+export const api = {
+  getStatus: () => request<any>('/status'),
+  getComponents: () => request<any>('/components'),
+  getInstances: () => request<any>('/instances'),
+  getWizard: (component: string) => request<any>(`/wizard/${component}`),
+  postWizard: (component: string, data: any) =>
+    request<any>(`/wizard/${component}`, { method: 'POST', body: JSON.stringify(data) }),
+  startInstance: (c: string, n: string) =>
+    request<any>(`/instances/${c}/${n}/start`, { method: 'POST' }),
+  stopInstance: (c: string, n: string) =>
+    request<any>(`/instances/${c}/${n}/stop`, { method: 'POST' }),
+  restartInstance: (c: string, n: string) =>
+    request<any>(`/instances/${c}/${n}/restart`, { method: 'POST' }),
+  deleteInstance: (c: string, n: string) =>
+    request<any>(`/instances/${c}/${n}`, { method: 'DELETE' }),
+  getConfig: (c: string, n: string) => request<any>(`/instances/${c}/${n}/config`),
+  putConfig: (c: string, n: string, config: any) =>
+    request<any>(`/instances/${c}/${n}/config`, { method: 'PUT', body: JSON.stringify(config) }),
+  getLogs: (c: string, n: string, lines = 100) =>
+    request<any>(`/instances/${c}/${n}/logs?lines=${lines}`),
+  getUpdates: () => request<any>('/updates'),
+  getSettings: () => request<any>('/settings'),
+  putSettings: (settings: any) =>
+    request<any>('/settings', { method: 'PUT', body: JSON.stringify(settings) }),
+};
