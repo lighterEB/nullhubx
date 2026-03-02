@@ -44,6 +44,7 @@
             version={info.version}
             status={info.status || 'stopped'}
             autoStart={info.auto_start}
+            onAction={refresh}
           />
         {/each}
       {/each}

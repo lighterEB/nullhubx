@@ -2,26 +2,52 @@
   import StatusBadge from './StatusBadge.svelte';
   import { api } from '$lib/api/client';
 
-  let { component = '', name = '', version = '', status = 'stopped', autoStart = false } = $props();
+  let { component = '', name = '', version = '', status = 'stopped', autoStart = false, onAction = () => {} } = $props();
+  let loading = $state(false);
+  let localStatus = $state(status);
 
-  async function start() { await api.startInstance(component, name); }
-  async function stop() { await api.stopInstance(component, name); }
+  // Sync localStatus when prop changes (from poll)
+  $effect(() => { localStatus = status; });
+
+  async function start() {
+    loading = true;
+    localStatus = 'starting';
+    try {
+      await api.startInstance(component, name);
+      onAction();
+    } catch { localStatus = 'stopped'; }
+    finally { loading = false; }
+  }
+
+  async function stop() {
+    loading = true;
+    localStatus = 'stopping';
+    try {
+      await api.stopInstance(component, name);
+      onAction();
+    } catch { localStatus = 'running'; }
+    finally { loading = false; }
+  }
 </script>
 
 <a href="/instances/{component}/{name}" class="card">
   <div class="card-header">
     <span class="card-name">{name}</span>
-    <StatusBadge {status} />
+    <StatusBadge status={localStatus} />
   </div>
   <div class="card-meta">
     <span class="component-tag">{component}</span>
     <span class="version">v{version}</span>
   </div>
   <div class="card-actions">
-    {#if status === 'running'}
-      <button onclick={stop}>Stop</button>
+    {#if localStatus === 'running' || localStatus === 'stopping'}
+      <button onclick={stop} disabled={loading}>
+        {loading ? 'Stopping...' : 'Stop'}
+      </button>
     {:else}
-      <button onclick={start}>Start</button>
+      <button onclick={start} disabled={loading}>
+        {loading ? 'Starting...' : 'Start'}
+      </button>
     {/if}
   </div>
 </a>
