@@ -56,7 +56,9 @@ fn appendInstanceJson(buf: *std.array_list.Managed(u8), entry: state_mod.Instanc
     try appendEscaped(buf, entry.version);
     try buf.appendSlice("\",\"auto_start\":");
     try buf.appendSlice(if (entry.auto_start) "true" else "false");
-    try buf.appendSlice(",\"status\":\"");
+    try buf.appendSlice(",\"launch_mode\":\"");
+    try appendEscaped(buf, entry.launch_mode);
+    try buf.appendSlice("\",\"status\":\"");
     try buf.appendSlice(status_str);
     try buf.appendSlice("\"}");
 }
@@ -125,15 +127,29 @@ pub fn handleGet(allocator: std.mem.Allocator, s: *state_mod.State, manager: *ma
 }
 
 /// POST /api/instances/{component}/{name}/start
-pub fn handleStart(allocator: std.mem.Allocator, s: *state_mod.State, manager: *manager_mod.Manager, paths: paths_mod.Paths, component: []const u8, name: []const u8) ApiResponse {
+pub fn handleStart(allocator: std.mem.Allocator, s: *state_mod.State, manager: *manager_mod.Manager, paths: paths_mod.Paths, component: []const u8, name: []const u8, body: []const u8) ApiResponse {
     const entry = s.getInstance(component, name) orelse return notFound();
+
+    // Check if body overrides launch_mode
+    var launch_cmd: []const u8 = entry.launch_mode;
+    if (body.len > 0) {
+        const parsed_body = std.json.parseFromSlice(
+            struct { launch_mode: ?[]const u8 = null },
+            allocator,
+            body,
+            .{ .allocate = .alloc_always, .ignore_unknown_fields = true },
+        ) catch null;
+        if (parsed_body) |pb| {
+            defer pb.deinit();
+            if (pb.value.launch_mode) |mode| launch_cmd = mode;
+        }
+    }
 
     // Resolve binary path
     const bin_path = paths.binary(allocator, component, entry.version) catch return helpers.serverError();
     defer allocator.free(bin_path);
 
-    // Read manifest from binary to get launch command and port
-    var launch_cmd: []const u8 = "";
+    // Read manifest from binary to get health endpoint and port
     var health_endpoint: []const u8 = "/health";
     var port: u16 = 0;
     const manifest_json = component_cli.exportManifest(allocator, bin_path) catch null;
@@ -141,7 +157,6 @@ pub fn handleStart(allocator: std.mem.Allocator, s: *state_mod.State, manager: *
     if (manifest_json) |mj| {
         parsed_manifest = manifest_mod.parseManifest(allocator, mj) catch null;
         if (parsed_manifest) |pm| {
-            launch_cmd = pm.value.launch.command;
             health_endpoint = pm.value.health.endpoint;
             if (pm.value.ports.len > 0) port = pm.value.ports[0].default;
         }
@@ -149,8 +164,13 @@ pub fn handleStart(allocator: std.mem.Allocator, s: *state_mod.State, manager: *
     defer if (manifest_json) |mj| allocator.free(mj);
     defer if (parsed_manifest) |*pm| pm.deinit();
 
-    // Start via manager
-    manager.startInstance(component, name, bin_path, &.{}, port, health_endpoint, "", "", launch_cmd) catch return helpers.serverError();
+    // Agent mode has no HTTP health endpoint — skip health checks (port=0).
+    const effective_port: u16 = if (std.mem.eql(u8, launch_cmd, "agent")) 0 else port;
+
+    // Start via manager — pass launch_cmd as an argv argument so the binary
+    // actually receives it (e.g. "nullclaw gateway" or "nullclaw agent").
+    const launch_args: []const []const u8 = &.{launch_cmd};
+    manager.startInstance(component, name, bin_path, launch_args, effective_port, health_endpoint, "", "", launch_cmd) catch return helpers.serverError();
     return jsonOk("{\"status\":\"started\"}");
 }
 
@@ -162,10 +182,10 @@ pub fn handleStop(s: *state_mod.State, manager: *manager_mod.Manager, component:
 }
 
 /// POST /api/instances/{component}/{name}/restart
-pub fn handleRestart(allocator: std.mem.Allocator, s: *state_mod.State, manager: *manager_mod.Manager, paths: paths_mod.Paths, component: []const u8, name: []const u8) ApiResponse {
+pub fn handleRestart(allocator: std.mem.Allocator, s: *state_mod.State, manager: *manager_mod.Manager, paths: paths_mod.Paths, component: []const u8, name: []const u8, body: []const u8) ApiResponse {
     _ = s.getInstance(component, name) orelse return notFound();
     manager.stopInstance(component, name) catch {};
-    return handleStart(allocator, s, manager, paths, component, name);
+    return handleStart(allocator, s, manager, paths, component, name, body);
 }
 
 /// DELETE /api/instances/{component}/{name}
@@ -246,20 +266,22 @@ pub fn handleImport(allocator: std.mem.Allocator, s: *state_mod.State, paths: pa
 pub fn handlePatch(s: *state_mod.State, component: []const u8, name: []const u8, body: []const u8) ApiResponse {
     const entry = s.getInstance(component, name) orelse return notFound();
 
-    // Parse the JSON body to extract auto_start.
+    // Parse the JSON body to extract auto_start and launch_mode.
     const parsed = std.json.parseFromSlice(
-        struct { auto_start: ?bool = null },
+        struct { auto_start: ?bool = null, launch_mode: ?[]const u8 = null },
         s.allocator,
         body,
-        .{ .allocate = .alloc_always },
+        .{ .allocate = .alloc_always, .ignore_unknown_fields = true },
     ) catch return badRequest("{\"error\":\"invalid JSON body\"}");
     defer parsed.deinit();
 
     const new_auto_start = parsed.value.auto_start orelse entry.auto_start;
+    const new_launch_mode = parsed.value.launch_mode orelse entry.launch_mode;
 
     _ = s.updateInstance(component, name, .{
         .version = entry.version,
         .auto_start = new_auto_start,
+        .launch_mode = new_launch_mode,
     }) catch return .{
         .status = "500 Internal Server Error",
         .content_type = "application/json",
@@ -287,9 +309,9 @@ pub fn dispatch(allocator: std.mem.Allocator, s: *state_mod.State, manager: *man
         // Only POST is valid for actions.
         if (!std.mem.eql(u8, method, "POST")) return methodNotAllowed();
 
-        if (std.mem.eql(u8, action, "start")) return handleStart(allocator, s, manager, paths, parsed.component, parsed.name);
+        if (std.mem.eql(u8, action, "start")) return handleStart(allocator, s, manager, paths, parsed.component, parsed.name, body);
         if (std.mem.eql(u8, action, "stop")) return handleStop(s, manager, parsed.component, parsed.name);
-        if (std.mem.eql(u8, action, "restart")) return handleRestart(allocator, s, manager, paths, parsed.component, parsed.name);
+        if (std.mem.eql(u8, action, "restart")) return handleRestart(allocator, s, manager, paths, parsed.component, parsed.name, body);
 
         return notFound();
     }
@@ -444,7 +466,7 @@ test "handleStart returns 404 for missing instance" {
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
 
-    const resp = handleStart(allocator, &s, &mctx.manager, mctx.paths, "nope", "nope");
+    const resp = handleStart(allocator, &s, &mctx.manager, mctx.paths, "nope", "nope", "");
     try std.testing.expectEqualStrings("404 Not Found", resp.status);
 }
 
@@ -459,7 +481,7 @@ test "handleStart returns 500 when binary does not exist" {
 
     // Binary doesn't exist at /tmp/nullhub-test-instances-api/bin/nullclaw-1.0.0
     // so startInstance will fail and handler returns 500.
-    const resp = handleStart(allocator, &s, &mctx.manager, mctx.paths, "nullclaw", "my-agent");
+    const resp = handleStart(allocator, &s, &mctx.manager, mctx.paths, "nullclaw", "my-agent", "");
     try std.testing.expectEqualStrings("500 Internal Server Error", resp.status);
 }
 
@@ -487,7 +509,7 @@ test "handleRestart returns 500 when binary does not exist" {
     try s.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0" });
 
     // Binary doesn't exist so startInstance fails => 500
-    const resp = handleRestart(allocator, &s, &mctx.manager, mctx.paths, "nullclaw", "my-agent");
+    const resp = handleRestart(allocator, &s, &mctx.manager, mctx.paths, "nullclaw", "my-agent", "");
     try std.testing.expectEqualStrings("500 Internal Server Error", resp.status);
 }
 
@@ -551,6 +573,36 @@ test "handlePatch returns 400 for invalid JSON" {
 
     const resp = handlePatch(&s, "nullclaw", "my-agent", "not-json");
     try std.testing.expectEqualStrings("400 Bad Request", resp.status);
+}
+
+test "handlePatch updates launch_mode" {
+    const allocator = std.testing.allocator;
+    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    defer s.deinit();
+
+    try s.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0" });
+
+    const resp = handlePatch(&s, "nullclaw", "my-agent", "{\"launch_mode\":\"agent\"}");
+    try std.testing.expectEqualStrings("200 OK", resp.status);
+
+    const entry = s.getInstance("nullclaw", "my-agent").?;
+    try std.testing.expectEqualStrings("agent", entry.launch_mode);
+}
+
+test "handleGet includes launch_mode in JSON" {
+    const allocator = std.testing.allocator;
+    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    defer s.deinit();
+    var mctx = TestManagerCtx.init(allocator);
+    defer mctx.deinit(allocator);
+
+    try s.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0", .launch_mode = "agent" });
+
+    const resp = handleGet(allocator, &s, &mctx.manager, "nullclaw", "my-agent");
+    defer allocator.free(resp.body);
+
+    try std.testing.expectEqualStrings("200 OK", resp.status);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"launch_mode\":\"agent\"") != null);
 }
 
 test "dispatch routes GET /api/instances" {

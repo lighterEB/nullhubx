@@ -123,6 +123,7 @@
             else onchange([...vals, option.value].join(','));
           }}
         >
+          {#if selected}<span class="check">&#10003;</span>{/if}
           <strong>{option.label}</strong>
         </button>
       {/each}
@@ -206,7 +207,15 @@
 
   .option-btn.chip {
     flex-direction: row;
+    align-items: center;
+    gap: 0.35rem;
     padding: 0.5rem 0.75rem;
+  }
+
+  .check {
+    font-size: 0.75rem;
+    color: var(--accent);
+    font-weight: 700;
   }
 
   .option-header {

@@ -186,6 +186,13 @@ pub const Server = struct {
                     .body = "{\"error\":\"manifest not found\"}",
                 };
             }
+            if (std.mem.eql(u8, target, "/api/free-port")) {
+                if (wizard_api.handleFreePort(allocator)) |json| {
+                    return jsonResponse(json);
+                } else |_| {
+                    return jsonResponse("{\"port\":3000}");
+                }
+            }
             if (std.mem.eql(u8, target, "/api/updates")) {
                 const ur = updates_api.handleCheckUpdates(allocator, self.state);
                 return .{ .status = ur.status, .content_type = ur.content_type, .body = ur.body };

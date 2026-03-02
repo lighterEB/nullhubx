@@ -146,6 +146,29 @@ pub fn handleGetVersions(allocator: std.mem.Allocator, component_name: []const u
     return buf.toOwnedSlice() catch null;
 }
 
+/// Handle GET /api/free-port — find a free TCP port starting from 3000.
+/// Returns JSON like {"port":3000}.
+/// Caller owns the returned memory.
+pub fn handleFreePort(allocator: std.mem.Allocator) ![]const u8 {
+    const start_port: u16 = 3000;
+    var port: u16 = start_port;
+    while (port < 65535) : (port += 1) {
+        if (isPortFree(port)) {
+            return std.fmt.allocPrint(allocator, "{{\"port\":{d}}}", .{port});
+        }
+    }
+    // Fallback to default
+    return try allocator.dupe(u8, "{\"port\":3000}");
+}
+
+fn isPortFree(port: u16) bool {
+    const addr = std.net.Address.resolveIp("127.0.0.1", port) catch return false;
+    const sock = std.posix.socket(addr.any.family, std.posix.SOCK.STREAM, std.posix.IPPROTO.TCP) catch return false;
+    defer std.posix.close(sock);
+    std.posix.bind(sock, &addr.any, addr.getOsSockLen()) catch return false;
+    return true;
+}
+
 fn stripQuery(target: []const u8) []const u8 {
     const qmark = std.mem.indexOfScalar(u8, target, '?') orelse return target;
     return target[0..qmark];

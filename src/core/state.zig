@@ -5,6 +5,7 @@ const std = @import("std");
 pub const InstanceEntry = struct {
     version: []const u8,
     auto_start: bool = false,
+    launch_mode: []const u8 = "gateway",
 };
 
 /// JSON-compatible shape used for serialization / deserialization.
@@ -44,6 +45,7 @@ pub const State = struct {
             var inst_it = comp_entry.value_ptr.iterator();
             while (inst_it.next()) |inst_entry| {
                 self.allocator.free(inst_entry.value_ptr.version);
+                self.allocator.free(inst_entry.value_ptr.launch_mode);
                 self.allocator.free(inst_entry.key_ptr.*);
             }
             comp_entry.value_ptr.deinit();
@@ -87,6 +89,7 @@ pub const State = struct {
                 var it = inner.iterator();
                 while (it.next()) |e| {
                     allocator.free(e.value_ptr.version);
+                    allocator.free(e.value_ptr.launch_mode);
                     allocator.free(e.key_ptr.*);
                 }
                 inner.deinit();
@@ -96,9 +99,12 @@ pub const State = struct {
             while (inst_it.next()) |inst_kv| {
                 const inst_name = try allocator.dupe(u8, inst_kv.key_ptr.*);
                 errdefer allocator.free(inst_name);
+                const duped_launch_mode = try allocator.dupe(u8, inst_kv.value_ptr.launch_mode);
+                errdefer allocator.free(duped_launch_mode);
                 const entry = InstanceEntry{
                     .version = try allocator.dupe(u8, inst_kv.value_ptr.version),
                     .auto_start = inst_kv.value_ptr.auto_start,
+                    .launch_mode = duped_launch_mode,
                 };
                 try inner.put(inst_name, entry);
             }
@@ -175,9 +181,12 @@ pub const State = struct {
 
         const owned_name = try self.allocator.dupe(u8, name);
         errdefer self.allocator.free(owned_name);
+        const owned_launch_mode = try self.allocator.dupe(u8, entry.launch_mode);
+        errdefer self.allocator.free(owned_launch_mode);
         const owned_entry = InstanceEntry{
             .version = try self.allocator.dupe(u8, entry.version),
             .auto_start = entry.auto_start,
+            .launch_mode = owned_launch_mode,
         };
         try inner_ptr.put(owned_name, owned_entry);
     }
@@ -188,6 +197,7 @@ pub const State = struct {
         const entry = inner.fetchSwapRemove(name) orelse return false;
 
         self.allocator.free(entry.value.version);
+        self.allocator.free(entry.value.launch_mode);
         self.allocator.free(entry.key);
 
         // If this was the last instance, remove the component key too.
@@ -217,9 +227,16 @@ pub const State = struct {
         const inner = self.instances.getPtr(component) orelse return false;
         const ptr = inner.getPtr(name) orelse return false;
 
-        // Free old version string, replace with new one.
+        // Dupe new values before freeing old ones to avoid use-after-free
+        // when the caller passes slices pointing to the old entry's memory.
+        const new_version = try self.allocator.dupe(u8, entry.version);
+        errdefer self.allocator.free(new_version);
+        const new_launch_mode = try self.allocator.dupe(u8, entry.launch_mode);
+
         self.allocator.free(ptr.version);
-        ptr.version = try self.allocator.dupe(u8, entry.version);
+        self.allocator.free(ptr.launch_mode);
+        ptr.version = new_version;
+        ptr.launch_mode = new_launch_mode;
         ptr.auto_start = entry.auto_start;
         return true;
     }
@@ -458,6 +475,70 @@ test "multiple components with multiple instances" {
 
         // Remove non-existent returns false.
         try std.testing.expect(!s.removeInstance("nope", "nope"));
+    }
+}
+
+test "launch_mode defaults to gateway, persists through save/load" {
+    const allocator = std.testing.allocator;
+    const path = try testPath(allocator, "state.json");
+    defer allocator.free(path);
+    defer cleanupTestDir();
+
+    {
+        var s = State.init(allocator, path);
+        defer s.deinit();
+
+        // Default launch_mode
+        try s.addInstance("nullclaw", "default-mode", .{ .version = "1.0.0" });
+        const entry = s.getInstance("nullclaw", "default-mode").?;
+        try std.testing.expectEqualStrings("gateway", entry.launch_mode);
+
+        // Explicit launch_mode
+        try s.addInstance("nullclaw", "agent-mode", .{ .version = "1.0.0", .launch_mode = "agent" });
+        const agent_entry = s.getInstance("nullclaw", "agent-mode").?;
+        try std.testing.expectEqualStrings("agent", agent_entry.launch_mode);
+
+        try s.save();
+    }
+
+    {
+        var s = try State.load(allocator, path);
+        defer s.deinit();
+
+        const entry = s.getInstance("nullclaw", "default-mode").?;
+        try std.testing.expectEqualStrings("gateway", entry.launch_mode);
+
+        const agent_entry = s.getInstance("nullclaw", "agent-mode").?;
+        try std.testing.expectEqualStrings("agent", agent_entry.launch_mode);
+    }
+}
+
+test "update launch_mode persists" {
+    const allocator = std.testing.allocator;
+    const path = try testPath(allocator, "state.json");
+    defer allocator.free(path);
+    defer cleanupTestDir();
+
+    {
+        var s = State.init(allocator, path);
+        defer s.deinit();
+
+        try s.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0" });
+        const updated = try s.updateInstance("nullclaw", "my-agent", .{ .version = "1.0.0", .launch_mode = "agent" });
+        try std.testing.expect(updated);
+
+        const entry = s.getInstance("nullclaw", "my-agent").?;
+        try std.testing.expectEqualStrings("agent", entry.launch_mode);
+
+        try s.save();
+    }
+
+    {
+        var s = try State.load(allocator, path);
+        defer s.deinit();
+
+        const entry = s.getInstance("nullclaw", "my-agent").?;
+        try std.testing.expectEqualStrings("agent", entry.launch_mode);
     }
 }
 

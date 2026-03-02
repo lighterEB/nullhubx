@@ -15,10 +15,14 @@ export const api = {
   getInstances: () => request<any>('/instances'),
   getWizard: (component: string) => request<any>(`/wizard/${component}`),
   getVersions: (component: string) => request<any>(`/wizard/${component}/versions`),
+  getFreePort: () => request<any>('/free-port'),
   postWizard: (component: string, data: any) =>
     request<any>(`/wizard/${component}`, { method: 'POST', body: JSON.stringify(data) }),
-  startInstance: (c: string, n: string) =>
-    request<any>(`/instances/${c}/${n}/start`, { method: 'POST' }),
+  startInstance: (c: string, n: string, mode?: string) =>
+    request<any>(`/instances/${c}/${n}/start`, {
+      method: 'POST',
+      body: mode ? JSON.stringify({ launch_mode: mode }) : undefined
+    }),
   stopInstance: (c: string, n: string) =>
     request<any>(`/instances/${c}/${n}/stop`, { method: 'POST' }),
   restartInstance: (c: string, n: string) =>

@@ -1,5 +1,23 @@
 <script lang="ts">
-  let { instances = {}, currentPath = '/' } = $props();
+  import { page } from '$app/stores';
+  import { onMount } from 'svelte';
+  import { api } from '$lib/api/client';
+
+  let instances = $state<Record<string, any>>({});
+  let currentPath = $derived($page.url.pathname);
+
+  async function loadInstances() {
+    try {
+      const status = await api.getStatus();
+      instances = status.instances || {};
+    } catch {}
+  }
+
+  onMount(() => {
+    loadInstances();
+    const interval = setInterval(loadInstances, 5000);
+    return () => clearInterval(interval);
+  });
 </script>
 
 <nav class="sidebar">

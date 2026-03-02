@@ -164,6 +164,7 @@ pub fn install(
     s.addInstance(opts.component, opts.instance_name, .{
         .version = version,
         .auto_start = true,
+        .launch_mode = m.launch.command,
     }) catch return error.StateError;
     s.save() catch return error.StateError;
 

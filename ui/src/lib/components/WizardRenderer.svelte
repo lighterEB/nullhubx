@@ -51,7 +51,18 @@
   // Apply default values from steps
   $effect(() => {
     for (const step of steps) {
-      if (step.default_value && !(step.id in answers)) {
+      if (step.id === 'gateway_port' && !(step.id in answers)) {
+        // Fetch a free port from the server
+        api.getFreePort().then((data: any) => {
+          if (data?.port && !('gateway_port' in answers)) {
+            answers['gateway_port'] = String(data.port);
+          }
+        }).catch(() => {
+          if (!('gateway_port' in answers)) {
+            answers['gateway_port'] = step.default_value || '3000';
+          }
+        });
+      } else if (step.default_value && !(step.id in answers)) {
         answers[step.id] = step.default_value;
       } else if (step.options?.length && !(step.id in answers)) {
         // Auto-select recommended option

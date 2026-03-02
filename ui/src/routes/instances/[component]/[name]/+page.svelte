@@ -10,8 +10,9 @@
   let name = $derived($page.params.name);
   let instance = $state<any>(null);
   let activeTab = $state('overview');
+  let loading = $state(false);
 
-  onMount(async () => {
+  async function refresh() {
     try {
       const status = await api.getStatus();
       const instances = status.instances || {};
@@ -21,16 +22,50 @@
     } catch (e) {
       console.error(e);
     }
+  }
+
+  onMount(() => {
+    refresh();
+    const interval = setInterval(refresh, 3000);
+    return () => clearInterval(interval);
   });
 
-  async function start() { await api.startInstance(component, name); }
-  async function stop() { await api.stopInstance(component, name); }
-  async function restart() { await api.restartInstance(component, name); }
+  async function start() {
+    loading = true;
+    instance = { ...instance, status: 'starting' };
+    try {
+      await api.startInstance(component, name);
+      await refresh();
+    } catch { instance = { ...instance, status: 'stopped' }; }
+    finally { loading = false; }
+  }
+  async function stop() {
+    loading = true;
+    instance = { ...instance, status: 'stopping' };
+    try {
+      await api.stopInstance(component, name);
+      await refresh();
+    } catch { instance = { ...instance, status: 'running' }; }
+    finally { loading = false; }
+  }
+  async function restart() {
+    loading = true;
+    instance = { ...instance, status: 'restarting' };
+    try {
+      await api.restartInstance(component, name);
+      await refresh();
+    } catch {}
+    finally { loading = false; }
+  }
   async function remove() {
     if (confirm('Are you sure you want to delete this instance?')) {
       await api.deleteInstance(component, name);
       window.location.href = '/';
     }
+  }
+  async function setMode(mode: string) {
+    await api.patchInstance(component, name, { launch_mode: mode });
+    await refresh();
   }
 </script>
 
@@ -41,10 +76,10 @@
       <span class="component-tag">{component}</span>
     </div>
     <div class="actions">
-      <button class="btn" onclick={start}>Start</button>
-      <button class="btn" onclick={stop}>Stop</button>
-      <button class="btn" onclick={restart}>Restart</button>
-      <button class="btn danger" onclick={remove}>Delete</button>
+      <button class="btn" onclick={start} disabled={loading}>Start</button>
+      <button class="btn" onclick={stop} disabled={loading}>Stop</button>
+      <button class="btn" onclick={restart} disabled={loading}>Restart</button>
+      <button class="btn danger" onclick={remove} disabled={loading}>Delete</button>
     </div>
   </div>
 
@@ -64,6 +99,21 @@
         <div class="info-card">
           <span class="label">Version</span>
           <span>{instance?.version || '-'}</span>
+        </div>
+        <div class="info-card">
+          <span class="label">Launch Mode</span>
+          <div class="mode-selector">
+            <button
+              class="mode-btn"
+              class:active={(instance?.launch_mode || 'gateway') === 'gateway'}
+              onclick={() => setMode('gateway')}
+            >Gateway</button>
+            <button
+              class="mode-btn"
+              class:active={instance?.launch_mode === 'agent'}
+              onclick={() => setMode('agent')}
+            >Agent</button>
+          </div>
         </div>
         <div class="info-card">
           <span class="label">Auto Start</span>
@@ -175,5 +225,28 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
     font-weight: 500;
+  }
+  .mode-selector {
+    display: flex;
+    gap: 0.25rem;
+  }
+  .mode-btn {
+    padding: 0.25rem 0.625rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .mode-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent);
+  }
+  .mode-btn.active {
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    border-color: var(--accent);
+    color: var(--accent);
   }
 </style>

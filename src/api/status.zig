@@ -15,7 +15,9 @@ fn appendInstanceJson(buf: *std.array_list.Managed(u8), entry: state_mod.Instanc
     try appendEscaped(buf, entry.version);
     try buf.appendSlice("\",\"auto_start\":");
     try buf.appendSlice(if (entry.auto_start) "true" else "false");
-    try buf.appendSlice(",\"status\":\"");
+    try buf.appendSlice(",\"launch_mode\":\"");
+    try appendEscaped(buf, entry.launch_mode);
+    try buf.appendSlice("\",\"status\":\"");
     try buf.appendSlice(status_str);
     try buf.appendSlice("\"");
     // PID
@@ -198,6 +200,24 @@ test "handleStatus includes instances" {
     try std.testing.expectEqualStrings("2026.3.1", agent.version);
     try std.testing.expect(agent.auto_start == true);
     try std.testing.expectEqualStrings("stopped", agent.status);
+}
+
+test "handleStatus includes launch_mode" {
+    const allocator = std.testing.allocator;
+    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-status-api.json");
+    defer s.deinit();
+    var p = try paths_mod.Paths.init(allocator, "/tmp/nullhub-test-status-api");
+    defer p.deinit(allocator);
+    var mgr = manager_mod.Manager.init(allocator, p);
+    defer mgr.deinit();
+
+    try s.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0", .launch_mode = "agent" });
+
+    const resp = handleStatus(allocator, &s, &mgr, 0);
+    defer allocator.free(resp.body);
+
+    try std.testing.expectEqualStrings("200 OK", resp.status);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"launch_mode\":\"agent\"") != null);
 }
 
 test "handleStatus with empty state returns empty instances" {

@@ -295,6 +295,16 @@ pub const Manager = struct {
             }
         }
 
+        // No port means no health endpoint (e.g. agent mode) —
+        // process being alive is sufficient to consider it running.
+        if (inst.port == 0) {
+            inst.status = .running;
+            inst.last_health_ok = now;
+            inst.last_health_check = now;
+            inst.restart_count = 0;
+            return;
+        }
+
         // Check health endpoint
         const result = health.check(self.allocator, "127.0.0.1", inst.port, inst.health_endpoint);
         if (result.ok) {
@@ -322,6 +332,9 @@ pub const Manager = struct {
                 return;
             }
         }
+
+        // No port means no health endpoint — only process liveness matters.
+        if (inst.port == 0) return;
 
         // Periodic health check
         if (inst.last_health_check) |last| {
