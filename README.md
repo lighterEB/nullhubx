@@ -1,0 +1,122 @@
+# NullHub
+
+Management hub for the nullclaw ecosystem.
+
+`NullHub` is a single Zig binary with an embedded Svelte web UI for installing,
+configuring, monitoring, and updating ecosystem components (NullClaw, NullBoiler,
+NullTickets).
+
+## Features
+
+- **Install wizard** -- manifest-driven guided setup for any component
+- **Process supervision** -- start, stop, restart, crash recovery with backoff
+- **Health monitoring** -- periodic HTTP health checks, dashboard status cards
+- **Config management** -- schema-aware editor, partial updates, migration on upgrade
+- **Log viewing** -- tail and live SSE streaming per instance
+- **One-click updates** -- download, migrate config, rollback on failure
+- **Multi-instance** -- run multiple instances of the same component side by side
+- **Web UI + CLI** -- browser dashboard for humans, CLI for automation
+
+## Quick Start
+
+```bash
+zig build
+./zig-out/bin/nullhub
+```
+
+Opens browser to http://127.0.0.1:9800.
+
+## CLI Usage
+
+```
+nullhub                          # Start server + open browser
+nullhub serve [--port N]         # Start server without browser
+
+nullhub install <component>      # Terminal wizard
+nullhub uninstall <c>/<n>        # Remove instance
+
+nullhub start <c>/<n>            # Start instance
+nullhub stop <c>/<n>             # Stop instance
+nullhub restart <c>/<n>          # Restart instance
+nullhub start-all / stop-all     # Bulk start/stop
+
+nullhub status                   # Table of all instances
+nullhub status <c>/<n>           # Single instance detail
+nullhub logs <c>/<n> [-f]        # Tail logs (-f for follow)
+
+nullhub check-updates            # Check for new versions
+nullhub update <c>/<n>           # Update single instance
+nullhub update-all               # Update everything
+
+nullhub config <c>/<n> [--edit]  # View/edit config
+nullhub service install          # Register as OS service (systemd/launchd)
+nullhub version                  # Print version
+```
+
+Instance addressing uses `{component}/{instance-name}` everywhere.
+
+## Architecture
+
+**Zig backend** -- HTTP server, process supervisor, installer, manifest engine.
+Two modes: server (HTTP + supervisor threads) or CLI (direct calls, stdout, exit).
+
+**Svelte frontend** -- SvelteKit with static adapter, `@embedFile`'d into the
+binary. Component UI modules (chat, monitor) loaded dynamically via Svelte 5
+`mount()`.
+
+**Manifest-driven** -- each component publishes `nullhub-manifest.json` that
+describes installation, configuration, launch, health checks, wizard steps, and
+UI modules. NullHub is a generic engine that interprets manifests.
+
+**Storage** -- all state lives under `~/.nullhub/` (config, instances, binaries,
+logs, cached manifests).
+
+## Development
+
+Backend:
+
+```bash
+zig build test
+```
+
+Frontend:
+
+```bash
+cd ui && npm run dev
+```
+
+End-to-end:
+
+```bash
+./tests/test_e2e.sh
+```
+
+## Tech Stack
+
+- Zig 0.15.2
+- Svelte 5 + SvelteKit (static adapter)
+- JSON over HTTP/1.1, SSE for streaming
+
+## Project Layout
+
+```
+src/
+  main.zig              # Entry: CLI dispatch or server start
+  cli.zig               # CLI command parser & handlers
+  server.zig            # HTTP server (API + static UI)
+  auth.zig              # Optional bearer token auth
+  api/                  # REST endpoints (components, instances, wizard, ...)
+  core/                 # Manifest parser, state, platform, paths
+  installer/            # Download, build, UI module fetching
+  supervisor/           # Process spawn, health checks, manager
+  wizard/               # Manifest wizard engine, config writer
+ui/src/
+  routes/               # SvelteKit pages (dashboard, install, instances, settings)
+  lib/components/       # Reusable Svelte components
+  lib/api/              # Typed API client
+  lib/stores/           # Reactive state (instances, hub config)
+tests/
+  test_e2e.sh           # End-to-end test script
+docs/
+  plans/                # Architecture and design documents
+```
