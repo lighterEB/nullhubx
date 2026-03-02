@@ -15,6 +15,7 @@ pub const platform = @import("core/platform.zig");
 pub const process = @import("supervisor/process.zig");
 pub const registry = @import("installer/registry.zig");
 pub const server = @import("server.zig");
+pub const settings_api = @import("api/settings.zig");
 pub const state = @import("core/state.zig");
 pub const status_api = @import("api/status.zig");
 pub const ui_modules = @import("installer/ui_modules.zig");
@@ -39,6 +40,7 @@ test {
     _ = process;
     _ = registry;
     _ = server;
+    _ = settings_api;
     _ = state;
     _ = status_api;
     _ = ui_modules;

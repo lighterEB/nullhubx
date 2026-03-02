@@ -6,6 +6,9 @@ const components_api = @import("api/components.zig");
 const config_api = @import("api/config.zig");
 const logs_api = @import("api/logs.zig");
 const status_api = @import("api/status.zig");
+const settings_api = @import("api/settings.zig");
+const updates_api = @import("api/updates.zig");
+const state_mod = @import("core/state.zig");
 const paths_mod = @import("core/paths.zig");
 const wizard_api = @import("api/wizard.zig");
 
@@ -193,6 +196,93 @@ fn route(allocator: std.mem.Allocator, method: []const u8, target: []const u8, b
                 };
             }
         }
+    }
+
+    // Settings API
+    if (std.mem.eql(u8, target, "/api/settings")) {
+        if (std.mem.eql(u8, method, "GET")) {
+            if (settings_api.handleGetSettings(allocator)) |json| {
+                return jsonResponse(json);
+            } else |_| {
+                return .{
+                    .status = "500 Internal Server Error",
+                    .content_type = "application/json",
+                    .body = "{\"error\":\"internal server error\"}",
+                };
+            }
+        }
+        if (std.mem.eql(u8, method, "PUT")) {
+            if (settings_api.handlePutSettings(allocator, body)) |json| {
+                return jsonResponse(json);
+            } else |_| {
+                return .{
+                    .status = "500 Internal Server Error",
+                    .content_type = "application/json",
+                    .body = "{\"error\":\"internal server error\"}",
+                };
+            }
+        }
+        return .{
+            .status = "405 Method Not Allowed",
+            .content_type = "application/json",
+            .body = "{\"error\":\"method not allowed\"}",
+        };
+    }
+
+    // Service API
+    if (std.mem.eql(u8, target, "/api/service/install")) {
+        if (std.mem.eql(u8, method, "POST")) {
+            if (settings_api.handleServiceInstall(allocator)) |json| {
+                return jsonResponse(json);
+            } else |_| {
+                return .{
+                    .status = "500 Internal Server Error",
+                    .content_type = "application/json",
+                    .body = "{\"error\":\"internal server error\"}",
+                };
+            }
+        }
+        return .{
+            .status = "405 Method Not Allowed",
+            .content_type = "application/json",
+            .body = "{\"error\":\"method not allowed\"}",
+        };
+    }
+    if (std.mem.eql(u8, target, "/api/service/uninstall")) {
+        if (std.mem.eql(u8, method, "POST")) {
+            if (settings_api.handleServiceUninstall(allocator)) |json| {
+                return jsonResponse(json);
+            } else |_| {
+                return .{
+                    .status = "500 Internal Server Error",
+                    .content_type = "application/json",
+                    .body = "{\"error\":\"internal server error\"}",
+                };
+            }
+        }
+        return .{
+            .status = "405 Method Not Allowed",
+            .content_type = "application/json",
+            .body = "{\"error\":\"method not allowed\"}",
+        };
+    }
+    if (std.mem.eql(u8, target, "/api/service/status")) {
+        if (std.mem.eql(u8, method, "GET")) {
+            if (settings_api.handleServiceStatus(allocator)) |json| {
+                return jsonResponse(json);
+            } else |_| {
+                return .{
+                    .status = "500 Internal Server Error",
+                    .content_type = "application/json",
+                    .body = "{\"error\":\"internal server error\"}",
+                };
+            }
+        }
+        return .{
+            .status = "405 Method Not Allowed",
+            .content_type = "application/json",
+            .body = "{\"error\":\"method not allowed\"}",
+        };
     }
 
     // Wizard API
@@ -504,6 +594,42 @@ test "route PATCH /api/instances/{component}/{name} returns 200" {
 test "route GET /api/instances with wrong method returns 405" {
     const resp = route(std.testing.allocator, "POST", "/api/instances", "");
     try std.testing.expectEqualStrings("405 Method Not Allowed", resp.status);
+}
+
+test "route GET /api/settings returns defaults" {
+    const resp = route(std.testing.allocator, "GET", "/api/settings", "");
+    defer std.testing.allocator.free(resp.body);
+    try std.testing.expectEqualStrings("200 OK", resp.status);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"port\":9800") != null);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"host\":\"127.0.0.1\"") != null);
+}
+
+test "route PUT /api/settings returns ok" {
+    const resp = route(std.testing.allocator, "PUT", "/api/settings", "{\"port\":9801}");
+    defer std.testing.allocator.free(resp.body);
+    try std.testing.expectEqualStrings("200 OK", resp.status);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"status\":\"ok\"") != null);
+}
+
+test "route POST /api/service/install returns platform info" {
+    const resp = route(std.testing.allocator, "POST", "/api/service/install", "");
+    defer std.testing.allocator.free(resp.body);
+    try std.testing.expectEqualStrings("200 OK", resp.status);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"status\":\"ok\"") != null);
+}
+
+test "route POST /api/service/uninstall returns ok" {
+    const resp = route(std.testing.allocator, "POST", "/api/service/uninstall", "");
+    defer std.testing.allocator.free(resp.body);
+    try std.testing.expectEqualStrings("200 OK", resp.status);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"status\":\"ok\"") != null);
+}
+
+test "route GET /api/service/status returns status" {
+    const resp = route(std.testing.allocator, "GET", "/api/service/status", "");
+    defer std.testing.allocator.free(resp.body);
+    try std.testing.expectEqualStrings("200 OK", resp.status);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"registered\":false") != null);
 }
 
 test "Server init sets fields" {
