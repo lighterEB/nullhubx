@@ -139,34 +139,56 @@ fn classifyProbeFailure(status_code: ?u16, stdout: []const u8, stderr: []const u
     return .{ .live_ok = false, .reason = "auth_check_failed" };
 }
 
-fn probeProviderViaListModels(
+const ComponentHealthProbePayload = struct {
+    live_ok: bool = false,
+    reason: ?[]const u8 = null,
+    status_code: ?u16 = null,
+};
+
+fn probeProviderViaComponentHealth(
     allocator: std.mem.Allocator,
     binary_path: []const u8,
+    instance_home: []const u8,
     provider: []const u8,
-    api_key: []const u8,
+    model: []const u8,
 ) ProviderProbeResult {
-    if (api_key.len == 0) return .{ .live_ok = false, .reason = "missing_api_key" };
-
-    const result = component_cli.run(
+    const args: []const []const u8 = if (model.len > 0)
+        &.{ "--probe-provider-health", "--provider", provider, "--model", model, "--timeout-secs", "10" }
+    else
+        &.{ "--probe-provider-health", "--provider", provider, "--timeout-secs", "10" };
+    const result = component_cli.runWithNullclawHome(
         allocator,
         binary_path,
-        &.{ "--list-models", "--provider", provider, "--api-key", api_key },
+        args,
         null,
+        instance_home,
     ) catch return .{ .live_ok = false, .reason = "probe_exec_failed" };
     defer allocator.free(result.stdout);
     defer allocator.free(result.stderr);
 
-    if (result.success) {
-        const parsed = std.json.parseFromSlice(std.json.Value, allocator, result.stdout, .{
-            .allocate = .alloc_if_needed,
-        }) catch return .{ .live_ok = false, .reason = "invalid_probe_response" };
-        defer parsed.deinit();
-        if (parsed.value != .array) return .{ .live_ok = false, .reason = "invalid_probe_response" };
-        return .{ .live_ok = true, .status_code = 200, .reason = "ok" };
-    }
+    const parsed = std.json.parseFromSlice(ComponentHealthProbePayload, allocator, result.stdout, .{
+        .allocate = .alloc_if_needed,
+        .ignore_unknown_fields = true,
+    }) catch {
+        const status_code = parseAnyHttpStatusCode(result.stderr) orelse parseAnyHttpStatusCode(result.stdout);
+        return if (result.success)
+            .{ .live_ok = false, .reason = "invalid_probe_response", .status_code = status_code }
+        else
+            classifyProbeFailure(status_code, result.stdout, result.stderr);
+    };
+    defer parsed.deinit();
 
-    const status_code = parseAnyHttpStatusCode(result.stderr) orelse parseAnyHttpStatusCode(result.stdout);
-    return classifyProbeFailure(status_code, result.stdout, result.stderr);
+    const payload = parsed.value;
+    const reason = payload.reason orelse (if (payload.live_ok) "ok" else "auth_check_failed");
+    if (!result.success and payload.reason == null and !payload.live_ok) {
+        const status_code = payload.status_code orelse parseAnyHttpStatusCode(result.stderr) orelse parseAnyHttpStatusCode(result.stdout);
+        return classifyProbeFailure(status_code, result.stdout, result.stderr);
+    }
+    return .{
+        .live_ok = payload.live_ok,
+        .status_code = payload.status_code,
+        .reason = reason,
+    };
 }
 
 fn probeComponentProvider(
@@ -174,18 +196,19 @@ fn probeComponentProvider(
     paths: paths_mod.Paths,
     entry: state_mod.InstanceEntry,
     component: []const u8,
+    name: []const u8,
     provider: []const u8,
-    api_key: []const u8,
+    model: []const u8,
 ) ProviderProbeResult {
-    if (api_key.len == 0) return .{ .live_ok = false, .reason = "missing_api_key" };
-
     const bin_path = paths.binary(allocator, component, entry.version) catch {
         return .{ .live_ok = false, .reason = "probe_binary_path_failed" };
     };
     defer allocator.free(bin_path);
 
     std.fs.accessAbsolute(bin_path, .{}) catch return .{ .live_ok = false, .reason = "component_binary_missing" };
-    return probeProviderViaListModels(allocator, bin_path, provider, api_key);
+    const inst_dir = paths.instanceDir(allocator, component, name) catch return .{ .live_ok = false, .reason = "probe_home_path_failed" };
+    defer allocator.free(inst_dir);
+    return probeProviderViaComponentHealth(allocator, bin_path, inst_dir, provider, model);
 }
 
 // ─── Path Parsing ────────────────────────────────────────────────────────────
@@ -250,6 +273,373 @@ const UsageAggregate = struct {
     requests: u64 = 0,
     last_used: i64 = 0,
 };
+
+const TOKEN_USAGE_LEDGER_FILENAME = "llm_token_usage.jsonl";
+const LEGACY_USAGE_LEDGER_FILENAME = "llm_usage.jsonl";
+const USAGE_CACHE_VERSION: u32 = 1;
+const USAGE_CACHE_MAX_LEDGER_BYTES: usize = 128 * 1024 * 1024;
+const USAGE_CACHE_REBUILD_MIN_SECS: i64 = 30;
+const USAGE_HOURLY_RETENTION_SECS: i64 = 14 * 24 * 60 * 60;
+const USAGE_DAILY_RETENTION_SECS: i64 = 730 * 24 * 60 * 60;
+const HOUR_SECS: i64 = 60 * 60;
+const DAY_SECS: i64 = 24 * 60 * 60;
+
+const UsageCacheBucket = struct {
+    bucket_start: i64 = 0,
+    provider: []const u8 = "",
+    model: []const u8 = "",
+    prompt_tokens: u64 = 0,
+    completion_tokens: u64 = 0,
+    total_tokens: u64 = 0,
+    requests: u64 = 0,
+    last_used: i64 = 0,
+};
+
+const UsageCacheSnapshot = struct {
+    version: u32 = USAGE_CACHE_VERSION,
+    generated_at: i64 = 0,
+    ledger_size: u64 = 0,
+    ledger_mtime_ns: i64 = 0,
+    hourly: []UsageCacheBucket = &.{},
+    daily: []UsageCacheBucket = &.{},
+
+    fn deinit(self: *UsageCacheSnapshot, allocator: std.mem.Allocator) void {
+        for (self.hourly) |row| {
+            allocator.free(row.provider);
+            allocator.free(row.model);
+        }
+        if (self.hourly.len > 0) allocator.free(self.hourly);
+        for (self.daily) |row| {
+            allocator.free(row.provider);
+            allocator.free(row.model);
+        }
+        if (self.daily.len > 0) allocator.free(self.daily);
+        self.* = .{};
+    }
+};
+
+fn emptyUsageCache(now_ts: i64) UsageCacheSnapshot {
+    return .{ .generated_at = now_ts };
+}
+
+fn bucketFloor(ts: i64, bucket_secs: i64) i64 {
+    return @divFloor(ts, bucket_secs) * bucket_secs;
+}
+
+fn isShortUsageWindow(window: []const u8) bool {
+    return std.mem.eql(u8, window, "24h") or std.mem.eql(u8, window, "7d");
+}
+
+fn resolveUsageLedgerPath(allocator: std.mem.Allocator, inst_dir: []const u8) ![]u8 {
+    const preferred = try std.fs.path.join(allocator, &.{ inst_dir, TOKEN_USAGE_LEDGER_FILENAME });
+    std.fs.accessAbsolute(preferred, .{}) catch {
+        const legacy = try std.fs.path.join(allocator, &.{ inst_dir, LEGACY_USAGE_LEDGER_FILENAME });
+        if (std.fs.accessAbsolute(legacy, .{})) |_| {
+            allocator.free(preferred);
+            return legacy;
+        } else |_| {}
+        allocator.free(legacy);
+    };
+    return preferred;
+}
+
+fn usageCachePath(allocator: std.mem.Allocator, paths: paths_mod.Paths, component: []const u8, name: []const u8) ![]u8 {
+    const filename = try std.fmt.allocPrint(allocator, "{s}.json", .{name});
+    defer allocator.free(filename);
+    return std.fs.path.join(allocator, &.{ paths.root, "cache", "usage", component, filename });
+}
+
+fn parseI64(v: std.json.Value) ?i64 {
+    return switch (v) {
+        .integer => @intCast(v.integer),
+        else => null,
+    };
+}
+
+fn parseU64(v: std.json.Value) ?u64 {
+    return switch (v) {
+        .integer => if (v.integer >= 0) @intCast(v.integer) else null,
+        else => null,
+    };
+}
+
+fn parseU32(v: std.json.Value) ?u32 {
+    return switch (v) {
+        .integer => if (v.integer >= 0 and v.integer <= std.math.maxInt(u32)) @intCast(v.integer) else null,
+        else => null,
+    };
+}
+
+fn parseUsageCacheBuckets(allocator: std.mem.Allocator, value: std.json.Value) ![]UsageCacheBucket {
+    if (value != .array) return allocator.alloc(UsageCacheBucket, 0);
+
+    var list: std.ArrayListUnmanaged(UsageCacheBucket) = .empty;
+    errdefer {
+        for (list.items) |row| {
+            allocator.free(row.provider);
+            allocator.free(row.model);
+        }
+        list.deinit(allocator);
+    }
+
+    for (value.array.items) |item| {
+        if (item != .object) continue;
+        const provider_v = item.object.get("provider") orelse continue;
+        const model_v = item.object.get("model") orelse continue;
+        if (provider_v != .string or model_v != .string) continue;
+
+        const provider_copy = try allocator.dupe(u8, provider_v.string);
+        errdefer allocator.free(provider_copy);
+        const model_copy = try allocator.dupe(u8, model_v.string);
+        errdefer allocator.free(model_copy);
+
+        try list.append(allocator, .{
+            .bucket_start = if (item.object.get("bucket_start")) |v| parseI64(v) orelse 0 else 0,
+            .provider = provider_copy,
+            .model = model_copy,
+            .prompt_tokens = if (item.object.get("prompt_tokens")) |v| parseU64(v) orelse 0 else 0,
+            .completion_tokens = if (item.object.get("completion_tokens")) |v| parseU64(v) orelse 0 else 0,
+            .total_tokens = if (item.object.get("total_tokens")) |v| parseU64(v) orelse 0 else 0,
+            .requests = if (item.object.get("requests")) |v| parseU64(v) orelse 0 else 0,
+            .last_used = if (item.object.get("last_used")) |v| parseI64(v) orelse 0 else 0,
+        });
+    }
+
+    return list.toOwnedSlice(allocator);
+}
+
+fn loadUsageCacheSnapshot(allocator: std.mem.Allocator, cache_path: []const u8, now_ts: i64) !?UsageCacheSnapshot {
+    const file = std.fs.openFileAbsolute(cache_path, .{}) catch |err| switch (err) {
+        error.FileNotFound => return null,
+        else => return err,
+    };
+    defer file.close();
+
+    const content = try file.readToEndAlloc(allocator, 16 * 1024 * 1024);
+    defer allocator.free(content);
+
+    const parsed = std.json.parseFromSlice(std.json.Value, allocator, content, .{
+        .allocate = .alloc_if_needed,
+    }) catch return null;
+    defer parsed.deinit();
+    if (parsed.value != .object) return null;
+
+    var snapshot = emptyUsageCache(now_ts);
+    errdefer snapshot.deinit(allocator);
+
+    const root = parsed.value.object;
+    if (root.get("version")) |v| snapshot.version = parseU32(v) orelse USAGE_CACHE_VERSION;
+    if (root.get("generated_at")) |v| snapshot.generated_at = parseI64(v) orelse now_ts;
+    if (root.get("ledger_size")) |v| snapshot.ledger_size = parseU64(v) orelse 0;
+    if (root.get("ledger_mtime_ns")) |v| snapshot.ledger_mtime_ns = parseI64(v) orelse 0;
+    if (root.get("hourly")) |v| snapshot.hourly = try parseUsageCacheBuckets(allocator, v);
+    if (root.get("daily")) |v| snapshot.daily = try parseUsageCacheBuckets(allocator, v);
+
+    return snapshot;
+}
+
+fn writeUsageCacheBuckets(
+    allocator: std.mem.Allocator,
+    w: *std.Io.Writer,
+    buckets: []const UsageCacheBucket,
+) !void {
+    _ = allocator;
+    try w.writeByte('[');
+    for (buckets, 0..) |row, idx| {
+        if (idx > 0) try w.writeByte(',');
+        try w.writeAll("{\"bucket_start\":");
+        try w.print("{d}", .{row.bucket_start});
+        try w.writeAll(",\"provider\":");
+        try w.print("{f}", .{std.json.fmt(row.provider, .{})});
+        try w.writeAll(",\"model\":");
+        try w.print("{f}", .{std.json.fmt(row.model, .{})});
+        try w.writeAll(",\"prompt_tokens\":");
+        try w.print("{d}", .{row.prompt_tokens});
+        try w.writeAll(",\"completion_tokens\":");
+        try w.print("{d}", .{row.completion_tokens});
+        try w.writeAll(",\"total_tokens\":");
+        try w.print("{d}", .{row.total_tokens});
+        try w.writeAll(",\"requests\":");
+        try w.print("{d}", .{row.requests});
+        try w.writeAll(",\"last_used\":");
+        try w.print("{d}", .{row.last_used});
+        try w.writeByte('}');
+    }
+    try w.writeByte(']');
+}
+
+fn writeUsageCacheSnapshot(allocator: std.mem.Allocator, cache_path: []const u8, snapshot: *const UsageCacheSnapshot) !void {
+    const cache_dir = std.fs.path.dirname(cache_path) orelse return error.InvalidPath;
+    std.fs.makePathAbsolute(cache_dir) catch |err| switch (err) {
+        error.PathAlreadyExists => {},
+        else => return err,
+    };
+
+    var file = try std.fs.createFileAbsolute(cache_path, .{ .truncate = true });
+    defer file.close();
+
+    var writer_buf: [8192]u8 = undefined;
+    var file_writer = file.writer(&writer_buf);
+    const w = &file_writer.interface;
+
+    try w.writeAll("{\"version\":");
+    try w.print("{d}", .{snapshot.version});
+    try w.writeAll(",\"generated_at\":");
+    try w.print("{d}", .{snapshot.generated_at});
+    try w.writeAll(",\"ledger_size\":");
+    try w.print("{d}", .{snapshot.ledger_size});
+    try w.writeAll(",\"ledger_mtime_ns\":");
+    try w.print("{d}", .{snapshot.ledger_mtime_ns});
+    try w.writeAll(",\"hourly\":");
+    try writeUsageCacheBuckets(allocator, w, snapshot.hourly);
+    try w.writeAll(",\"daily\":");
+    try writeUsageCacheBuckets(allocator, w, snapshot.daily);
+    try w.writeAll("}\n");
+    try w.flush();
+}
+
+fn upsertUsageBucket(
+    allocator: std.mem.Allocator,
+    list: *std.ArrayListUnmanaged(UsageCacheBucket),
+    bucket_start: i64,
+    provider: []const u8,
+    model: []const u8,
+    prompt_tokens: u64,
+    completion_tokens: u64,
+    total_tokens: u64,
+    ts: i64,
+) !void {
+    for (list.items) |*row| {
+        if (row.bucket_start == bucket_start and std.mem.eql(u8, row.provider, provider) and std.mem.eql(u8, row.model, model)) {
+            row.prompt_tokens += prompt_tokens;
+            row.completion_tokens += completion_tokens;
+            row.total_tokens += total_tokens;
+            row.requests += 1;
+            if (ts > row.last_used) row.last_used = ts;
+            return;
+        }
+    }
+
+    try list.append(allocator, .{
+        .bucket_start = bucket_start,
+        .provider = try allocator.dupe(u8, provider),
+        .model = try allocator.dupe(u8, model),
+        .prompt_tokens = prompt_tokens,
+        .completion_tokens = completion_tokens,
+        .total_tokens = total_tokens,
+        .requests = 1,
+        .last_used = ts,
+    });
+}
+
+fn pruneUsageBuckets(allocator: std.mem.Allocator, list: *std.ArrayListUnmanaged(UsageCacheBucket), min_bucket_start: i64) void {
+    var i: usize = 0;
+    while (i < list.items.len) {
+        if (list.items[i].bucket_start < min_bucket_start) {
+            allocator.free(list.items[i].provider);
+            allocator.free(list.items[i].model);
+            _ = list.swapRemove(i);
+            continue;
+        }
+        i += 1;
+    }
+}
+
+fn rebuildUsageCacheSnapshot(
+    allocator: std.mem.Allocator,
+    ledger_path: []const u8,
+    ledger_size: u64,
+    ledger_mtime_ns: i64,
+    now_ts: i64,
+) !UsageCacheSnapshot {
+    var snapshot = emptyUsageCache(now_ts);
+    snapshot.ledger_size = ledger_size;
+    snapshot.ledger_mtime_ns = ledger_mtime_ns;
+
+    var hourly_list: std.ArrayListUnmanaged(UsageCacheBucket) = .empty;
+    errdefer {
+        for (hourly_list.items) |row| {
+            allocator.free(row.provider);
+            allocator.free(row.model);
+        }
+        hourly_list.deinit(allocator);
+    }
+    var daily_list: std.ArrayListUnmanaged(UsageCacheBucket) = .empty;
+    errdefer {
+        for (daily_list.items) |row| {
+            allocator.free(row.provider);
+            allocator.free(row.model);
+        }
+        daily_list.deinit(allocator);
+    }
+
+    const file = std.fs.openFileAbsolute(ledger_path, .{}) catch |err| switch (err) {
+        error.FileNotFound => {
+            snapshot.hourly = &.{};
+            snapshot.daily = &.{};
+            return snapshot;
+        },
+        else => return err,
+    };
+    defer file.close();
+
+    const contents = try file.readToEndAlloc(allocator, USAGE_CACHE_MAX_LEDGER_BYTES);
+    defer allocator.free(contents);
+
+    var line_it = std.mem.splitScalar(u8, contents, '\n');
+    while (line_it.next()) |raw_line| {
+        const line = std.mem.trim(u8, raw_line, " \t\r\n");
+        if (line.len == 0) continue;
+
+        const parsed = std.json.parseFromSlice(UsageLedgerLine, allocator, line, .{
+            .allocate = .alloc_if_needed,
+            .ignore_unknown_fields = true,
+        }) catch continue;
+        defer parsed.deinit();
+
+        const record = parsed.value;
+        if (record.ts <= 0) continue;
+
+        const provider_raw = record.provider orelse "unknown";
+        const model_raw = record.model orelse "unknown";
+        const provider = if (provider_raw.len > 0) provider_raw else "unknown";
+        const model = if (model_raw.len > 0) model_raw else "unknown";
+        const total_tokens: u64 = if (record.total_tokens > 0)
+            record.total_tokens
+        else
+            record.prompt_tokens + record.completion_tokens;
+
+        try upsertUsageBucket(
+            allocator,
+            &hourly_list,
+            bucketFloor(record.ts, HOUR_SECS),
+            provider,
+            model,
+            record.prompt_tokens,
+            record.completion_tokens,
+            total_tokens,
+            record.ts,
+        );
+        try upsertUsageBucket(
+            allocator,
+            &daily_list,
+            bucketFloor(record.ts, DAY_SECS),
+            provider,
+            model,
+            record.prompt_tokens,
+            record.completion_tokens,
+            total_tokens,
+            record.ts,
+        );
+    }
+
+    pruneUsageBuckets(allocator, &hourly_list, now_ts - USAGE_HOURLY_RETENTION_SECS);
+    pruneUsageBuckets(allocator, &daily_list, now_ts - USAGE_DAILY_RETENTION_SECS);
+
+    snapshot.hourly = try hourly_list.toOwnedSlice(allocator);
+    snapshot.daily = try daily_list.toOwnedSlice(allocator);
+    return snapshot;
+}
 
 fn parseUsageWindow(target: []const u8) []const u8 {
     const qmark = std.mem.indexOfScalar(u8, target, '?') orelse return "24h";
@@ -452,7 +842,6 @@ pub fn handleProviderHealth(allocator: std.mem.Allocator, s: *state_mod.State, m
 
     var provider: []const u8 = "";
     var model: []const u8 = "";
-    var api_key: []const u8 = "";
     var configured = false;
 
     if (parsed.value.agents) |agents| {
@@ -480,20 +869,25 @@ pub fn handleProviderHealth(allocator: std.mem.Allocator, s: *state_mod.State, m
                     if (provider_entry.api_key) |k| {
                         if (k.len > 0) {
                             configured = true;
-                            api_key = k;
                         }
                     }
                 }
             }
-            if (!configured) {
+            if (provider.len == 0) {
                 var it = providers.map.iterator();
                 while (it.next()) |provider_entry| {
+                    provider = provider_entry.key_ptr.*;
                     if (provider_entry.value_ptr.api_key) |k| {
+                        if (k.len > 0) configured = true;
+                    }
+                    break;
+                }
+            }
+            if (!configured and provider.len > 0) {
+                if (providers.map.get(provider)) |provider_entry| {
+                    if (provider_entry.api_key) |k| {
                         if (k.len > 0) {
-                            provider = provider_entry.key_ptr.*;
                             configured = true;
-                            api_key = k;
-                            break;
                         }
                     }
                 }
@@ -516,14 +910,11 @@ pub fn handleProviderHealth(allocator: std.mem.Allocator, s: *state_mod.State, m
     if (provider.len == 0) {
         status = "error";
         reason = "provider_not_detected";
-    } else if (!configured) {
-        status = "error";
-        reason = "missing_api_key";
     } else if (!running) {
         status = "error";
         reason = "instance_not_running";
     } else {
-        const probe = probeComponentProvider(allocator, paths, entry, component, provider, api_key);
+        const probe = probeComponentProvider(allocator, paths, entry, component, name, provider, model);
         live_ok = probe.live_ok;
         status_code = probe.status_code;
         status = if (probe.live_ok) "ok" else "error";
@@ -555,7 +946,7 @@ pub fn handleProviderHealth(allocator: std.mem.Allocator, s: *state_mod.State, m
 }
 
 /// GET /api/instances/{component}/{name}/usage?window=24h|7d|30d|all
-/// Reads llm_usage.jsonl from the instance root and aggregates usage by (provider, model).
+/// Uses a persistent nullhub cache (hourly + daily buckets) rebuilt from token ledger.
 pub fn handleUsage(allocator: std.mem.Allocator, s: *state_mod.State, paths: paths_mod.Paths, component: []const u8, name: []const u8, target: []const u8) ApiResponse {
     _ = s.getInstance(component, name) orelse return notFound();
 
@@ -565,27 +956,49 @@ pub fn handleUsage(allocator: std.mem.Allocator, s: *state_mod.State, paths: pat
 
     const inst_dir = paths.instanceDir(allocator, component, name) catch return helpers.serverError();
     defer allocator.free(inst_dir);
-
-    const ledger_path = std.fs.path.join(allocator, &.{ inst_dir, "llm_usage.jsonl" }) catch return helpers.serverError();
+    const ledger_path = resolveUsageLedgerPath(allocator, inst_dir) catch return helpers.serverError();
     defer allocator.free(ledger_path);
+    const cache_path = usageCachePath(allocator, paths, component, name) catch return helpers.serverError();
+    defer allocator.free(cache_path);
 
-    const file = std.fs.openFileAbsolute(ledger_path, .{}) catch |err| switch (err) {
-        error.FileNotFound => {
-            var empty_buf = std.array_list.Managed(u8).init(allocator);
-            empty_buf.appendSlice("{\"window\":\"") catch return helpers.serverError();
-            appendEscaped(&empty_buf, window) catch return helpers.serverError();
-            empty_buf.writer().print(
-                "\",\"generated_at\":{d},\"rows\":[],\"totals\":{{\"prompt_tokens\":0,\"completion_tokens\":0,\"total_tokens\":0,\"requests\":0}}",
-                .{now_ts},
-            ) catch return helpers.serverError();
-            return jsonOk(empty_buf.items);
-        },
+    var snapshot = emptyUsageCache(now_ts);
+    defer snapshot.deinit(allocator);
+    var has_cache = false;
+    if (loadUsageCacheSnapshot(allocator, cache_path, now_ts) catch null) |loaded| {
+        snapshot = loaded;
+        has_cache = true;
+    }
+
+    var ledger_exists = false;
+    var ledger_size: u64 = 0;
+    var ledger_mtime_ns: i64 = 0;
+    const ledger_file = std.fs.openFileAbsolute(ledger_path, .{}) catch |err| switch (err) {
+        error.FileNotFound => null,
         else => return helpers.serverError(),
     };
-    defer file.close();
+    if (ledger_file) |file| {
+        defer file.close();
+        const stat = file.stat() catch return helpers.serverError();
+        ledger_exists = true;
+        ledger_size = stat.size;
+        ledger_mtime_ns = @intCast(stat.mtime);
+    }
 
-    const contents = file.readToEndAlloc(allocator, 64 * 1024 * 1024) catch return helpers.serverError();
-    defer allocator.free(contents);
+    var should_rebuild = false;
+    if (ledger_exists) {
+        if (!has_cache) {
+            should_rebuild = true;
+        } else if (snapshot.ledger_size != ledger_size or snapshot.ledger_mtime_ns != ledger_mtime_ns) {
+            should_rebuild = (now_ts - snapshot.generated_at) >= USAGE_CACHE_REBUILD_MIN_SECS;
+        }
+    }
+
+    if (should_rebuild) {
+        if (has_cache) snapshot.deinit(allocator);
+        snapshot = rebuildUsageCacheSnapshot(allocator, ledger_path, ledger_size, ledger_mtime_ns, now_ts) catch return helpers.serverError();
+        has_cache = true;
+        writeUsageCacheSnapshot(allocator, cache_path, &snapshot) catch {};
+    }
 
     var aggregates: std.StringHashMapUnmanaged(UsageAggregate) = .{};
     defer {
@@ -603,26 +1016,14 @@ pub fn handleUsage(allocator: std.mem.Allocator, s: *state_mod.State, paths: pat
     var total_tokens: u64 = 0;
     var total_requests: u64 = 0;
 
-    var line_it = std.mem.splitScalar(u8, contents, '\n');
-    while (line_it.next()) |raw_line| {
-        const line = std.mem.trim(u8, raw_line, " \t\r\n");
-        if (line.len == 0) continue;
-
-        const parsed = std.json.parseFromSlice(UsageLedgerLine, allocator, line, .{
-            .allocate = .alloc_if_needed,
-            .ignore_unknown_fields = true,
-        }) catch continue;
-        defer parsed.deinit();
-
-        const record = parsed.value;
+    const source_buckets = if (isShortUsageWindow(window)) snapshot.hourly else snapshot.daily;
+    for (source_buckets) |record| {
         if (min_ts) |cutoff| {
-            if (record.ts < cutoff) continue;
+            if (record.last_used < cutoff) continue;
         }
 
-        const provider_raw = record.provider orelse "unknown";
-        const model_raw = record.model orelse "unknown";
-        const provider = if (provider_raw.len > 0) provider_raw else "unknown";
-        const model = if (model_raw.len > 0) model_raw else "unknown";
+        const provider = if (record.provider.len > 0) record.provider else "unknown";
+        const model = if (record.model.len > 0) record.model else "unknown";
         const record_total: u64 = if (record.total_tokens > 0)
             record.total_tokens
         else
@@ -639,8 +1040,8 @@ pub fn handleUsage(allocator: std.mem.Allocator, s: *state_mod.State, paths: pat
             agg.prompt_tokens += record.prompt_tokens;
             agg.completion_tokens += record.completion_tokens;
             agg.total_tokens += record_total;
-            agg.requests += 1;
-            if (record.ts > agg.last_used) agg.last_used = record.ts;
+            agg.requests += record.requests;
+            if (record.last_used > agg.last_used) agg.last_used = record.last_used;
         } else {
             const provider_copy = allocator.dupe(u8, provider) catch {
                 allocator.free(key);
@@ -660,8 +1061,8 @@ pub fn handleUsage(allocator: std.mem.Allocator, s: *state_mod.State, paths: pat
                 .prompt_tokens = record.prompt_tokens,
                 .completion_tokens = record.completion_tokens,
                 .total_tokens = record_total,
-                .requests = 1,
-                .last_used = record.ts,
+                .requests = record.requests,
+                .last_used = record.last_used,
             }) catch {
                 allocator.free(key);
                 allocator.free(provider_copy);

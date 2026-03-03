@@ -121,6 +121,7 @@ pub const Paths = struct {
             "instances",
             "ui",
             "cache/downloads",
+            "cache/usage",
         };
         for (dirs) |sub| {
             // Use makePath on an absolute directory via cwd handle.
@@ -234,6 +235,7 @@ test "ensureDirs creates all subdirectories" {
         "/tmp/test-nullhub-ensure-dirs/instances",
         "/tmp/test-nullhub-ensure-dirs/ui",
         "/tmp/test-nullhub-ensure-dirs/cache/downloads",
+        "/tmp/test-nullhub-ensure-dirs/cache/usage",
     };
     for (expected) |dir| {
         var d = try std.fs.openDirAbsolute(dir, .{});

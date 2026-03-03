@@ -17,6 +17,7 @@
   let providerHealth = $state<any>(null);
   let providerHealthLoading = $state(false);
   let lastProviderProbeAt = $state(0);
+  let lastUsageRefreshAt = $state(0);
   type UsageWindow = "24h" | "7d" | "30d" | "all";
   let usageWindow = $state<UsageWindow>("24h");
   let usageData = $state<any>(null);
@@ -72,12 +73,6 @@
       if (providers[provider]?.api_key) {
         return { provider, model, configured: true };
       }
-      // Check if any provider has an api_key set
-      for (const [name, prov] of Object.entries(providers)) {
-        if ((prov as any)?.api_key) {
-          return { provider: name, model, configured: true };
-        }
-      }
       return { provider, model, configured: false };
     } catch {
       return none;
@@ -129,7 +124,6 @@
   ): string {
     if (!status.provider) return "";
     if (probeLoading) return "Checking live auth...";
-    if (!status.configured) return "No API key";
     if (!probe) return "Waiting for live check";
     if (probe.live_ok) {
       return probe.status_code ? `Live check OK (HTTP ${probe.status_code})` : "Live check OK";
@@ -150,11 +144,17 @@
         return `Provider unavailable${code}`;
       case "network_error":
         return "Network error during auth check";
+      case "provider_rejected":
+        return "Provider rejected probe (check credentials/model)";
       case "probe_exec_failed":
       case "probe_request_failed":
         return "Probe request failed";
+      case "config_load_failed":
+        return "Probe could not load config";
       case "component_binary_missing":
         return "Component binary missing for probe";
+      case "probe_home_path_failed":
+        return "Probe home path failed";
       case "invalid_probe_response":
         return "Probe returned invalid response";
       default:
@@ -169,18 +169,6 @@
       providerHealth = null;
       return;
     }
-    if (!status.configured) {
-      providerHealthLoading = false;
-      providerHealth = {
-        provider: status.provider,
-        configured: false,
-        running: instance?.status === "running",
-        live_ok: false,
-        status: "error",
-        reason: "missing_api_key",
-      };
-      return;
-    }
 
     const now = Date.now();
     if (!force && now - lastProviderProbeAt < 15_000) return;
@@ -191,7 +179,7 @@
     } catch {
       providerHealth = {
         provider: status.provider,
-        configured: true,
+        configured: status.configured,
         running: instance?.status === "running",
         live_ok: false,
         status: "error",
@@ -202,7 +190,10 @@
     }
   }
 
-  async function refreshUsage() {
+  async function refreshUsage(force = false) {
+    const now = Date.now();
+    if (!force && now - lastUsageRefreshAt < 15_000) return;
+    lastUsageRefreshAt = now;
     usageLoading = true;
     try {
       usageData = await api.getUsage(component, name, usageWindow);
@@ -255,7 +246,7 @@
   $effect(() => {
     usageWindow;
     if (!component || !name) return;
-    void refreshUsage();
+    void refreshUsage(true);
   });
 
   onMount(() => {
