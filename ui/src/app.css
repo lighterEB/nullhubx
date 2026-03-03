@@ -203,6 +203,19 @@ button:disabled {
   box-shadow: none;
 }
 
+a {
+  color: var(--accent);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  text-shadow: 0 0 2px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+a:hover {
+  text-decoration: underline;
+  text-shadow: var(--text-glow);
+  color: var(--accent);
+}
+
 body.effects-disabled * {
   text-shadow: none !important;
 }
