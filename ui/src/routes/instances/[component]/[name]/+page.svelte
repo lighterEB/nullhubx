@@ -14,10 +14,22 @@
   let uiModules = $state<Record<string, string>>({});
   let activeTab = $state("overview");
   let loading = $state(false);
+  let providerHealth = $state<any>(null);
+  let providerHealthLoading = $state(false);
+  let lastProviderProbeAt = $state(0);
 
   let modelName = $derived(extractModel(config));
   let webPort = $derived(extractWebPort(config));
   let providerStatus = $derived(extractProviderStatus(config));
+  let providerDotOk = $derived(
+    providerStatus.provider === "openrouter"
+      ? Boolean(providerHealth?.live_ok)
+      : providerStatus.configured,
+  );
+  let providerCardWarn = $derived(!providerDotOk);
+  let providerHintText = $derived(
+    buildProviderHint(providerStatus, providerHealth, providerHealthLoading),
+  );
   let chatModuleName = $derived(
     uiModules["nullclaw-chat-ui"] ? "nullclaw-chat-ui" : "",
   );
@@ -96,6 +108,85 @@
     return `${d}d ${h % 24}h`;
   }
 
+  function buildProviderHint(
+    status: { provider: string; configured: boolean },
+    probe: any,
+    probeLoading: boolean,
+  ): string {
+    if (!status.provider) return "";
+    if (status.provider !== "openrouter") {
+      return status.configured ? "" : "No API key";
+    }
+    if (probeLoading) return "Checking live auth...";
+    if (!status.configured) return "No API key";
+    if (!probe) return "Waiting for live check";
+    if (probe.live_ok) {
+      return probe.status_code ? `Auth OK (HTTP ${probe.status_code})` : "Auth OK";
+    }
+    const code = probe.status_code ? ` (HTTP ${probe.status_code})` : "";
+    switch (probe.reason) {
+      case "invalid_api_key":
+        return "Invalid API key (401)";
+      case "missing_api_key":
+        return "No API key";
+      case "instance_not_running":
+        return "Instance is not running";
+      case "rate_limited":
+        return "Rate limited (429)";
+      case "forbidden":
+        return "Forbidden (403)";
+      case "provider_unavailable":
+        return `Provider unavailable${code}`;
+      case "network_error":
+        return "Network error during auth check";
+      case "curl_exec_failed":
+      case "probe_request_failed":
+        return "Probe request failed";
+      default:
+        return `Auth check failed${code}`;
+    }
+  }
+
+  async function refreshProviderHealth(force = false, cfgOverride: any = config) {
+    const status = extractProviderStatus(cfgOverride);
+    if (status.provider !== "openrouter") {
+      providerHealthLoading = false;
+      providerHealth = null;
+      return;
+    }
+    if (!status.configured) {
+      providerHealthLoading = false;
+      providerHealth = {
+        provider: status.provider,
+        configured: false,
+        running: instance?.status === "running",
+        live_ok: false,
+        status: "error",
+        reason: "missing_api_key",
+      };
+      return;
+    }
+
+    const now = Date.now();
+    if (!force && now - lastProviderProbeAt < 15_000) return;
+    lastProviderProbeAt = now;
+    providerHealthLoading = true;
+    try {
+      providerHealth = await api.getProviderHealth(component, name);
+    } catch {
+      providerHealth = {
+        provider: status.provider,
+        configured: true,
+        running: instance?.status === "running",
+        live_ok: false,
+        status: "error",
+        reason: "probe_request_failed",
+      };
+    } finally {
+      providerHealthLoading = false;
+    }
+  }
+
   async function refresh() {
     try {
       const status = await api.getStatus();
@@ -107,11 +198,15 @@
       console.error(e);
     }
     // Fetch config (best-effort)
+    let loadedConfig: any = null;
     try {
-      config = await api.getConfig(component, name);
+      loadedConfig = await api.getConfig(component, name);
+      config = loadedConfig;
     } catch {
-      /* config may not exist yet */
+      config = null;
+      providerHealth = null;
     }
+    await refreshProviderHealth(false, loadedConfig);
     // Fetch installed UI modules (best-effort)
     try {
       const res = await api.getUiModules();
@@ -133,6 +228,7 @@
     try {
       await api.startInstance(component, name);
       await refresh();
+      await refreshProviderHealth(true);
     } catch {
       instance = { ...instance, status: "stopped" };
     } finally {
@@ -145,6 +241,7 @@
     try {
       await api.stopInstance(component, name);
       await refresh();
+      await refreshProviderHealth(true);
     } catch {
       instance = { ...instance, status: "running" };
     } finally {
@@ -157,6 +254,7 @@
     try {
       await api.restartInstance(component, name);
       await refresh();
+      await refreshProviderHealth(true);
     } catch {
     } finally {
       loading = false;
@@ -289,18 +387,18 @@
           </div>
         {/if}
         {#if providerStatus.provider}
-          <div class="info-card" class:card-warn={!providerStatus.configured}>
+          <div class="info-card" class:card-warn={providerCardWarn}>
             <span class="label">Provider</span>
             <div class="provider-status">
               <span
                 class="status-dot"
-                class:ok={providerStatus.configured}
-                class:err={!providerStatus.configured}
+                class:ok={providerDotOk}
+                class:err={!providerDotOk}
               ></span>
               <span>{providerStatus.provider}</span>
             </div>
-            {#if !providerStatus.configured}
-              <span class="provider-hint">No API key</span>
+            {#if providerHintText}
+              <span class="provider-hint">{providerHintText}</span>
             {/if}
           </div>
         {/if}

@@ -33,6 +33,8 @@ export const api = {
   deleteInstance: (c: string, n: string) =>
     request<any>(`/instances/${c}/${n}`, { method: 'DELETE' }),
   getConfig: (c: string, n: string) => request<any>(`/instances/${c}/${n}/config`),
+  getProviderHealth: (c: string, n: string) =>
+    request<any>(`/instances/${c}/${n}/provider-health`),
   putConfig: (c: string, n: string, config: any) =>
     request<any>(`/instances/${c}/${n}/config`, { method: 'PUT', body: JSON.stringify(config) }),
   getLogs: (c: string, n: string, lines = 100) =>

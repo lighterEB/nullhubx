@@ -51,6 +51,108 @@ fn readPortFromConfig(allocator: std.mem.Allocator, paths: paths_mod.Paths, comp
     }
 }
 
+const ProviderHealthConfig = struct {
+    agents: ?struct {
+        defaults: ?struct {
+            model: ?struct {
+                primary: ?[]const u8 = null,
+            } = null,
+        } = null,
+    } = null,
+    models: ?struct {
+        providers: ?std.json.ArrayHashMap(struct {
+            api_key: ?[]const u8 = null,
+        }) = null,
+    } = null,
+};
+
+const OpenRouterProbeResult = struct {
+    live_ok: bool,
+    status_code: ?u16 = null,
+    reason: []const u8,
+};
+
+fn parseTrailingHttpStatusCode(s: []const u8) ?u16 {
+    if (s.len == 0) return null;
+
+    var end = s.len;
+    while (end > 0) : (end -= 1) {
+        const c = s[end - 1];
+        if (c != '\n' and c != '\r' and c != ' ' and c != '\t') break;
+    }
+    if (end == 0) return null;
+
+    var start = end;
+    while (start > 0) : (start -= 1) {
+        const c = s[start - 1];
+        if (c == '\n' or c == '\r') break;
+    }
+    const line = std.mem.trim(u8, s[start..end], " \t\r\n");
+    if (line.len != 3) return null;
+    return std.fmt.parseInt(u16, line, 10) catch null;
+}
+
+fn probeOpenRouter(allocator: std.mem.Allocator, api_key: []const u8) OpenRouterProbeResult {
+    if (api_key.len == 0) {
+        return .{ .live_ok = false, .reason = "missing_api_key" };
+    }
+
+    const auth_header = std.fmt.allocPrint(allocator, "Authorization: Bearer {s}", .{api_key}) catch {
+        return .{ .live_ok = false, .reason = "allocation_failed" };
+    };
+    defer allocator.free(auth_header);
+
+    const result = std.process.Child.run(.{
+        .allocator = allocator,
+        .argv = &.{
+            "curl",
+            "-sS",
+            "--max-time",
+            "10",
+            "-H",
+            auth_header,
+            "-w",
+            "\n%{http_code}\n",
+            "https://openrouter.ai/api/v1/auth/key",
+        },
+    }) catch {
+        return .{ .live_ok = false, .reason = "curl_exec_failed" };
+    };
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+
+    const status_code = parseTrailingHttpStatusCode(result.stdout);
+    const exited_ok = switch (result.term) {
+        .Exited => |code| code == 0,
+        else => false,
+    };
+
+    if (exited_ok) {
+        if (status_code) |code| {
+            if (code >= 200 and code < 300) {
+                return .{ .live_ok = true, .status_code = code, .reason = "ok" };
+            }
+        }
+    }
+
+    if (status_code) |code| {
+        return switch (code) {
+            401 => .{ .live_ok = false, .status_code = code, .reason = "invalid_api_key" },
+            403 => .{ .live_ok = false, .status_code = code, .reason = "forbidden" },
+            429 => .{ .live_ok = false, .status_code = code, .reason = "rate_limited" },
+            else => if (code >= 500 and code <= 599)
+                .{ .live_ok = false, .status_code = code, .reason = "provider_unavailable" }
+            else
+                .{ .live_ok = false, .status_code = code, .reason = "auth_check_failed" },
+        };
+    }
+
+    if (result.stderr.len > 0) {
+        return .{ .live_ok = false, .reason = "network_error" };
+    }
+    return .{ .live_ok = false, .reason = "unknown_error" };
+}
+
 // ─── Path Parsing ────────────────────────────────────────────────────────────
 
 pub const ParsedPath = struct {
@@ -238,6 +340,139 @@ pub fn handleRestart(allocator: std.mem.Allocator, s: *state_mod.State, manager:
     return handleStart(allocator, s, manager, paths, component, name, body);
 }
 
+/// GET /api/instances/{component}/{name}/provider-health
+/// Performs a live provider credential probe for known providers.
+pub fn handleProviderHealth(allocator: std.mem.Allocator, s: *state_mod.State, manager: *manager_mod.Manager, paths: paths_mod.Paths, component: []const u8, name: []const u8) ApiResponse {
+    _ = s.getInstance(component, name) orelse return notFound();
+
+    const config_path = paths.instanceConfig(allocator, component, name) catch return helpers.serverError();
+    defer allocator.free(config_path);
+
+    const file = std.fs.openFileAbsolute(config_path, .{}) catch return .{
+        .status = "404 Not Found",
+        .content_type = "application/json",
+        .body = "{\"error\":\"config not found\"}",
+    };
+    defer file.close();
+
+    const contents = file.readToEndAlloc(allocator, 4 * 1024 * 1024) catch return helpers.serverError();
+    defer allocator.free(contents);
+
+    const parsed = std.json.parseFromSlice(ProviderHealthConfig, allocator, contents, .{
+        .allocate = .alloc_always,
+        .ignore_unknown_fields = true,
+    }) catch return badRequest("{\"error\":\"invalid config JSON\"}");
+    defer parsed.deinit();
+
+    var provider: []const u8 = "";
+    var model: []const u8 = "";
+    var api_key: []const u8 = "";
+    var configured = false;
+
+    if (parsed.value.agents) |agents| {
+        if (agents.defaults) |defaults| {
+            if (defaults.model) |model_cfg| {
+                if (model_cfg.primary) |primary| {
+                    if (primary.len > 0) {
+                        if (std.mem.indexOfScalar(u8, primary, '/')) |sep| {
+                            provider = primary[0..sep];
+                            model = primary[sep + 1 ..];
+                        } else {
+                            provider = primary;
+                            model = primary;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (parsed.value.models) |models_cfg| {
+        if (models_cfg.providers) |providers| {
+            if (provider.len > 0) {
+                if (providers.map.get(provider)) |entry| {
+                    if (entry.api_key) |k| {
+                        if (k.len > 0) {
+                            configured = true;
+                            api_key = k;
+                        }
+                    }
+                }
+            }
+            if (!configured) {
+                var it = providers.map.iterator();
+                while (it.next()) |entry| {
+                    if (entry.value_ptr.api_key) |k| {
+                        if (k.len > 0) {
+                            provider = entry.key_ptr.*;
+                            configured = true;
+                            api_key = k;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    const running = blk: {
+        if (manager.getStatus(component, name)) |st| {
+            break :blk st.status == .running;
+        }
+        break :blk false;
+    };
+
+    var status: []const u8 = "unknown";
+    var reason: []const u8 = "not_probed";
+    var live_ok = false;
+    var status_code: ?u16 = null;
+
+    if (provider.len == 0) {
+        status = "error";
+        reason = "provider_not_detected";
+    } else if (!configured) {
+        status = "error";
+        reason = "missing_api_key";
+    } else if (!running) {
+        status = "error";
+        reason = "instance_not_running";
+    } else if (std.mem.eql(u8, provider, "openrouter")) {
+        const probe = probeOpenRouter(allocator, api_key);
+        live_ok = probe.live_ok;
+        status_code = probe.status_code;
+        status = if (probe.live_ok) "ok" else "error";
+        reason = probe.reason;
+    } else {
+        // Preserve compatibility for other providers: only openrouter has live probe for now.
+        live_ok = configured and running;
+        status = if (live_ok) "ok" else "unknown";
+        reason = "probe_not_implemented";
+    }
+
+    var buf = std.array_list.Managed(u8).init(allocator);
+    buf.appendSlice("{\"provider\":\"") catch return helpers.serverError();
+    appendEscaped(&buf, provider) catch return helpers.serverError();
+    buf.appendSlice("\",\"model\":\"") catch return helpers.serverError();
+    appendEscaped(&buf, model) catch return helpers.serverError();
+    buf.appendSlice("\",\"configured\":") catch return helpers.serverError();
+    buf.appendSlice(if (configured) "true" else "false") catch return helpers.serverError();
+    buf.appendSlice(",\"running\":") catch return helpers.serverError();
+    buf.appendSlice(if (running) "true" else "false") catch return helpers.serverError();
+    buf.appendSlice(",\"live_ok\":") catch return helpers.serverError();
+    buf.appendSlice(if (live_ok) "true" else "false") catch return helpers.serverError();
+    buf.appendSlice(",\"status\":\"") catch return helpers.serverError();
+    appendEscaped(&buf, status) catch return helpers.serverError();
+    buf.appendSlice("\",\"reason\":\"") catch return helpers.serverError();
+    appendEscaped(&buf, reason) catch return helpers.serverError();
+    buf.appendSlice("\"") catch return helpers.serverError();
+    if (status_code) |code| {
+        buf.writer().print(",\"status_code\":{d}", .{code}) catch return helpers.serverError();
+    }
+    buf.appendSlice("}") catch return helpers.serverError();
+
+    return jsonOk(buf.items);
+}
+
 /// DELETE /api/instances/{component}/{name}
 pub fn handleDelete(allocator: std.mem.Allocator, s: *state_mod.State, manager: *manager_mod.Manager, paths: paths_mod.Paths, component: []const u8, name: []const u8) ApiResponse {
     if (s.getInstance(component, name) == null) return notFound();
@@ -366,7 +601,12 @@ pub fn dispatch(allocator: std.mem.Allocator, s: *state_mod.State, manager: *man
     const parsed = parsePath(target) orelse return null;
 
     if (parsed.action) |action| {
-        // Only POST is valid for actions.
+        if (std.mem.eql(u8, action, "provider-health")) {
+            if (!std.mem.eql(u8, method, "GET")) return methodNotAllowed();
+            return handleProviderHealth(allocator, s, manager, paths, parsed.component, parsed.name);
+        }
+
+        // Remaining actions are POST-only.
         if (!std.mem.eql(u8, method, "POST")) return methodNotAllowed();
 
         if (std.mem.eql(u8, action, "start")) return handleStart(allocator, s, manager, paths, parsed.component, parsed.name, body);
@@ -421,6 +661,19 @@ test "parsePath: component, name, and action" {
     try std.testing.expectEqualStrings("nullclaw", p.component);
     try std.testing.expectEqualStrings("my-agent", p.name);
     try std.testing.expectEqualStrings("start", p.action.?);
+}
+
+test "parsePath: provider-health action" {
+    const p = parsePath("/api/instances/nullclaw/default/provider-health").?;
+    try std.testing.expectEqualStrings("nullclaw", p.component);
+    try std.testing.expectEqualStrings("default", p.name);
+    try std.testing.expectEqualStrings("provider-health", p.action.?);
+}
+
+test "parseTrailingHttpStatusCode parses status in curl trailer" {
+    try std.testing.expectEqual(@as(?u16, 200), parseTrailingHttpStatusCode("{\"x\":1}\n200\n"));
+    try std.testing.expectEqual(@as(?u16, 401), parseTrailingHttpStatusCode("\n401\n"));
+    try std.testing.expectEqual(@as(?u16, null), parseTrailingHttpStatusCode("not-a-code"));
 }
 
 test "parsePath: rejects bare /api/instances/" {
@@ -693,6 +946,33 @@ test "dispatch routes POST start action" {
     // Binary doesn't exist so start returns 500
     const resp = dispatch(allocator, &s, &mctx.manager, mctx.paths, "POST", "/api/instances/nullclaw/my-agent/start", "").?;
     try std.testing.expectEqualStrings("500 Internal Server Error", resp.status);
+}
+
+test "dispatch routes GET provider-health action" {
+    const allocator = std.testing.allocator;
+    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    defer s.deinit();
+    var mctx = TestManagerCtx.init(allocator);
+    defer mctx.deinit(allocator);
+
+    try s.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0" });
+
+    // No config file exists in this test fixture, so health action returns 404.
+    const resp = dispatch(allocator, &s, &mctx.manager, mctx.paths, "GET", "/api/instances/nullclaw/my-agent/provider-health", "").?;
+    try std.testing.expectEqualStrings("404 Not Found", resp.status);
+}
+
+test "dispatch provider-health rejects POST" {
+    const allocator = std.testing.allocator;
+    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    defer s.deinit();
+    var mctx = TestManagerCtx.init(allocator);
+    defer mctx.deinit(allocator);
+
+    try s.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0" });
+
+    const resp = dispatch(allocator, &s, &mctx.manager, mctx.paths, "POST", "/api/instances/nullclaw/my-agent/provider-health", "").?;
+    try std.testing.expectEqualStrings("405 Method Not Allowed", resp.status);
 }
 
 test "dispatch returns null for non-matching path" {
