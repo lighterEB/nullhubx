@@ -61,6 +61,7 @@
   }
 
   .component-card:hover {
+    text-decoration: none;
     background: var(--bg-hover);
     border-color: var(--accent);
     box-shadow: 0 0 15px var(--border-glow);

@@ -114,6 +114,7 @@
   }
 
   .nav-section a:hover {
+    text-decoration: none;
     background: var(--bg-hover);
     color: var(--fg);
     border-left-color: var(--accent-dim);
@@ -181,6 +182,7 @@
   }
 
   .nav-bottom a:hover {
+    text-decoration: none;
     background: var(--bg-hover);
     color: var(--fg);
     border-left-color: var(--accent-dim);

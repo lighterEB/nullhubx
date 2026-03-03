@@ -95,6 +95,7 @@
     text-shadow: var(--text-glow);
   }
   .install-btn:hover {
+    text-decoration: none;
     background: var(--bg-hover);
     border-color: var(--accent);
     box-shadow: 0 0 10px var(--border-glow);
@@ -146,6 +147,7 @@
     text-shadow: var(--text-glow);
   }
   .empty-state .btn:hover {
+    text-decoration: none;
     background: var(--bg-hover);
     border-color: var(--accent);
     box-shadow: 0 0 10px var(--border-glow);
