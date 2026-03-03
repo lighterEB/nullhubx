@@ -55,6 +55,50 @@
     return null;
   }
 
+  function isLocalEndpoint(url: string): boolean {
+    return (
+      url.startsWith("http://localhost") ||
+      url.startsWith("https://localhost") ||
+      url.startsWith("http://127.") ||
+      url.startsWith("https://127.") ||
+      url.startsWith("http://0.0.0.0") ||
+      url.startsWith("https://0.0.0.0") ||
+      url.startsWith("http://[::1]") ||
+      url.startsWith("https://[::1]")
+    );
+  }
+
+  function knownCompatibleProviderUrl(provider: string): string | null {
+    if (provider === "lmstudio" || provider === "lm-studio") return "http://localhost:1234/v1";
+    if (provider === "vllm") return "http://localhost:8000/v1";
+    if (provider === "llamacpp" || provider === "llama.cpp") return "http://localhost:8080/v1";
+    if (provider === "sglang") return "http://localhost:30000/v1";
+    if (provider === "osaurus") return "http://localhost:1337/v1";
+    if (provider === "litellm") return "http://localhost:4000";
+    return null;
+  }
+
+  function providerRequiresApiKey(provider: string, providerEntry: any): boolean {
+    if (
+      provider === "ollama" ||
+      provider === "claude-cli" ||
+      provider === "codex-cli" ||
+      provider === "openai-codex"
+    ) {
+      return false;
+    }
+
+    const configuredBaseUrl = providerEntry?.base_url || providerEntry?.api_url || "";
+    if (configuredBaseUrl) return !isLocalEndpoint(configuredBaseUrl);
+
+    if (provider.startsWith("custom:")) return !isLocalEndpoint(provider.slice("custom:".length));
+
+    const knownUrl = knownCompatibleProviderUrl(provider);
+    if (knownUrl) return !isLocalEndpoint(knownUrl);
+
+    return true;
+  }
+
   function extractProviderStatus(cfg: any): {
     provider: string;
     model: string;
@@ -69,11 +113,10 @@
       const provider = parts.length > 1 ? parts[0] : primary;
       const model = parts.length > 1 ? parts.slice(1).join("/") : primary;
       const providers = cfg.models?.providers || {};
-      // Check if the specific provider has an api_key
-      if (providers[provider]?.api_key) {
-        return { provider, model, configured: true };
-      }
-      return { provider, model, configured: false };
+      const providerEntry = providers[provider] || {};
+      const hasApiKey = Boolean(providerEntry?.api_key);
+      const configured = !providerRequiresApiKey(provider, providerEntry) || hasApiKey;
+      return { provider, model, configured };
     } catch {
       return none;
     }

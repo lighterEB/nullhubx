@@ -77,55 +77,44 @@ pub fn isLogsPath(target: []const u8) bool {
 
 // ─── Handlers ────────────────────────────────────────────────────────────────
 
-/// GET /api/instances/{c}/{n}/logs?lines=N — read last N lines from stdout.log.
-pub fn handleGet(allocator: std.mem.Allocator, p: paths_mod.Paths, component: []const u8, name: []const u8, max_lines: usize) ApiResponse {
-    const logs_dir = p.instanceLogs(allocator, component, name) catch return .{
-        .status = "500 Internal Server Error",
-        .content_type = "application/json",
-        .body = "{\"error\":\"internal error\"}",
-    };
+fn readTailLinesJson(
+    allocator: std.mem.Allocator,
+    p: paths_mod.Paths,
+    component: []const u8,
+    name: []const u8,
+    max_lines: usize,
+) ![]u8 {
+    const logs_dir = p.instanceLogs(allocator, component, name) catch return error.PathBuildFailed;
     defer allocator.free(logs_dir);
 
-    const log_path = std.fs.path.join(allocator, &.{ logs_dir, "stdout.log" }) catch return .{
-        .status = "500 Internal Server Error",
-        .content_type = "application/json",
-        .body = "{\"error\":\"internal error\"}",
-    };
+    const log_path = std.fs.path.join(allocator, &.{ logs_dir, "stdout.log" }) catch return error.PathBuildFailed;
     defer allocator.free(log_path);
 
     const file = std.fs.openFileAbsolute(log_path, .{}) catch |err| switch (err) {
-        error.FileNotFound => {
-            // Return empty lines array when log file doesn't exist.
-            return .{
-                .status = "200 OK",
-                .content_type = "application/json",
-                .body = "{\"lines\":[]}",
-            };
-        },
-        else => return .{
-            .status = "500 Internal Server Error",
-            .content_type = "application/json",
-            .body = "{\"error\":\"internal error\"}",
-        },
+        error.FileNotFound => return allocator.dupe(u8, "{\"lines\":[]}"),
+        else => return err,
     };
     defer file.close();
 
-    const contents = file.readToEndAlloc(allocator, 16 * 1024 * 1024) catch return .{
-        .status = "500 Internal Server Error",
-        .content_type = "application/json",
-        .body = "{\"error\":\"internal error\"}",
-    };
+    const contents = try file.readToEndAlloc(allocator, 16 * 1024 * 1024);
     defer allocator.free(contents);
 
     // Split into lines and take last N.
     var buf = std.array_list.Managed(u8).init(allocator);
-    buildLinesJson(&buf, contents, max_lines) catch return .{
+    errdefer buf.deinit();
+    try buildLinesJson(&buf, contents, max_lines);
+    return buf.items;
+}
+
+/// GET /api/instances/{c}/{n}/logs?lines=N — read last N lines from stdout.log.
+pub fn handleGet(allocator: std.mem.Allocator, p: paths_mod.Paths, component: []const u8, name: []const u8, max_lines: usize) ApiResponse {
+    const body = readTailLinesJson(allocator, p, component, name, max_lines) catch return .{
         .status = "500 Internal Server Error",
         .content_type = "application/json",
         .body = "{\"error\":\"internal error\"}",
     };
 
-    return .{ .status = "200 OK", .content_type = "application/json", .body = buf.items };
+    return .{ .status = "200 OK", .content_type = "application/json", .body = body };
 }
 
 fn buildLinesJson(buf: *std.array_list.Managed(u8), contents: []const u8, max_lines: usize) !void {
@@ -186,12 +175,52 @@ pub fn handleDelete(allocator: std.mem.Allocator, p: paths_mod.Paths, component:
     };
 }
 
-/// GET /api/instances/{c}/{n}/logs/stream — SSE endpoint placeholder.
-pub fn handleStream() ApiResponse {
+/// GET /api/instances/{c}/{n}/logs/stream — snapshot SSE response with current tail.
+pub fn handleStream(
+    allocator: std.mem.Allocator,
+    p: paths_mod.Paths,
+    component: []const u8,
+    name: []const u8,
+    max_lines: usize,
+) ApiResponse {
+    const lines_json = readTailLinesJson(allocator, p, component, name, max_lines) catch return .{
+        .status = "500 Internal Server Error",
+        .content_type = "text/event-stream",
+        .body = "event: error\ndata: {\"error\":\"log_read_failed\"}\n\n",
+    };
+    defer allocator.free(lines_json);
+
+    var body = std.array_list.Managed(u8).init(allocator);
+    body.appendSlice("retry: 3000\n") catch return .{
+        .status = "500 Internal Server Error",
+        .content_type = "text/event-stream",
+        .body = "event: error\ndata: {\"error\":\"stream_build_failed\"}\n\n",
+    };
+    body.appendSlice("event: connected\ndata: {}\n\n") catch return .{
+        .status = "500 Internal Server Error",
+        .content_type = "text/event-stream",
+        .body = "event: error\ndata: {\"error\":\"stream_build_failed\"}\n\n",
+    };
+    body.appendSlice("event: snapshot\ndata: ") catch return .{
+        .status = "500 Internal Server Error",
+        .content_type = "text/event-stream",
+        .body = "event: error\ndata: {\"error\":\"stream_build_failed\"}\n\n",
+    };
+    body.appendSlice(lines_json) catch return .{
+        .status = "500 Internal Server Error",
+        .content_type = "text/event-stream",
+        .body = "event: error\ndata: {\"error\":\"stream_build_failed\"}\n\n",
+    };
+    body.appendSlice("\n\nevent: end\ndata: {}\n\n") catch return .{
+        .status = "500 Internal Server Error",
+        .content_type = "text/event-stream",
+        .body = "event: error\ndata: {\"error\":\"stream_build_failed\"}\n\n",
+    };
+
     return .{
         .status = "200 OK",
         .content_type = "text/event-stream",
-        .body = "event: connected\ndata: {}\n\n",
+        .body = body.items,
     };
 }
 
@@ -249,6 +278,7 @@ test "handleGet returns empty lines when no log file" {
 
     const resp = handleGet(allocator, p, "nullclaw", "my-agent", 100);
     try std.testing.expectEqualStrings("200 OK", resp.status);
+    defer allocator.free(resp.body);
     try std.testing.expectEqualStrings("{\"lines\":[]}", resp.body);
 }
 
@@ -336,11 +366,35 @@ test "handleGet tails last N lines" {
     try std.testing.expectEqualStrings("e", parsed.value.lines[1]);
 }
 
-test "handleStream returns SSE placeholder" {
-    const resp = handleStream();
+test "handleStream returns SSE snapshot" {
+    const allocator = std.testing.allocator;
+    const tmp_root = "/tmp/nullhub-test-logs-api-stream";
+    std.fs.deleteTreeAbsolute(tmp_root) catch {};
+    defer std.fs.deleteTreeAbsolute(tmp_root) catch {};
+
+    var p = try paths_mod.Paths.init(allocator, tmp_root);
+    defer p.deinit(allocator);
+
+    const logs_dir = try p.instanceLogs(allocator, "nullclaw", "my-agent");
+    defer allocator.free(logs_dir);
+    makeDirRecursive(logs_dir) catch unreachable;
+
+    const log_path = try std.fs.path.join(allocator, &.{ logs_dir, "stdout.log" });
+    defer allocator.free(log_path);
+
+    {
+        const file = try std.fs.createFileAbsolute(log_path, .{});
+        defer file.close();
+        try file.writeAll("line-a\nline-b\n");
+    }
+
+    const resp = handleStream(allocator, p, "nullclaw", "my-agent", 50);
+    defer allocator.free(resp.body);
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expectEqualStrings("text/event-stream", resp.content_type);
-    try std.testing.expectEqualStrings("event: connected\ndata: {}\n\n", resp.body);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "event: connected") != null);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "event: snapshot") != null);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"line-a\"") != null);
 }
 
 test "isLogsPath detects logs paths" {

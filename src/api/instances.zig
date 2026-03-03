@@ -62,6 +62,8 @@ const ProviderHealthConfig = struct {
     models: ?struct {
         providers: ?std.json.ArrayHashMap(struct {
             api_key: ?[]const u8 = null,
+            base_url: ?[]const u8 = null,
+            api_url: ?[]const u8 = null,
         }) = null,
     } = null,
 };
@@ -104,6 +106,53 @@ fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
         if (match) return true;
     }
     return false;
+}
+
+fn isLocalEndpoint(url: []const u8) bool {
+    return std.mem.startsWith(u8, url, "http://localhost") or
+        std.mem.startsWith(u8, url, "https://localhost") or
+        std.mem.startsWith(u8, url, "http://127.") or
+        std.mem.startsWith(u8, url, "https://127.") or
+        std.mem.startsWith(u8, url, "http://0.0.0.0") or
+        std.mem.startsWith(u8, url, "https://0.0.0.0") or
+        std.mem.startsWith(u8, url, "http://[::1]") or
+        std.mem.startsWith(u8, url, "https://[::1]");
+}
+
+fn knownCompatibleProviderUrl(provider_name: []const u8) ?[]const u8 {
+    if (std.mem.eql(u8, provider_name, "lmstudio") or std.mem.eql(u8, provider_name, "lm-studio")) {
+        return "http://localhost:1234/v1";
+    }
+    if (std.mem.eql(u8, provider_name, "vllm")) return "http://localhost:8000/v1";
+    if (std.mem.eql(u8, provider_name, "llamacpp") or std.mem.eql(u8, provider_name, "llama.cpp")) {
+        return "http://localhost:8080/v1";
+    }
+    if (std.mem.eql(u8, provider_name, "sglang")) return "http://localhost:30000/v1";
+    if (std.mem.eql(u8, provider_name, "osaurus")) return "http://localhost:1337/v1";
+    if (std.mem.eql(u8, provider_name, "litellm")) return "http://localhost:4000";
+    return null;
+}
+
+fn providerRequiresApiKey(provider_name: []const u8, base_url: ?[]const u8) bool {
+    if (std.mem.eql(u8, provider_name, "ollama") or
+        std.mem.eql(u8, provider_name, "claude-cli") or
+        std.mem.eql(u8, provider_name, "codex-cli") or
+        std.mem.eql(u8, provider_name, "openai-codex"))
+    {
+        return false;
+    }
+
+    if (base_url) |configured| return !isLocalEndpoint(configured);
+
+    if (std.mem.startsWith(u8, provider_name, "custom:")) {
+        return !isLocalEndpoint(provider_name["custom:".len..]);
+    }
+
+    if (knownCompatibleProviderUrl(provider_name)) |known_url| {
+        return !isLocalEndpoint(known_url);
+    }
+
+    return true;
 }
 
 fn classifyProbeFailure(status_code: ?u16, stdout: []const u8, stderr: []const u8) ProviderProbeResult {
@@ -843,6 +892,7 @@ pub fn handleProviderHealth(allocator: std.mem.Allocator, s: *state_mod.State, m
     var provider: []const u8 = "";
     var model: []const u8 = "";
     var configured = false;
+    var provider_base_url: ?[]const u8 = null;
 
     if (parsed.value.agents) |agents| {
         if (agents.defaults) |defaults| {
@@ -866,6 +916,14 @@ pub fn handleProviderHealth(allocator: std.mem.Allocator, s: *state_mod.State, m
         if (models_cfg.providers) |providers| {
             if (provider.len > 0) {
                 if (providers.map.get(provider)) |provider_entry| {
+                    if (provider_entry.base_url) |u| {
+                        if (u.len > 0) provider_base_url = u;
+                    }
+                    if (provider_base_url == null) {
+                        if (provider_entry.api_url) |u| {
+                            if (u.len > 0) provider_base_url = u;
+                        }
+                    }
                     if (provider_entry.api_key) |k| {
                         if (k.len > 0) {
                             configured = true;
@@ -877,6 +935,14 @@ pub fn handleProviderHealth(allocator: std.mem.Allocator, s: *state_mod.State, m
                 var it = providers.map.iterator();
                 while (it.next()) |provider_entry| {
                     provider = provider_entry.key_ptr.*;
+                    if (provider_entry.value_ptr.base_url) |u| {
+                        if (u.len > 0) provider_base_url = u;
+                    }
+                    if (provider_base_url == null) {
+                        if (provider_entry.value_ptr.api_url) |u| {
+                            if (u.len > 0) provider_base_url = u;
+                        }
+                    }
                     if (provider_entry.value_ptr.api_key) |k| {
                         if (k.len > 0) configured = true;
                     }
@@ -885,6 +951,14 @@ pub fn handleProviderHealth(allocator: std.mem.Allocator, s: *state_mod.State, m
             }
             if (!configured and provider.len > 0) {
                 if (providers.map.get(provider)) |provider_entry| {
+                    if (provider_entry.base_url) |u| {
+                        if (u.len > 0) provider_base_url = u;
+                    }
+                    if (provider_base_url == null) {
+                        if (provider_entry.api_url) |u| {
+                            if (u.len > 0) provider_base_url = u;
+                        }
+                    }
                     if (provider_entry.api_key) |k| {
                         if (k.len > 0) {
                             configured = true;
@@ -893,6 +967,9 @@ pub fn handleProviderHealth(allocator: std.mem.Allocator, s: *state_mod.State, m
                 }
             }
         }
+    }
+    if (provider.len > 0 and !providerRequiresApiKey(provider, provider_base_url)) {
+        configured = true;
     }
 
     const running = blk: {
@@ -1032,7 +1109,8 @@ pub fn handleUsage(allocator: std.mem.Allocator, s: *state_mod.State, paths: pat
         total_prompt += record.prompt_tokens;
         total_completion += record.completion_tokens;
         total_tokens += record_total;
-        total_requests += 1;
+        const req_count: u64 = if (record.requests > 0) record.requests else 1;
+        total_requests += req_count;
 
         const key = std.fmt.allocPrint(allocator, "{s}\x1f{s}", .{ provider, model }) catch continue;
         if (aggregates.getPtr(key)) |agg| {
@@ -1040,7 +1118,7 @@ pub fn handleUsage(allocator: std.mem.Allocator, s: *state_mod.State, paths: pat
             agg.prompt_tokens += record.prompt_tokens;
             agg.completion_tokens += record.completion_tokens;
             agg.total_tokens += record_total;
-            agg.requests += record.requests;
+            agg.requests += req_count;
             if (record.last_used > agg.last_used) agg.last_used = record.last_used;
         } else {
             const provider_copy = allocator.dupe(u8, provider) catch {
@@ -1061,7 +1139,7 @@ pub fn handleUsage(allocator: std.mem.Allocator, s: *state_mod.State, paths: pat
                 .prompt_tokens = record.prompt_tokens,
                 .completion_tokens = record.completion_tokens,
                 .total_tokens = record_total,
-                .requests = record.requests,
+                .requests = req_count,
                 .last_used = record.last_used,
             }) catch {
                 allocator.free(key);

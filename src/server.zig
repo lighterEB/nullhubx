@@ -604,7 +604,8 @@ pub const Server = struct {
                     };
                 }
                 if (parsed.is_stream) {
-                    const resp = logs_api.handleStream();
+                    const max_lines = logs_api.parseLines(target);
+                    const resp = logs_api.handleStream(allocator, self.paths, parsed.component, parsed.name, max_lines);
                     return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
                 }
                 const max_lines = logs_api.parseLines(target);
@@ -618,7 +619,14 @@ pub const Server = struct {
             // Updates API — POST /api/instances/{c}/{n}/update
             if (updates_api.parseUpdatePath(target)) |up| {
                 if (std.mem.eql(u8, method, "POST")) {
-                    const ur = updates_api.handleApplyUpdate(allocator, self.state, up.component, up.name);
+                    const ur = updates_api.handleApplyUpdateRuntime(
+                        allocator,
+                        self.state,
+                        self.manager,
+                        self.paths,
+                        up.component,
+                        up.name,
+                    );
                     return .{ .status = ur.status, .content_type = ur.content_type, .body = ur.body };
                 }
                 return .{
