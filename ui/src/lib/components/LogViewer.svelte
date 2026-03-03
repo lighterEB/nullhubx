@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
-  import { api } from '$lib/api/client';
+  import { onMount, onDestroy } from "svelte";
+  import { api } from "$lib/api/client";
 
-  let { component = '', name = '' } = $props();
+  let { component = "", name = "" } = $props();
   let lines = $state<string[]>([]);
   let container: HTMLElement;
   let autoScroll = $state(true);
@@ -13,7 +13,7 @@
       lines = data.lines || [];
       scrollToBottom();
     } catch (e) {
-      if (lines.length === 0) lines = ['Failed to load logs'];
+      if (lines.length === 0) lines = ["Failed to load logs"];
     }
   }
 
@@ -63,60 +63,105 @@
     display: flex;
     flex-direction: column;
     height: 400px;
-    background: var(--bg-primary);
+    background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: var(--radius);
+    border-radius: 2px;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
   }
   .log-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.5rem 1rem;
-    border-bottom: 1px solid var(--border);
-    font-size: 0.875rem;
-    color: var(--text-secondary);
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+    font-size: 0.8125rem;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 700;
   }
   .log-content {
     flex: 1;
     overflow-y: auto;
-    padding: 0.75rem;
+    padding: 1rem;
     font-family: var(--font-mono);
-    font-size: 0.8rem;
-    line-height: 1.5;
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    color: var(--fg);
+    text-shadow: 0 0 2px color-mix(in srgb, var(--fg) 50%, transparent);
   }
   .log-line {
     white-space: pre-wrap;
     word-break: break-all;
+    margin-bottom: 0.125rem;
+  }
+  .log-line:hover {
+    background: color-mix(in srgb, var(--fg) 5%, transparent);
   }
   .log-empty {
-    color: var(--text-muted);
+    color: var(--fg-dim);
     text-align: center;
-    padding: 2rem;
+    padding: 3rem;
+    font-style: italic;
+    opacity: 0.7;
   }
   .log-actions {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 1rem;
   }
   .clear-btn {
-    padding: 0.2rem 0.5rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--bg-tertiary);
-    color: var(--text-secondary);
+    padding: 0.25rem 0.75rem;
+    border: 1px solid var(--accent-dim);
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    color: var(--accent);
     font-size: 0.75rem;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
     cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
+    transition: all 0.2s ease;
   }
   .clear-btn:hover {
-    background: var(--bg-hover);
+    background: color-mix(in srgb, var(--accent) 20%, transparent);
     border-color: var(--accent);
+    box-shadow: 0 0 8px var(--border-glow);
+    text-shadow: var(--text-glow);
   }
   .auto-scroll {
     display: flex;
     align-items: center;
-    gap: 0.375rem;
+    gap: 0.5rem;
     font-size: 0.75rem;
+    color: var(--fg-dim);
     cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .auto-scroll input[type="checkbox"] {
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    border-radius: 2px;
+    position: relative;
+    cursor: pointer;
+  }
+  .auto-scroll input[type="checkbox"]:checked {
+    background: color-mix(in srgb, var(--accent) 20%, transparent);
+    border-color: var(--accent);
+    box-shadow: inset 0 0 5px var(--accent);
+  }
+  .auto-scroll input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 1px;
+    box-shadow: 0 0 3px var(--border-glow);
   }
 </style>

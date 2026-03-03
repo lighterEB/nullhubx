@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { afterNavigate } from '$app/navigation';
-  import ComponentCard from '$lib/components/ComponentCard.svelte';
-  import { api } from '$lib/api/client';
+  import { afterNavigate } from "$app/navigation";
+  import ComponentCard from "$lib/components/ComponentCard.svelte";
+  import { api } from "$lib/api/client";
 
   let components = $state<any[]>([]);
 
@@ -36,8 +36,27 @@
 </div>
 
 <style>
-  .install-page { max-width: 900px; }
-  h1 { margin-bottom: 0.25rem; }
-  .subtitle { color: var(--text-secondary); margin-bottom: 1.5rem; }
-  .catalog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+  .install-page {
+    max-width: 900px;
+  }
+  h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-shadow: var(--text-glow);
+  }
+  .subtitle {
+    font-size: 0.875rem;
+    color: var(--fg-dim);
+    margin-bottom: 2rem;
+    font-family: var(--font-mono);
+  }
+  .catalog-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+  }
 </style>

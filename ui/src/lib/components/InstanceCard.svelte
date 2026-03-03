@@ -1,36 +1,52 @@
 <script lang="ts">
-  import StatusBadge from './StatusBadge.svelte';
-  import { api } from '$lib/api/client';
+  import StatusBadge from "./StatusBadge.svelte";
+  import { api } from "$lib/api/client";
 
-  let { component = '', name = '', version = '', status = 'stopped', autoStart = false, port = 0, onAction = () => {} } = $props();
+  let {
+    component = "",
+    name = "",
+    version = "",
+    status = "stopped",
+    autoStart = false,
+    port = 0,
+    onAction = () => {},
+  } = $props();
   let loading = $state(false);
-  let localStatus = $state(status);
+  let localStatus = $state("stopped");
 
   // Sync localStatus when prop changes (from poll)
-  $effect(() => { localStatus = status; });
+  $effect(() => {
+    localStatus = status || "stopped";
+  });
 
   async function start(e: Event) {
     e.preventDefault();
     e.stopPropagation();
     loading = true;
-    localStatus = 'starting';
+    localStatus = "starting";
     try {
       await api.startInstance(component, name);
       onAction();
-    } catch { localStatus = 'stopped'; }
-    finally { loading = false; }
+    } catch {
+      localStatus = "stopped";
+    } finally {
+      loading = false;
+    }
   }
 
   async function stop(e: Event) {
     e.preventDefault();
     e.stopPropagation();
     loading = true;
-    localStatus = 'stopping';
+    localStatus = "stopping";
     try {
       await api.stopInstance(component, name);
       onAction();
-    } catch { localStatus = 'running'; }
-    finally { loading = false; }
+    } catch {
+      localStatus = "running";
+    } finally {
+      loading = false;
+    }
   }
 </script>
 
@@ -43,20 +59,20 @@
     <span class="component-tag">{component}</span>
     <span class="version">v{version}</span>
   </div>
-  {#if localStatus === 'running' && port > 0}
+  {#if localStatus === "running" && port > 0}
     <div class="gateway-addr">
       <span class="gateway-label">Gateway:</span>
       <code>127.0.0.1:{port}</code>
     </div>
   {/if}
   <div class="card-actions">
-    {#if localStatus === 'running' || localStatus === 'stopping'}
+    {#if localStatus === "running" || localStatus === "stopping"}
       <button onclick={stop} disabled={loading}>
-        {loading ? 'Stopping...' : 'Stop'}
+        {loading ? "Stopping..." : "Stop"}
       </button>
     {:else}
       <button onclick={start} disabled={loading}>
-        {loading ? 'Starting...' : 'Start'}
+        {loading ? "Starting..." : "Start"}
       </button>
     {/if}
   </div>
@@ -66,77 +82,102 @@
   .card {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    padding: 1.25rem;
-    background: var(--bg-secondary);
+    gap: 1rem;
+    padding: 1.5rem;
+    background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text-primary);
-    transition: background 0.15s, border-color 0.15s;
+    border-radius: 4px;
+    color: var(--fg);
+    transition: all 0.2s ease;
+    backdrop-filter: blur(4px);
   }
   .card:hover {
     background: var(--bg-hover);
     border-color: var(--accent);
-    color: var(--text-primary);
+    box-shadow: 0 0 15px var(--border-glow);
+    transform: translateY(-2px);
   }
   .card-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+    padding-bottom: 0.75rem;
   }
   .card-name {
-    font-weight: 600;
-    font-size: 1rem;
+    font-weight: 700;
+    font-size: 1.125rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-shadow: var(--text-glow);
+    color: var(--accent);
   }
   .card-meta {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 1rem;
     font-size: 0.8125rem;
-    color: var(--text-secondary);
+    color: var(--fg-dim);
   }
   .component-tag {
-    padding: 0.125rem 0.5rem;
-    background: var(--bg-tertiary);
-    border-radius: var(--radius-sm);
+    padding: 0.25rem 0.5rem;
+    background: color-mix(in srgb, var(--border) 20%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 2px;
     font-family: var(--font-mono);
     font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
   }
   .version {
     font-family: var(--font-mono);
     font-size: 0.75rem;
+    opacity: 0.8;
   }
   .card-actions {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
   }
   .card-actions button {
-    padding: 0.375rem 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--accent-dim);
+    border-radius: 2px;
+    background: var(--bg-surface);
+    color: var(--accent);
     font-size: 0.8125rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
     cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
+    transition: all 0.2s ease;
+    text-shadow: var(--text-glow);
   }
   .card-actions button:hover {
     background: var(--bg-hover);
     border-color: var(--accent);
+    box-shadow: 0 0 10px var(--border-glow);
+    text-shadow: 0 0 8px var(--accent);
   }
   .gateway-addr {
     display: flex;
     align-items: center;
     gap: 0.5rem;
     font-size: 0.8125rem;
+    padding: 0.5rem;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px dashed var(--border);
+    border-radius: 2px;
   }
   .gateway-label {
-    color: var(--text-secondary);
+    color: var(--fg-dim);
     font-size: 0.75rem;
+    text-transform: uppercase;
   }
   .gateway-addr code {
     font-family: var(--font-mono);
     font-size: 0.8rem;
     color: var(--accent);
+    text-shadow: var(--text-glow);
   }
 </style>

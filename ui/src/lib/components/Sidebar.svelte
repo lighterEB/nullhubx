@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { page } from '$app/stores';
-  import { onMount } from 'svelte';
-  import { api } from '$lib/api/client';
+  import { page } from "$app/stores";
+  import { onMount } from "svelte";
+  import { api } from "$lib/api/client";
 
   let instances = $state<Record<string, any>>({});
   let currentPath = $derived($page.url.pathname);
@@ -26,8 +26,10 @@
   </div>
 
   <div class="nav-section">
-    <a href="/" class:active={currentPath === '/'}>Dashboard</a>
-    <a href="/install" class:active={currentPath === '/install'}>Install Component</a>
+    <a href="/" class:active={currentPath === "/"}>Dashboard</a>
+    <a href="/install" class:active={currentPath === "/install"}
+      >Install Component</a
+    >
   </div>
 
   <div class="nav-section">
@@ -40,7 +42,8 @@
             href="/instances/{component}/{name}"
             class:active={currentPath === `/instances/${component}/${name}`}
           >
-            <span class="status-dot" class:running={info.status === 'running'}></span>
+            <span class="status-dot" class:running={info.status === "running"}
+            ></span>
             {name}
           </a>
         {/each}
@@ -49,123 +52,146 @@
   </div>
 
   <div class="nav-bottom">
-    <a href="/settings" class:active={currentPath === '/settings'}>Settings</a>
+    <a href="/settings" class:active={currentPath === "/settings"}>Settings</a>
   </div>
 </nav>
 
 <style>
   .sidebar {
-    width: 240px;
-    min-width: 240px;
+    width: 250px;
+    min-width: 250px;
     height: 100vh;
-    background: var(--bg-secondary);
+    background: var(--bg-surface);
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+    backdrop-filter: blur(4px);
+    z-index: 20;
   }
 
   .logo {
-    padding: 1.25rem 1rem;
+    padding: 1.5rem 1.25rem;
     border-bottom: 1px solid var(--border);
+    text-align: center;
   }
 
   .logo h2 {
-    font-size: 1.25rem;
+    font-size: 1.5rem;
     font-weight: 700;
-    color: var(--text-primary);
-    letter-spacing: 0.5px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-shadow: var(--text-glow);
+    text-transform: uppercase;
   }
 
   .nav-section {
-    padding: 0.75rem 0;
+    padding: 1rem 0;
     border-bottom: 1px solid var(--border);
   }
 
   .nav-section h3 {
-    font-size: 0.65rem;
-    font-weight: 600;
+    font-size: 0.75rem;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--text-muted);
-    padding: 0.25rem 1rem 0.5rem;
+    letter-spacing: 2px;
+    color: var(--accent-dim);
+    padding: 0.5rem 1.25rem;
+    text-shadow: 0 0 2px var(--accent-dim);
   }
 
   .nav-section a {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    color: var(--text-secondary);
+    gap: 0.75rem;
+    padding: 0.625rem 1.25rem;
+    color: var(--fg-dim);
     font-size: 0.875rem;
-    transition: background 0.15s ease, color 0.15s ease;
-    border-radius: 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.2s ease;
+    border-left: 3px solid transparent;
   }
 
   .nav-section a:hover {
     background: var(--bg-hover);
-    color: var(--text-primary);
+    color: var(--fg);
+    border-left-color: var(--accent-dim);
+    text-shadow: var(--text-glow);
   }
 
   .nav-section a.active {
-    background: var(--bg-tertiary);
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
     color: var(--accent);
-    border-left: 2px solid var(--accent);
+    border-left: 3px solid var(--accent);
+    text-shadow: var(--text-glow);
+    box-shadow: inset 20px 0 20px -20px var(--accent);
   }
 
   .component-group {
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.5rem;
   }
 
   .component-name {
     display: block;
     font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    padding: 0.375rem 1rem 0.125rem;
-    text-transform: capitalize;
+    font-weight: 700;
+    color: var(--fg-dim);
+    padding: 0.375rem 1.25rem 0.125rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.7;
   }
 
   .component-group a {
-    padding-left: 1.5rem;
+    padding-left: 1.75rem;
+    font-size: 0.8rem;
   }
 
   .status-dot {
     display: inline-block;
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
-    background: var(--text-muted);
+    background: var(--error);
+    box-shadow: 0 0 5px var(--error);
     flex-shrink: 0;
   }
 
   .status-dot.running {
-    background: var(--success);
-    box-shadow: 0 0 6px var(--success);
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--border-glow);
   }
 
   .nav-bottom {
     margin-top: auto;
-    padding: 0.75rem 0;
+    padding: 1rem 0;
     border-top: 1px solid var(--border);
   }
 
   .nav-bottom a {
     display: block;
-    padding: 0.5rem 1rem;
-    color: var(--text-secondary);
+    padding: 0.75rem 1.25rem;
+    color: var(--fg-dim);
     font-size: 0.875rem;
-    transition: background 0.15s ease, color 0.15s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.2s ease;
+    border-left: 3px solid transparent;
   }
 
   .nav-bottom a:hover {
     background: var(--bg-hover);
-    color: var(--text-primary);
+    color: var(--fg);
+    border-left-color: var(--accent-dim);
+    text-shadow: var(--text-glow);
   }
 
   .nav-bottom a.active {
-    background: var(--bg-tertiary);
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
     color: var(--accent);
-    border-left: 2px solid var(--accent);
+    border-left: 3px solid var(--accent);
+    text-shadow: var(--text-glow);
+    box-shadow: inset 20px 0 20px -20px var(--accent);
   }
 </style>

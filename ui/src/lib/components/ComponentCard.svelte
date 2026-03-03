@@ -1,7 +1,14 @@
 <script lang="ts">
-  import { api } from '$lib/api/client';
+  import { api } from "$lib/api/client";
 
-  let { name = '', displayName = '', description = '', installed = false, standalone = false, instanceCount = 0 } = $props();
+  let {
+    name = "",
+    displayName = "",
+    description = "",
+    installed = false,
+    standalone = false,
+    instanceCount = 0,
+  } = $props();
   let importing = $state(false);
   let imported = $state(false);
 
@@ -16,7 +23,7 @@
       installed = true;
       instanceCount = 1;
     } catch (err) {
-      console.error('Import failed:', err);
+      console.error("Import failed:", err);
     } finally {
       importing = false;
     }
@@ -30,10 +37,12 @@
       <span class="installed-badge">Imported</span>
     {:else if standalone}
       <button class="import-btn" onclick={handleImport} disabled={importing}>
-        {importing ? 'Importing...' : 'Import'}
+        {importing ? "Importing..." : "Import"}
       </button>
     {:else if installed}
-      <span class="installed-badge">{instanceCount} {instanceCount === 1 ? 'instance' : 'instances'}</span>
+      <span class="installed-badge"
+        >{instanceCount} {instanceCount === 1 ? "instance" : "instances"}</span
+      >
     {/if}
   </div>
   <p>{description}</p>
@@ -42,63 +51,85 @@
 <style>
   .component-card {
     display: block;
-    background: var(--bg-secondary);
+    background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 1.25rem;
-    color: var(--text-primary);
-    transition: background 0.15s, border-color 0.15s;
+    border-radius: 4px;
+    padding: 1.5rem;
+    color: var(--fg);
+    transition: all 0.2s ease;
+    backdrop-filter: blur(4px);
   }
 
   .component-card:hover {
     background: var(--bg-hover);
     border-color: var(--accent);
-    color: var(--text-primary);
+    box-shadow: 0 0 15px var(--border-glow);
+    transform: translateY(-2px);
   }
 
   .card-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 0.5rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+    padding-bottom: 0.75rem;
   }
 
   h3 {
-    font-size: 1rem;
-    font-weight: 600;
+    font-size: 1.125rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--accent);
+    text-shadow: var(--text-glow);
   }
 
   .installed-badge {
     font-size: 0.75rem;
-    background: var(--accent);
-    color: #fff;
-    padding: 0.15rem 0.5rem;
-    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--accent) 20%, transparent);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 0.25rem 0.5rem;
+    border-radius: 2px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: bold;
+    box-shadow: inset 0 0 5px color-mix(in srgb, var(--accent) 30%, transparent);
   }
 
   .import-btn {
     font-size: 0.75rem;
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    padding: 0.25rem 0.75rem;
-    border-radius: var(--radius-sm);
+    background: var(--bg-surface);
+    color: var(--accent);
+    border: 1px solid var(--accent-dim);
+    padding: 0.375rem 0.75rem;
+    border-radius: 2px;
     cursor: pointer;
-    transition: opacity 0.15s;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: bold;
   }
 
   .import-btn:hover {
-    opacity: 0.85;
+    background: var(--bg-hover);
+    border-color: var(--accent);
+    box-shadow: 0 0 10px var(--border-glow);
+    text-shadow: 0 0 8px var(--accent);
   }
 
   .import-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+    box-shadow: none;
+    text-shadow: none;
   }
 
   p {
     font-size: 0.875rem;
-    color: var(--text-secondary);
-    line-height: 1.5;
+    color: var(--fg-dim);
+    line-height: 1.6;
+    font-family: var(--font-mono);
   }
 </style>

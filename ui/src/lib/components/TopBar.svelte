@@ -1,11 +1,24 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { api } from '$lib/api/client';
+  import { onMount, tick } from "svelte";
+  import { browser } from "$app/environment";
+  import { api } from "$lib/api/client";
 
-  let { title = 'Dashboard' } = $props();
+  let { title = "Dashboard" } = $props();
   let hubOk = $state(true);
 
+  let currentTheme = $state("theme-matrix");
+  let effectsEnabled = $state(false);
+  let initialized = $state(false);
+
   onMount(() => {
+    if (browser) {
+      const savedTheme = localStorage.getItem("nullhub-theme");
+      const savedEffects = localStorage.getItem("nullhub-effects");
+      if (savedTheme) currentTheme = savedTheme;
+      if (savedEffects === "true") effectsEnabled = true;
+      initialized = true;
+    }
+
     async function check() {
       try {
         await api.getStatus();
@@ -18,13 +31,51 @@
     const interval = setInterval(check, 10000);
     return () => clearInterval(interval);
   });
+
+  $effect(() => {
+    if (browser && initialized) {
+      localStorage.setItem("nullhub-theme", currentTheme);
+      localStorage.setItem("nullhub-effects", effectsEnabled.toString());
+
+      const body = document.body;
+      body.classList.remove(
+        "theme-matrix",
+        "theme-dracula",
+        "theme-synthwave",
+        "theme-amber",
+        "theme-light",
+      );
+      if (currentTheme) body.classList.add(currentTheme);
+
+      if (effectsEnabled) {
+        body.classList.remove("effects-disabled");
+      } else {
+        body.classList.add("effects-disabled");
+      }
+    }
+  });
 </script>
 
 <header class="topbar">
   <h1>{title}</h1>
-  <div class="hub-status">
-    <span class="status-dot" class:running={hubOk}></span>
-    <span>{hubOk ? 'Hub Running' : 'Hub Unreachable'}</span>
+  <div class="topbar-right">
+    <div class="theme-controls">
+      <label class="effect-toggle" title="Toggle CRT Effects">
+        <input type="checkbox" bind:checked={effectsEnabled} />
+        CRT FX
+      </label>
+      <select bind:value={currentTheme} class="theme-select" title="Theme">
+        <option value="theme-matrix">Matrix</option>
+        <option value="theme-dracula">Dracula</option>
+        <option value="theme-synthwave">Synthwave</option>
+        <option value="theme-amber">Amber</option>
+        <option value="theme-light">Light</option>
+      </select>
+    </div>
+    <div class="hub-status">
+      <span class="status-dot" class:running={hubOk}></span>
+      <span>{hubOk ? "Hub Running" : "Hub Unreachable"}</span>
+    </div>
   </div>
 </header>
 
@@ -34,36 +85,124 @@
     align-items: center;
     justify-content: space-between;
     padding: 0.875rem 1.5rem;
-    background: var(--bg-secondary);
+    background: var(--bg-surface);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+    backdrop-filter: blur(4px);
   }
 
   .topbar h1 {
     font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--text-primary);
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-shadow: var(--text-glow);
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  .theme-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding-right: 1.5rem;
+    border-right: 1px dashed var(--border);
+  }
+
+  .effect-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--fg-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+  }
+
+  .effect-toggle input[type="checkbox"] {
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    border-radius: 2px;
+    position: relative;
+    cursor: pointer;
+    margin: 0;
+    padding: 0;
+  }
+
+  .effect-toggle input[type="checkbox"]:checked {
+    background: color-mix(in srgb, var(--accent) 20%, transparent);
+    border-color: var(--accent);
+    box-shadow: inset 0 0 5px var(--accent);
+  }
+
+  .effect-toggle input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 1px;
+    box-shadow: 0 0 3px var(--border-glow);
+  }
+
+  .theme-select {
+    background: color-mix(in srgb, var(--bg-surface) 50%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 0.25rem 0.5rem;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .theme-select:focus,
+  .theme-select:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 8px var(--border-glow);
+  }
+
+  .theme-select option {
+    background: var(--bg);
+    color: var(--fg);
   }
 
   .hub-status {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    font-size: 0.8rem;
-    color: var(--text-secondary);
+    gap: 0.75rem;
+    font-size: 0.85rem;
+    color: var(--fg-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
   }
 
   .status-dot {
     display: inline-block;
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
-    background: var(--text-muted);
+    background: var(--error);
+    box-shadow: 0 0 8px var(--error);
     flex-shrink: 0;
   }
 
   .status-dot.running {
-    background: var(--success);
-    box-shadow: 0 0 6px var(--success);
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--border-glow);
   }
 </style>

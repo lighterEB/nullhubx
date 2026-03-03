@@ -32,5 +32,7 @@
     flex: 1;
     overflow-y: auto;
     padding: 1.5rem;
+    position: relative;
+    z-index: 10;
   }
 </style>

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
-  import InstanceCard from '$lib/components/InstanceCard.svelte';
-  import { api } from '$lib/api/client';
+  import { onMount, onDestroy } from "svelte";
+  import InstanceCard from "$lib/components/InstanceCard.svelte";
+  import { api } from "$lib/api/client";
 
   let status = $state<any>(null);
   let error = $state<string | null>(null);
@@ -26,12 +26,12 @@
 
 <div class="dashboard">
   <div class="header">
-    <h1>Dashboard</h1>
+    <h1>System Status</h1>
     <a href="/install" class="install-btn">+ Install Component</a>
   </div>
 
   {#if error}
-    <div class="error-banner">{error}</div>
+    <div class="error-banner">ERR: {error}</div>
   {/if}
 
   {#if status}
@@ -42,7 +42,7 @@
             {component}
             {name}
             version={info.version}
-            status={info.status || 'stopped'}
+            status={info.status || "stopped"}
             autoStart={info.auto_start}
             port={info.port || 0}
             onAction={refresh}
@@ -53,8 +53,8 @@
 
     {#if Object.keys(status.instances || {}).length === 0}
       <div class="empty-state">
-        <p>No instances installed yet.</p>
-        <a href="/install">Install your first component</a>
+        <p>> No instances installed yet.</p>
+        <a href="/install" class="btn">INITIALIZE FIRST COMPONENT</a>
       </div>
     {/if}
   {/if}
@@ -71,57 +71,84 @@
     align-items: center;
     justify-content: space-between;
     margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
   }
   h1 {
     font-size: 1.75rem;
-    font-weight: 600;
+    font-weight: 700;
+    text-shadow: var(--text-glow);
+    text-transform: uppercase;
+    letter-spacing: 2px;
   }
   .install-btn {
     padding: 0.5rem 1rem;
-    background: var(--accent);
-    color: white;
-    border-radius: var(--radius);
+    background: var(--bg-surface);
+    color: var(--accent);
+    border: 1px solid var(--accent-dim);
+    border-radius: 4px;
     font-size: 0.875rem;
-    font-weight: 500;
-    transition: background 0.15s;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.2s ease;
+    text-shadow: var(--text-glow);
   }
   .install-btn:hover {
-    background: var(--accent-hover);
-    color: white;
+    background: var(--bg-hover);
+    border-color: var(--accent);
+    box-shadow: 0 0 10px var(--border-glow);
+    text-shadow: 0 0 8px var(--accent);
   }
   .error-banner {
     padding: 0.75rem 1rem;
-    background: color-mix(in srgb, var(--error) 15%, transparent);
+    background: rgba(255, 0, 0, 0.1);
     color: var(--error);
-    border: 1px solid color-mix(in srgb, var(--error) 30%, transparent);
-    border-radius: var(--radius);
+    border: 1px solid var(--error);
+    border-radius: 4px;
     margin-bottom: 1.5rem;
     font-size: 0.875rem;
+    font-weight: bold;
+    text-shadow: 0 0 5px var(--error);
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.2);
+    animation: glitch 3s infinite;
   }
   .instance-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
   }
   .empty-state {
     text-align: center;
     padding: 4rem 2rem;
-    color: var(--text-secondary);
+    color: var(--fg-dim);
+    border: 1px dashed var(--border);
+    background: var(--bg-surface);
+    border-radius: 4px;
   }
   .empty-state p {
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
     font-size: 1.125rem;
+    font-family: var(--font-mono);
   }
-  .empty-state a {
+  .empty-state .btn {
     display: inline-block;
-    padding: 0.5rem 1rem;
-    background: var(--accent);
-    color: white;
-    border-radius: var(--radius);
+    padding: 0.75rem 1.5rem;
+    background: var(--bg-surface);
+    color: var(--accent);
+    border: 1px solid var(--accent-dim);
+    border-radius: 4px;
     font-size: 0.875rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.2s ease;
+    text-shadow: var(--text-glow);
   }
-  .empty-state a:hover {
-    background: var(--accent-hover);
-    color: white;
+  .empty-state .btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent);
+    box-shadow: 0 0 10px var(--border-glow);
+    text-shadow: 0 0 8px var(--accent);
   }
 </style>
