@@ -169,7 +169,7 @@
     if (probeLoading) return "Checking live auth...";
     if (!probe) return "Waiting for live check";
     if (probe.live_ok) {
-      return probe.status_code ? `Live check OK (HTTP ${probe.status_code})` : "Live check OK";
+      return "";
     }
     const code = probe.status_code ? ` (HTTP ${probe.status_code})` : "";
     switch (probe.reason) {
