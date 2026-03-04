@@ -8,6 +8,7 @@ const paths_mod = @import("../core/paths.zig");
 const state_mod = @import("../core/state.zig");
 const platform = @import("../core/platform.zig");
 const local_binary = @import("../core/local_binary.zig");
+const nullclaw_web_channel = @import("../core/nullclaw_web_channel.zig");
 const manager_mod = @import("../supervisor/manager.zig");
 const ui_modules_mod = @import("ui_modules.zig");
 
@@ -197,6 +198,17 @@ pub fn install(
         }
         return error.ConfigGenerationFailed;
     }
+
+    _ = nullclaw_web_channel.ensureNullclawWebChannelConfig(
+        allocator,
+        p,
+        s,
+        opts.component,
+        opts.instance_name,
+    ) catch {
+        setLastErrorDetail("failed to ensure nullclaw web channel config");
+        return error.ConfigGenerationFailed;
+    };
 
     // 6. Register in state.json
     s.addInstance(opts.component, opts.instance_name, .{

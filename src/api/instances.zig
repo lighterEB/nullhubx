@@ -7,6 +7,7 @@ const helpers = @import("helpers.zig");
 const local_binary = @import("../core/local_binary.zig");
 const component_cli = @import("../core/component_cli.zig");
 const manifest_mod = @import("../core/manifest.zig");
+const nullclaw_web_channel = @import("../core/nullclaw_web_channel.zig");
 
 const ApiResponse = helpers.ApiResponse;
 const appendEscaped = helpers.appendEscaped;
@@ -805,6 +806,14 @@ pub fn handleGet(allocator: std.mem.Allocator, s: *state_mod.State, manager: *ma
 /// POST /api/instances/{component}/{name}/start
 pub fn handleStart(allocator: std.mem.Allocator, s: *state_mod.State, manager: *manager_mod.Manager, paths: paths_mod.Paths, component: []const u8, name: []const u8, body: []const u8) ApiResponse {
     const entry = s.getInstance(component, name) orelse return notFound();
+
+    _ = nullclaw_web_channel.ensureNullclawWebChannelConfig(
+        allocator,
+        paths,
+        s,
+        component,
+        name,
+    ) catch return helpers.serverError();
 
     // Check if body overrides launch_mode
     const StartBody = struct { launch_mode: ?[]const u8 = null };
