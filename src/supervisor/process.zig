@@ -151,18 +151,8 @@ fn pumpChildOutputToLog(ctx: *LogPumpContext) void {
     });
     defer poller.deinit();
 
-    var stdout_buf: [4096]u8 = undefined;
-    var stderr_buf: [4096]u8 = undefined;
-
     const stdout_reader = poller.reader(.stdout);
-    stdout_reader.buffer = stdout_buf[0..];
-    stdout_reader.seek = 0;
-    stdout_reader.end = 0;
-
     const stderr_reader = poller.reader(.stderr);
-    stderr_reader.buffer = stderr_buf[0..];
-    stderr_reader.seek = 0;
-    stderr_reader.end = 0;
 
     while (poller.poll() catch false) {
         if (!flushBufferedToLog(&log_file, stdout_reader)) return;

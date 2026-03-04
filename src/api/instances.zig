@@ -519,7 +519,7 @@ fn writeUsageCacheBuckets(
 
 fn writeUsageCacheSnapshot(allocator: std.mem.Allocator, cache_path: []const u8, snapshot: *const UsageCacheSnapshot) !void {
     const cache_dir = std.fs.path.dirname(cache_path) orelse return error.InvalidPath;
-    std.fs.makePathAbsolute(cache_dir) catch |err| switch (err) {
+    std.fs.makeDirAbsolute(cache_dir) catch |err| switch (err) {
         error.PathAlreadyExists => {},
         else => return err,
     };
@@ -713,6 +713,18 @@ fn usageWindowMinTs(window: []const u8, now_ts: i64) ?i64 {
     return now_ts - 24 * 60 * 60;
 }
 
+fn splitLaunchCommand(allocator: std.mem.Allocator, launch_cmd: []const u8) ![]const []const u8 {
+    var list: std.ArrayListUnmanaged([]const u8) = .empty;
+    errdefer list.deinit(allocator);
+
+    var it = std.mem.tokenizeAny(u8, launch_cmd, " \t\r\n");
+    while (it.next()) |token| {
+        try list.append(allocator, token);
+    }
+
+    return list.toOwnedSlice(allocator);
+}
+
 // ─── JSON helpers ────────────────────────────────────────────────────────────
 
 fn appendInstanceJson(buf: *std.array_list.Managed(u8), entry: state_mod.InstanceEntry, status_str: []const u8) !void {
@@ -795,16 +807,18 @@ pub fn handleStart(allocator: std.mem.Allocator, s: *state_mod.State, manager: *
     const entry = s.getInstance(component, name) orelse return notFound();
 
     // Check if body overrides launch_mode
+    const StartBody = struct { launch_mode: ?[]const u8 = null };
     var launch_cmd: []const u8 = entry.launch_mode;
+    var parsed_body: ?std.json.Parsed(StartBody) = null;
+    defer if (parsed_body) |*pb| pb.deinit();
     if (body.len > 0) {
-        const parsed_body = std.json.parseFromSlice(
-            struct { launch_mode: ?[]const u8 = null },
+        parsed_body = std.json.parseFromSlice(
+            StartBody,
             allocator,
             body,
             .{ .allocate = .alloc_always, .ignore_unknown_fields = true },
         ) catch null;
         if (parsed_body) |pb| {
-            defer pb.deinit();
             if (pb.value.launch_mode) |mode| launch_cmd = mode;
         }
     }
@@ -837,16 +851,16 @@ pub fn handleStart(allocator: std.mem.Allocator, s: *state_mod.State, manager: *
         }
     }
 
+    const launch_args = splitLaunchCommand(allocator, launch_cmd) catch return helpers.serverError();
+    defer allocator.free(launch_args);
+    const primary_cmd = if (launch_args.len > 0) launch_args[0] else launch_cmd;
     // Agent mode has no HTTP health endpoint — skip health checks (port=0).
-    const effective_port: u16 = if (std.mem.eql(u8, launch_cmd, "agent")) 0 else port;
+    const effective_port: u16 = if (std.mem.eql(u8, primary_cmd, "agent")) 0 else port;
 
     // Resolve instance working directory so the binary can find its config.
     const inst_dir = paths.instanceDir(allocator, component, name) catch return helpers.serverError();
     defer allocator.free(inst_dir);
 
-    // Start via manager — pass launch_cmd as an argv argument so the binary
-    // actually receives it (e.g. "nullclaw gateway" or "nullclaw agent").
-    const launch_args: []const []const u8 = &.{launch_cmd};
     manager.startInstance(component, name, bin_path, launch_args, effective_port, health_endpoint, inst_dir, "", launch_cmd) catch return helpers.serverError();
     return jsonOk("{\"status\":\"started\"}");
 }

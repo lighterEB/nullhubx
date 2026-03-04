@@ -208,11 +208,13 @@ pub fn install(
 
     // 7. Start process via Manager
     const port = resolveConfiguredPort(allocator, opts.answers_json, default_port);
+    const launch_args = splitLaunchCommand(allocator, launch_command) catch return error.StartFailed;
+    defer allocator.free(launch_args);
     mgr.startInstance(
         opts.component,
         opts.instance_name,
         bin_path,
-        &.{},
+        launch_args,
         port,
         health_endpoint,
         inst_dir,
@@ -251,6 +253,18 @@ fn resolveConfiguredPort(allocator: std.mem.Allocator, answers_json: []const u8,
         if (a.gateway_port) |v| return v;
     }
     return findFreePort(default_port);
+}
+
+fn splitLaunchCommand(allocator: std.mem.Allocator, launch_cmd: []const u8) ![]const []const u8 {
+    var list: std.ArrayListUnmanaged([]const u8) = .empty;
+    errdefer list.deinit(allocator);
+
+    var it = std.mem.tokenizeAny(u8, launch_cmd, " \t\r\n");
+    while (it.next()) |token| {
+        try list.append(allocator, token);
+    }
+
+    return list.toOwnedSlice(allocator);
 }
 
 fn findFreePort(start: u16) u16 {

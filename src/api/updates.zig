@@ -64,6 +64,18 @@ fn fetchLatestTagForComponent(allocator: std.mem.Allocator, component: []const u
     return allocator.dupe(u8, release.value.tag_name) catch null;
 }
 
+fn splitLaunchCommand(allocator: std.mem.Allocator, launch_cmd: []const u8) ![]const []const u8 {
+    var list: std.ArrayListUnmanaged([]const u8) = .empty;
+    errdefer list.deinit(allocator);
+
+    var it = std.mem.tokenizeAny(u8, launch_cmd, " \t\r\n");
+    while (it.next()) |token| {
+        try list.append(allocator, token);
+    }
+
+    return list.toOwnedSlice(allocator);
+}
+
 // ─── Handlers ────────────────────────────────────────────────────────────────
 
 /// GET /api/updates — check for updates across all installed instances.
@@ -194,13 +206,15 @@ pub fn handleApplyUpdateRuntime(
 
     const inst_dir = paths.instanceDir(allocator, component, name) catch return serverError();
     defer allocator.free(inst_dir);
+    const launch_args = splitLaunchCommand(allocator, entry.launch_mode) catch return serverError();
+    defer allocator.free(launch_args);
 
     if (was_running) {
         manager.startInstance(
             component,
             name,
             new_bin_path,
-            &.{},
+            launch_args,
             port,
             known.default_health_endpoint,
             inst_dir,
@@ -222,7 +236,7 @@ pub fn handleApplyUpdateRuntime(
                     component,
                     name,
                     prev_bin_path,
-                    &.{},
+                    launch_args,
                     port,
                     known.default_health_endpoint,
                     inst_dir,
