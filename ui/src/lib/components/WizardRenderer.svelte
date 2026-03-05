@@ -223,10 +223,9 @@
           const parsed = JSON.parse(_providers);
           payload.providers = parsed;
           if (parsed.length > 0) {
-            if (!payload.api_key && parsed[0].api_key)
-              payload.api_key = parsed[0].api_key;
-            if (!payload.model && parsed[0].model)
-              payload.model = parsed[0].model;
+            payload.provider = parsed[0].provider;
+            payload.api_key = parsed[0].api_key || "";
+            payload.model = parsed[0].model || "";
           }
         } catch {}
       }
