@@ -2,6 +2,7 @@ const std = @import("std");
 const process = @import("process.zig");
 const health = @import("health.zig");
 const paths_mod = @import("../core/paths.zig");
+const component_cli = @import("../core/component_cli.zig");
 
 pub const Status = enum {
     stopped,
@@ -243,9 +244,12 @@ pub const Manager = struct {
         defer self.allocator.free(stdout_log);
 
         const cwd: ?[]const u8 = if (working_dir.len > 0) working_dir else null;
-        // Set NULLCLAW_HOME so the component reads config from the instance directory.
+        var home_env_buf: [1]process.EnvEntry = undefined;
         const extra_env: []const process.EnvEntry = if (working_dir.len > 0)
-            &.{.{ "NULLCLAW_HOME", working_dir }}
+            if (component_cli.homeEnvVarForComponent(component)) |env_name| blk: {
+                home_env_buf[0] = .{ env_name, working_dir };
+                break :blk home_env_buf[0..1];
+            } else &.{}
         else
             &.{};
         var result = process.spawn(self.allocator, .{
@@ -594,9 +598,12 @@ pub const Manager = struct {
         defer self.allocator.free(stdout_log);
 
         const cwd: ?[]const u8 = if (inst.working_dir.len > 0) inst.working_dir else null;
-        // Keep NULLCLAW_HOME override on restarts as well.
+        var home_env_buf: [1]process.EnvEntry = undefined;
         const extra_env: []const process.EnvEntry = if (inst.working_dir.len > 0)
-            &.{.{ "NULLCLAW_HOME", inst.working_dir }}
+            if (component_cli.homeEnvVarForComponent(inst.component)) |env_name| blk: {
+                home_env_buf[0] = .{ env_name, inst.working_dir };
+                break :blk home_env_buf[0..1];
+            } else &.{}
         else
             &.{};
         const result = process.spawn(self.allocator, .{

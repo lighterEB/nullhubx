@@ -414,6 +414,7 @@ const ComponentHealthProbePayload = struct {
 
 fn probeProviderViaComponentHealth(
     allocator: std.mem.Allocator,
+    component: []const u8,
     binary_path: []const u8,
     instance_home: []const u8,
     provider: []const u8,
@@ -423,8 +424,9 @@ fn probeProviderViaComponentHealth(
         &.{ "--probe-provider-health", "--provider", provider, "--model", model, "--timeout-secs", "10" }
     else
         &.{ "--probe-provider-health", "--provider", provider, "--timeout-secs", "10" };
-    const result = component_cli.runWithNullclawHome(
+    const result = component_cli.runWithComponentHome(
         allocator,
+        component,
         binary_path,
         args,
         null,
@@ -475,7 +477,7 @@ fn probeComponentProvider(
     std.fs.accessAbsolute(bin_path, .{}) catch return .{ .live_ok = false, .reason = "component_binary_missing" };
     const inst_dir = paths.instanceDir(allocator, component, name) catch return .{ .live_ok = false, .reason = "probe_home_path_failed" };
     defer allocator.free(inst_dir);
-    return probeProviderViaComponentHealth(allocator, bin_path, inst_dir, provider, model);
+    return probeProviderViaComponentHealth(allocator, component, bin_path, inst_dir, provider, model);
 }
 
 // ─── Path Parsing ────────────────────────────────────────────────────────────

@@ -13,17 +13,25 @@ pub const RunResult = struct {
 /// Run a component binary with the given arguments and capture stdout.
 /// Caller owns the returned stdout and stderr slices.
 pub fn run(allocator: std.mem.Allocator, binary_path: []const u8, args: []const []const u8, cwd: ?[]const u8) !RunResult {
-    return runWithNullclawHome(allocator, binary_path, args, cwd, null);
+    return runWithComponentHome(allocator, "", binary_path, args, cwd, null);
 }
 
-/// Run a component binary with optional NULLCLAW_HOME override for instance-scoped commands.
+pub fn homeEnvVarForComponent(component_name: []const u8) ?[]const u8 {
+    if (std.mem.eql(u8, component_name, "nullclaw")) return "NULLCLAW_HOME";
+    if (std.mem.eql(u8, component_name, "nullboiler")) return "NULLBOILER_HOME";
+    if (std.mem.eql(u8, component_name, "nulltickets")) return "NULLTICKETS_HOME";
+    return null;
+}
+
+/// Run a component binary with an optional component-specific HOME override.
 /// Caller owns the returned stdout and stderr slices.
-pub fn runWithNullclawHome(
+pub fn runWithComponentHome(
     allocator: std.mem.Allocator,
+    component_name: []const u8,
     binary_path: []const u8,
     args: []const []const u8,
     cwd: ?[]const u8,
-    nullclaw_home: ?[]const u8,
+    component_home: ?[]const u8,
 ) !RunResult {
     // Build argv: binary + args
     var argv = std.array_list.Managed([]const u8).init(allocator);
@@ -35,10 +43,13 @@ pub fn runWithNullclawHome(
     defer {
         if (env_map_opt) |*env_map| env_map.deinit();
     }
-    if (nullclaw_home) |home| {
-        var env_map = try std.process.getEnvMap(allocator);
-        try env_map.put("NULLCLAW_HOME", home);
-        env_map_opt = env_map;
+    if (component_home) |home| {
+        const env_name = homeEnvVarForComponent(component_name) orelse "";
+        if (env_name.len > 0) {
+            var env_map = try std.process.getEnvMap(allocator);
+            try env_map.put(env_name, home);
+            env_map_opt = env_map;
+        }
     }
 
     const result = std.process.Child.run(.{
@@ -88,8 +99,22 @@ pub const FromJsonResult = struct {
 
 /// Run --from-json on a component binary with the given JSON answers.
 /// The JSON should include a "home" field for instance isolation (injected by orchestrator).
-pub fn fromJson(allocator: std.mem.Allocator, binary_path: []const u8, json_answers: []const u8, cwd: ?[]const u8) !FromJsonResult {
-    const result = try run(allocator, binary_path, &.{ "--from-json", json_answers }, cwd);
+pub fn fromJson(
+    allocator: std.mem.Allocator,
+    component_name: []const u8,
+    binary_path: []const u8,
+    json_answers: []const u8,
+    cwd: ?[]const u8,
+    component_home: ?[]const u8,
+) !FromJsonResult {
+    const result = try runWithComponentHome(
+        allocator,
+        component_name,
+        binary_path,
+        &.{ "--from-json", json_answers },
+        cwd,
+        component_home,
+    );
     return .{
         .stdout = result.stdout,
         .stderr = result.stderr,

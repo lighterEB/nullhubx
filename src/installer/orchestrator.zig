@@ -185,7 +185,14 @@ pub fn install(
     defer if (answers_with_home.ptr != opts.answers_json.ptr) allocator.free(answers_with_home);
 
     clearLastErrorDetail();
-    const from_json_result = component_cli.fromJson(allocator, bin_path, answers_with_home, null) catch {
+    const from_json_result = component_cli.fromJson(
+        allocator,
+        opts.component,
+        bin_path,
+        answers_with_home,
+        null,
+        inst_dir,
+    ) catch {
         setLastErrorDetail("failed to execute binary");
         return error.ConfigGenerationFailed;
     };

@@ -254,7 +254,7 @@ fn augmentWizardManifest(
         .id = "tracker_instance",
         .title = "Link NullTickets",
         .description = "Auto-connect this NullBoiler instance to a local NullTickets tracker",
-        .@"type" = .select,
+        .type = .select,
         .required = false,
         .options = options,
         .default_value = if (trackers.len == 1) trackers[0].name else "",
@@ -519,7 +519,7 @@ pub fn handleValidateProviders(
             continue;
         };
 
-        const result = probeProviderViaComponentBinary(allocator, bin_path, tmp_dir, prov.provider, prov.model);
+        const result = probeProviderViaComponentBinary(allocator, component_name, bin_path, tmp_dir, prov.provider, prov.model);
         appendProviderResult(&buf, prov.provider, result.live_ok, result.reason) catch return null;
     }
 
@@ -559,6 +559,7 @@ fn writeMinimalProviderConfig(
 
 fn probeProviderViaComponentBinary(
     allocator: std.mem.Allocator,
+    component_name: []const u8,
     binary_path: []const u8,
     instance_home: []const u8,
     provider: []const u8,
@@ -569,8 +570,9 @@ fn probeProviderViaComponentBinary(
     else
         &.{ "--probe-provider-health", "--provider", provider, "--timeout-secs", "10" };
 
-    const result = component_cli.runWithNullclawHome(
+    const result = component_cli.runWithComponentHome(
         allocator,
+        component_name,
         binary_path,
         args,
         null,
@@ -668,8 +670,9 @@ pub fn handleValidateChannels(
             if (!first) buf.append(',') catch return null;
             first = false;
 
-            const ch_result = component_cli.runWithNullclawHome(
+            const ch_result = component_cli.runWithComponentHome(
                 allocator,
+                component_name,
                 bin_path,
                 &.{ "--probe-channel-health", "--channel", channel_type, "--account", account_name, "--timeout-secs", "10" },
                 null,
