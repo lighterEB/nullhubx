@@ -27,8 +27,9 @@
   let integrationError = $state<string | null>(null);
   let linkingIntegration = $state(false);
   let selectedTracker = $state("");
-  let trackerAgentRole = $state("coder");
-  let trackerSuccessTrigger = $state("");
+  let selectedPipeline = $state("");
+  let trackerClaimRole = $state("coder");
+  let trackerSuccessTrigger = $state("complete");
   let trackerConcurrency = $state("1");
 
   let modelName = $derived(extractModel(config));
@@ -55,6 +56,22 @@
   );
   let queueSummary = $derived(summarizeQueue(integration?.queue));
   let linkedBoilers = $derived(integration?.linked_boilers || []);
+  let trackerOptions = $derived(integration?.available_trackers || []);
+  let selectedTrackerOption = $derived(
+    trackerOptions.find((tracker: any) => tracker?.name === selectedTracker) || null,
+  );
+  let selectedTrackerPipelines = $derived(
+    Array.isArray(selectedTrackerOption?.pipelines) ? selectedTrackerOption.pipelines : [],
+  );
+  let selectedPipelineOption = $derived(
+    selectedTrackerPipelines.find((pipeline: any) => pipeline?.id === selectedPipeline) || null,
+  );
+  let selectedPipelineRoles = $derived(
+    Array.isArray(selectedPipelineOption?.roles) ? selectedPipelineOption.roles : [],
+  );
+  let selectedPipelineTriggers = $derived(
+    Array.isArray(selectedPipelineOption?.triggers) ? selectedPipelineOption.triggers : [],
+  );
 
   function extractModel(cfg: any): string | null {
     if (!cfg) return null;
@@ -251,13 +268,18 @@
       integration = await api.getIntegration(component, name);
       integrationError = null;
       if (component === "nullboiler") {
+        const currentLink = integration?.current_link;
         selectedTracker =
           integration?.linked_tracker?.name ||
           selectedTracker ||
           integration?.available_trackers?.[0]?.name ||
           "";
+        selectedPipeline = currentLink?.pipeline_id || selectedPipeline || "";
+        trackerClaimRole = currentLink?.claim_role || trackerClaimRole || "coder";
+        trackerSuccessTrigger =
+          currentLink?.success_trigger || trackerSuccessTrigger || "complete";
         trackerConcurrency =
-          String(integration?.tracker?.max_concurrent_tasks || trackerConcurrency || "1");
+          String(currentLink?.max_concurrent_tasks || trackerConcurrency || "1");
       }
     } catch (e) {
       integration = null;
@@ -268,18 +290,17 @@
   }
 
   async function linkTracker() {
-    if (component !== "nullboiler" || !selectedTracker) return;
+    if (component !== "nullboiler" || !selectedTracker || !selectedPipeline.trim()) return;
 
     linkingIntegration = true;
     try {
       const payload: Record<string, any> = {
         tracker_instance: selectedTracker,
-        agent_role: trackerAgentRole || "coder",
-        max_concurrent_tasks: Number(trackerConcurrency || "1"),
+        pipeline_id: selectedPipeline.trim(),
+        claim_role: trackerClaimRole || "coder",
+        success_trigger: trackerSuccessTrigger.trim() || "complete",
+        max_concurrent_tasks: Math.max(1, Number(trackerConcurrency || "1") || 1),
       };
-      if (trackerSuccessTrigger.trim()) {
-        payload.success_trigger = trackerSuccessTrigger.trim();
-      }
       await api.linkIntegration(component, name, payload);
       await refresh();
     } finally {
@@ -373,6 +394,24 @@
     usageWindow;
     if (!component || !name) return;
     void refreshUsage(true);
+  });
+
+  $effect(() => {
+    if (component !== "nullboiler" || !selectedTracker) return;
+    if (selectedTrackerPipelines.length === 0) return;
+    if (!selectedPipeline || !selectedTrackerPipelines.some((pipeline: any) => pipeline?.id === selectedPipeline)) {
+      selectedPipeline = selectedTrackerPipelines[0]?.id || "";
+    }
+  });
+
+  $effect(() => {
+    if (component !== "nullboiler") return;
+    if (selectedPipelineRoles.length > 0 && !selectedPipelineRoles.includes(trackerClaimRole)) {
+      trackerClaimRole = selectedPipelineRoles[0];
+    }
+    if (selectedPipelineTriggers.length > 0 && !selectedPipelineTriggers.includes(trackerSuccessTrigger)) {
+      trackerSuccessTrigger = selectedPipelineTriggers[0];
+    }
   });
 
   onMount(() => {
@@ -615,8 +654,32 @@
                     <span>{integration.tracker.failed_count || 0}</span>
                   </div>
                   <div>
-                    <span class="stat-label">Claimed</span>
-                    <span>{integration.tracker.total_claimed || 0}</span>
+                    <span class="stat-label">Max Concurrent</span>
+                    <span>{integration.tracker.max_concurrent || 0}</span>
+                  </div>
+                </div>
+              {/if}
+
+              {#if integration?.current_link}
+                <div class="integration-block">
+                  <span class="integration-title">Workflow</span>
+                  <div class="integration-stats compact">
+                    <div>
+                      <span class="stat-label">Pipeline</span>
+                      <span class="mono">{integration.current_link.pipeline_id}</span>
+                    </div>
+                    <div>
+                      <span class="stat-label">Claim Role</span>
+                      <span class="mono">{integration.current_link.claim_role}</span>
+                    </div>
+                    <div>
+                      <span class="stat-label">Trigger</span>
+                      <span class="mono">{integration.current_link.success_trigger}</span>
+                    </div>
+                    <div>
+                      <span class="stat-label">Workflow File</span>
+                      <span class="mono">{integration.current_link.workflow_file || "-"}</span>
+                    </div>
                   </div>
                 </div>
               {/if}
@@ -650,18 +713,51 @@
                   <span>Local tracker</span>
                   <select bind:value={selectedTracker} disabled={linkingIntegration}>
                     <option value="">Select tracker</option>
-                    {#each integration?.available_trackers || [] as tracker}
-                      <option value={tracker.name}>{tracker.name} ({tracker.port})</option>
+                    {#each trackerOptions as tracker}
+                      <option value={tracker.name}>
+                        {tracker.name} ({tracker.port}){tracker.running ? "" : " - stopped"}
+                      </option>
                     {/each}
                   </select>
                 </label>
                 <label class="integration-field">
-                  <span>Agent role</span>
-                  <input bind:value={trackerAgentRole} placeholder="coder" />
+                  <span>Pipeline</span>
+                  {#if selectedTrackerPipelines.length > 0}
+                    <select bind:value={selectedPipeline} disabled={linkingIntegration}>
+                      <option value="">Select pipeline</option>
+                      {#each selectedTrackerPipelines as pipeline}
+                        <option value={pipeline.id}>
+                          {pipeline.name || pipeline.id} ({pipeline.id})
+                        </option>
+                      {/each}
+                    </select>
+                  {:else}
+                    <input bind:value={selectedPipeline} placeholder="pipeline-id" />
+                  {/if}
+                </label>
+                <label class="integration-field">
+                  <span>Claim role</span>
+                  {#if selectedPipelineRoles.length > 0}
+                    <select bind:value={trackerClaimRole} disabled={linkingIntegration}>
+                      {#each selectedPipelineRoles as role}
+                        <option value={role}>{role}</option>
+                      {/each}
+                    </select>
+                  {:else}
+                    <input bind:value={trackerClaimRole} placeholder="coder" />
+                  {/if}
                 </label>
                 <label class="integration-field">
                   <span>Success trigger</span>
-                  <input bind:value={trackerSuccessTrigger} placeholder="done" />
+                  {#if selectedPipelineTriggers.length > 0}
+                    <select bind:value={trackerSuccessTrigger} disabled={linkingIntegration}>
+                      {#each selectedPipelineTriggers as trigger}
+                        <option value={trigger}>{trigger}</option>
+                      {/each}
+                    </select>
+                  {:else}
+                    <input bind:value={trackerSuccessTrigger} placeholder="complete" />
+                  {/if}
                 </label>
                 <label class="integration-field">
                   <span>Concurrency</span>
@@ -670,7 +766,7 @@
                 <button
                   class="btn integration-btn"
                   onclick={linkTracker}
-                  disabled={linkingIntegration || !selectedTracker}
+                  disabled={linkingIntegration || !selectedTracker || !selectedPipeline.trim()}
                 >
                   {linkingIntegration ? "Linking..." : "Link Tracker"}
                 </button>

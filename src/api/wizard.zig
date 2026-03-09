@@ -296,8 +296,8 @@ fn prepareWizardBody(
     if (tracker_cfg.api_token) |token| {
         root.put("tracker_api_token", .{ .string = token }) catch return null;
     }
-    if (!root.contains("tracker_agent_role")) {
-        root.put("tracker_agent_role", .{ .string = "coder" }) catch return null;
+    if (!root.contains("tracker_claim_role")) {
+        root.put("tracker_claim_role", .{ .string = "coder" }) catch return null;
     }
 
     return std.json.Stringify.valueAlloc(allocator, parsed.value, .{}) catch return null;
@@ -862,7 +862,7 @@ test "prepareWizardBody injects tracker settings for nullboiler" {
     try std.testing.expectEqualStrings("true", obj.get("tracker_enabled").?.string);
     try std.testing.expectEqualStrings("http://127.0.0.1:7711", obj.get("tracker_url").?.string);
     try std.testing.expectEqualStrings("secret-token", obj.get("tracker_api_token").?.string);
-    try std.testing.expectEqualStrings("coder", obj.get("tracker_agent_role").?.string);
+    try std.testing.expectEqualStrings("coder", obj.get("tracker_claim_role").?.string);
 }
 
 test "handlePostWizard returns null for unknown component" {

@@ -8,14 +8,20 @@ pub const NullTicketsConfig = struct {
     api_token: ?[]const u8 = null,
 };
 
+pub const NullBoilerWorkflowConfig = struct {
+    file_name: []const u8,
+    pipeline_id: []const u8,
+    claim_role: []const u8,
+    success_trigger: []const u8,
+};
+
 pub const NullBoilerTrackerConfig = struct {
     url: []const u8,
     api_token: ?[]const u8 = null,
     agent_id: []const u8 = "nullboiler",
-    agent_role: []const u8 = "coder",
-    workflow_path: []const u8 = "tracker-workflow.json",
-    success_trigger: ?[]const u8 = null,
-    max_concurrent_tasks: u32 = 1,
+    workflows_dir: []const u8 = "workflows",
+    max_concurrent_tasks: u32 = 10,
+    workflow: ?NullBoilerWorkflowConfig = null,
 };
 
 pub const NullBoilerConfig = struct {
@@ -96,18 +102,23 @@ pub fn loadNullBoilerConfig(allocator: std.mem.Allocator, paths: paths_mod.Paths
     }) catch return null;
     defer parsed.deinit();
 
+    const config_dir = std.fs.path.dirname(config_path) orelse return null;
+
     return .{
         .name = try allocator.dupe(u8, name),
         .port = parsed.value.port,
         .api_token = if (parsed.value.api_token) |token| try allocator.dupe(u8, token) else null,
-        .tracker = if (parsed.value.tracker) |tracker| .{
-            .url = try allocator.dupe(u8, tracker.url),
-            .api_token = if (tracker.api_token) |token| try allocator.dupe(u8, token) else null,
-            .agent_id = try allocator.dupe(u8, tracker.agent_id),
-            .agent_role = try allocator.dupe(u8, tracker.agent_role),
-            .workflow_path = try allocator.dupe(u8, tracker.workflow_path),
-            .success_trigger = if (tracker.success_trigger) |trigger| try allocator.dupe(u8, trigger) else null,
-            .max_concurrent_tasks = tracker.max_concurrent_tasks,
+        .tracker = if (parsed.value.tracker) |tracker| blk: {
+            const workflows_dir = try resolveRelativePath(allocator, config_dir, tracker.workflows_dir);
+            const workflow = try loadPrimaryWorkflowConfig(allocator, workflows_dir);
+            break :blk .{
+                .url = try allocator.dupe(u8, tracker.url),
+                .api_token = if (tracker.api_token) |token| try allocator.dupe(u8, token) else null,
+                .agent_id = try allocator.dupe(u8, tracker.agent_id),
+                .workflows_dir = workflows_dir,
+                .max_concurrent_tasks = tracker.concurrency.max_concurrent_tasks,
+                .workflow = workflow,
+            };
         } else null,
     };
 }
@@ -130,9 +141,13 @@ pub fn deinitNullBoilerConfig(allocator: std.mem.Allocator, cfg: *NullBoilerConf
         allocator.free(tracker.url);
         if (tracker.api_token) |token| allocator.free(token);
         allocator.free(tracker.agent_id);
-        allocator.free(tracker.agent_role);
-        allocator.free(tracker.workflow_path);
-        if (tracker.success_trigger) |trigger| allocator.free(trigger);
+        allocator.free(tracker.workflows_dir);
+        if (tracker.workflow) |*workflow| {
+            allocator.free(workflow.file_name);
+            allocator.free(workflow.pipeline_id);
+            allocator.free(workflow.claim_role);
+            allocator.free(workflow.success_trigger);
+        }
     }
     cfg.* = undefined;
 }
@@ -180,6 +195,50 @@ fn isLocalHost(host: []const u8) bool {
         std.mem.eql(u8, host, "::1");
 }
 
+fn loadPrimaryWorkflowConfig(allocator: std.mem.Allocator, workflows_dir: []const u8) !?NullBoilerWorkflowConfig {
+    var dir = std.fs.openDirAbsolute(workflows_dir, .{ .iterate = true }) catch return null;
+    defer dir.close();
+
+    var best_name: ?[]const u8 = null;
+    defer if (best_name) |value| allocator.free(value);
+
+    var it = dir.iterate();
+    while (try it.next()) |entry| {
+        if (entry.kind != .file) continue;
+        if (!std.mem.endsWith(u8, entry.name, ".json")) continue;
+        if (best_name == null or std.mem.order(u8, entry.name, best_name.?) == .lt) {
+            if (best_name) |value| allocator.free(value);
+            best_name = try allocator.dupe(u8, entry.name);
+        }
+    }
+
+    const file_name = best_name orelse return null;
+    const workflow_path = try std.fs.path.join(allocator, &.{ workflows_dir, file_name });
+    defer allocator.free(workflow_path);
+    const file = try std.fs.openFileAbsolute(workflow_path, .{});
+    defer file.close();
+
+    const bytes = try file.readToEndAlloc(allocator, 1024 * 1024);
+    defer allocator.free(bytes);
+    const parsed = std.json.parseFromSlice(WorkflowFile, allocator, bytes, .{
+        .allocate = .alloc_always,
+        .ignore_unknown_fields = true,
+    }) catch return null;
+    defer parsed.deinit();
+
+    return .{
+        .file_name = try allocator.dupe(u8, file_name),
+        .pipeline_id = try allocator.dupe(u8, parsed.value.pipeline_id),
+        .claim_role = try allocator.dupe(u8, if (parsed.value.claim_roles.len > 0) parsed.value.claim_roles[0] else ""),
+        .success_trigger = try allocator.dupe(u8, if (parsed.value.on_success) |cfg| cfg.transition_to else ""),
+    };
+}
+
+fn resolveRelativePath(allocator: std.mem.Allocator, base_dir: []const u8, value: []const u8) ![]const u8 {
+    if (value.len == 0 or std.fs.path.isAbsolute(value)) return allocator.dupe(u8, value);
+    return std.fs.path.resolve(allocator, &.{ base_dir, value });
+}
+
 const NullTicketsConfigFile = struct {
     port: u16 = 7700,
     api_token: ?[]const u8 = null,
@@ -192,9 +251,17 @@ const NullBoilerConfigFile = struct {
         url: []const u8,
         api_token: ?[]const u8 = null,
         agent_id: []const u8 = "nullboiler",
-        agent_role: []const u8 = "coder",
-        workflow_path: []const u8 = "tracker-workflow.json",
-        success_trigger: ?[]const u8 = null,
-        max_concurrent_tasks: u32 = 1,
+        concurrency: struct {
+            max_concurrent_tasks: u32 = 10,
+        } = .{},
+        workflows_dir: []const u8 = "workflows",
+    } = null,
+};
+
+const WorkflowFile = struct {
+    pipeline_id: []const u8,
+    claim_roles: []const []const u8 = &.{},
+    on_success: ?struct {
+        transition_to: []const u8 = "",
     } = null,
 };
