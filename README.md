@@ -11,6 +11,7 @@ NullTickets).
 - **Install wizard** -- manifest-driven guided setup for any component
 - **Process supervision** -- start, stop, restart, crash recovery with backoff
 - **Health monitoring** -- periodic HTTP health checks, dashboard status cards
+- **Cross-component linking** -- auto-connect `NullTickets -> NullBoiler`, generate native tracker config, and inspect queue/orchestrator status from one UI
 - **Config management** -- schema-aware editor, partial updates, migration on upgrade
 - **Log viewing** -- tail and live SSE streaming per instance
 - **One-click updates** -- download, migrate config, rollback on failure

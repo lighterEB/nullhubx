@@ -22,6 +22,14 @@
   let usageWindow = $state<UsageWindow>("24h");
   let usageData = $state<any>(null);
   let usageLoading = $state(false);
+  let integration = $state<any>(null);
+  let integrationLoading = $state(false);
+  let integrationError = $state<string | null>(null);
+  let linkingIntegration = $state(false);
+  let selectedTracker = $state("");
+  let trackerAgentRole = $state("coder");
+  let trackerSuccessTrigger = $state("");
+  let trackerConcurrency = $state("1");
 
   let modelName = $derived(extractModel(config));
   let webPort = $derived(extractWebPort(config));
@@ -42,6 +50,11 @@
       webPort != null &&
       providerStatus.configured,
   );
+  let supportsIntegration = $derived(
+    component === "nullboiler" || component === "nulltickets",
+  );
+  let queueSummary = $derived(summarizeQueue(integration?.queue));
+  let linkedBoilers = $derived(integration?.linked_boilers || []);
 
   function extractModel(cfg: any): string | null {
     if (!cfg) return null;
@@ -205,6 +218,75 @@
     }
   }
 
+  function summarizeQueue(queue: any): {
+    roles: any[];
+    claimable: number;
+    failed: number;
+    stuck: number;
+    nearExpiry: number;
+  } {
+    const roles = Array.isArray(queue?.roles) ? queue.roles : [];
+    let claimable = 0;
+    let failed = 0;
+    let stuck = 0;
+    let nearExpiry = 0;
+    for (const role of roles) {
+      claimable += Number(role?.claimable_count || 0);
+      failed += Number(role?.failed_count || 0);
+      stuck += Number(role?.stuck_count || 0);
+      nearExpiry += Number(role?.near_expiry_leases || 0);
+    }
+    return { roles, claimable, failed, stuck, nearExpiry };
+  }
+
+  async function refreshIntegration() {
+    if (!supportsIntegration) {
+      integration = null;
+      integrationError = null;
+      return;
+    }
+
+    integrationLoading = true;
+    try {
+      integration = await api.getIntegration(component, name);
+      integrationError = null;
+      if (component === "nullboiler") {
+        selectedTracker =
+          integration?.linked_tracker?.name ||
+          selectedTracker ||
+          integration?.available_trackers?.[0]?.name ||
+          "";
+        trackerConcurrency =
+          String(integration?.tracker?.max_concurrent_tasks || trackerConcurrency || "1");
+      }
+    } catch (e) {
+      integration = null;
+      integrationError = (e as Error).message;
+    } finally {
+      integrationLoading = false;
+    }
+  }
+
+  async function linkTracker() {
+    if (component !== "nullboiler" || !selectedTracker) return;
+
+    linkingIntegration = true;
+    try {
+      const payload: Record<string, any> = {
+        tracker_instance: selectedTracker,
+        agent_role: trackerAgentRole || "coder",
+        max_concurrent_tasks: Number(trackerConcurrency || "1"),
+      };
+      if (trackerSuccessTrigger.trim()) {
+        payload.success_trigger = trackerSuccessTrigger.trim();
+      }
+      await api.linkIntegration(component, name, payload);
+      await refresh();
+    } finally {
+      linkingIntegration = false;
+    }
+  }
+
   async function refreshProviderHealth(force = false, cfgOverride: any = config) {
     const status = extractProviderStatus(cfgOverride);
     if (!status.provider) {
@@ -277,6 +359,7 @@
     }
     await refreshProviderHealth(false, loadedConfig);
     await refreshUsage();
+    await refreshIntegration();
     // Fetch installed UI modules (best-effort)
     try {
       const res = await api.getUiModules();
@@ -488,6 +571,157 @@
           <div class="info-card">
             <span class="label">Web Channel Port</span>
             <span class="mono">{webPort}</span>
+          </div>
+        {/if}
+        {#if supportsIntegration}
+          <div class="info-card integration-card">
+            <div class="integration-header">
+              <span class="label"
+                >{component === "nullboiler" ? "NullTickets Link" : "Linked NullBoilers"}</span
+              >
+              {#if component === "nullboiler" && integration?.linked_tracker}
+                <span class="integration-badge">Linked</span>
+              {/if}
+            </div>
+
+            {#if integrationLoading && !integration}
+              <span class="integration-muted">Loading integration status...</span>
+            {:else if integrationError}
+              <span class="integration-error">{integrationError}</span>
+            {:else if component === "nullboiler"}
+              <div class="integration-block">
+                <span class="integration-title">Tracker</span>
+                {#if integration?.linked_tracker}
+                  <span class="mono"
+                    >{integration.linked_tracker.name}:{integration.linked_tracker.port}</span
+                  >
+                {:else}
+                  <span class="integration-muted">No tracker linked yet.</span>
+                {/if}
+              </div>
+
+              {#if integration?.tracker}
+                <div class="integration-stats">
+                  <div>
+                    <span class="stat-label">Running</span>
+                    <span>{integration.tracker.running_count || 0}</span>
+                  </div>
+                  <div>
+                    <span class="stat-label">Completed</span>
+                    <span>{integration.tracker.completed_count || 0}</span>
+                  </div>
+                  <div>
+                    <span class="stat-label">Failed</span>
+                    <span>{integration.tracker.failed_count || 0}</span>
+                  </div>
+                  <div>
+                    <span class="stat-label">Claimed</span>
+                    <span>{integration.tracker.total_claimed || 0}</span>
+                  </div>
+                </div>
+              {/if}
+
+              {#if queueSummary.roles.length > 0}
+                <div class="integration-block">
+                  <span class="integration-title">Queue</span>
+                  <div class="integration-stats compact">
+                    <div>
+                      <span class="stat-label">Claimable</span>
+                      <span>{queueSummary.claimable}</span>
+                    </div>
+                    <div>
+                      <span class="stat-label">Failed</span>
+                      <span>{queueSummary.failed}</span>
+                    </div>
+                    <div>
+                      <span class="stat-label">Stuck</span>
+                      <span>{queueSummary.stuck}</span>
+                    </div>
+                    <div>
+                      <span class="stat-label">Lease Risk</span>
+                      <span>{queueSummary.nearExpiry}</span>
+                    </div>
+                  </div>
+                </div>
+              {/if}
+
+              <div class="integration-form">
+                <label class="integration-field">
+                  <span>Local tracker</span>
+                  <select bind:value={selectedTracker} disabled={linkingIntegration}>
+                    <option value="">Select tracker</option>
+                    {#each integration?.available_trackers || [] as tracker}
+                      <option value={tracker.name}>{tracker.name} ({tracker.port})</option>
+                    {/each}
+                  </select>
+                </label>
+                <label class="integration-field">
+                  <span>Agent role</span>
+                  <input bind:value={trackerAgentRole} placeholder="coder" />
+                </label>
+                <label class="integration-field">
+                  <span>Success trigger</span>
+                  <input bind:value={trackerSuccessTrigger} placeholder="done" />
+                </label>
+                <label class="integration-field">
+                  <span>Concurrency</span>
+                  <input bind:value={trackerConcurrency} inputmode="numeric" />
+                </label>
+                <button
+                  class="btn integration-btn"
+                  onclick={linkTracker}
+                  disabled={linkingIntegration || !selectedTracker}
+                >
+                  {linkingIntegration ? "Linking..." : "Link Tracker"}
+                </button>
+              </div>
+            {:else}
+              <div class="integration-block">
+                <span class="integration-title">Queue</span>
+                {#if queueSummary.roles.length > 0}
+                  <div class="integration-stats compact">
+                    <div>
+                      <span class="stat-label">Claimable</span>
+                      <span>{queueSummary.claimable}</span>
+                    </div>
+                    <div>
+                      <span class="stat-label">Failed</span>
+                      <span>{queueSummary.failed}</span>
+                    </div>
+                    <div>
+                      <span class="stat-label">Stuck</span>
+                      <span>{queueSummary.stuck}</span>
+                    </div>
+                    <div>
+                      <span class="stat-label">Lease Risk</span>
+                      <span>{queueSummary.nearExpiry}</span>
+                    </div>
+                  </div>
+                {:else}
+                  <span class="integration-muted">Queue stats appear when the tracker is running.</span>
+                {/if}
+              </div>
+
+              {#if linkedBoilers.length > 0}
+                <div class="integration-list">
+                  {#each linkedBoilers as boiler}
+                    <div class="integration-list-item">
+                      <div>
+                        <span class="integration-title">{boiler.name}</span>
+                        <span class="integration-muted mono">:{boiler.port}</span>
+                      </div>
+                      {#if boiler.tracker}
+                        <span class="integration-muted"
+                          >{boiler.tracker.running_count || 0} running / {boiler.tracker.failed_count || 0} failed</span
+                        >
+                      {/if}
+                    </div>
+                  {/each}
+                </div>
+              {:else}
+                <span class="integration-muted">No linked NullBoiler instances detected.</span>
+              {/if}
+            {/if}
           </div>
         {/if}
         <div class="info-card usage-card">
@@ -709,6 +943,122 @@
   }
   .usage-card {
     grid-column: 1 / -1;
+  }
+  .integration-card {
+    grid-column: 1 / -1;
+    gap: 1rem;
+  }
+  .integration-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .integration-badge {
+    padding: 0.2rem 0.5rem;
+    border: 1px solid color-mix(in srgb, var(--success, #22c55e) 50%, transparent);
+    color: var(--success, #22c55e);
+    background: color-mix(in srgb, var(--success, #22c55e) 12%, transparent);
+    border-radius: 2px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 700;
+  }
+  .integration-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .integration-title {
+    font-size: 0.8125rem;
+    color: var(--fg);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .integration-muted {
+    color: var(--fg-dim);
+    font-size: 0.8125rem;
+  }
+  .integration-error {
+    color: var(--error);
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .integration-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.75rem;
+  }
+  .integration-stats.compact {
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  }
+  .integration-stats div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.75rem;
+    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    background: color-mix(in srgb, var(--bg-surface) 80%, transparent);
+    border-radius: 2px;
+  }
+  .stat-label {
+    color: var(--accent-dim);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .integration-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.75rem;
+    align-items: end;
+  }
+  .integration-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .integration-field span {
+    color: var(--accent-dim);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .integration-field select,
+  .integration-field input {
+    padding: 0.6rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    background: var(--bg-surface);
+    color: var(--fg);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+  }
+  .integration-field select:focus,
+  .integration-field input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .integration-btn {
+    min-height: 42px;
+  }
+  .integration-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .integration-list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    background: color-mix(in srgb, var(--bg-surface) 80%, transparent);
+    border-radius: 2px;
   }
   .usage-header {
     display: flex;
@@ -993,5 +1343,14 @@
     letter-spacing: 1px;
     font-weight: 700;
     margin-top: 0.25rem;
+  }
+  @media (max-width: 700px) {
+    .integration-list-item {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .integration-form {
+      grid-template-columns: 1fr;
+    }
   }
 </style>

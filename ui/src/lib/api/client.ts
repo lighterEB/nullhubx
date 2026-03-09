@@ -37,6 +37,13 @@ export const api = {
     request<any>(`/instances/${c}/${n}/provider-health`),
   getUsage: (c: string, n: string, window: '24h' | '7d' | '30d' | 'all' = '24h') =>
     request<any>(`/instances/${c}/${n}/usage?window=${window}`),
+  getIntegration: (c: string, n: string) =>
+    request<any>(`/instances/${c}/${n}/integration`),
+  linkIntegration: (c: string, n: string, payload: any) =>
+    request<any>(`/instances/${c}/${n}/integration`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   putConfig: (c: string, n: string, config: any) =>
     request<any>(`/instances/${c}/${n}/config`, { method: 'PUT', body: JSON.stringify(config) }),
   getLogs: (c: string, n: string, lines = 100) =>
