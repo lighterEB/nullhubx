@@ -1,5 +1,8 @@
 # NullHub
 
+The simplest way to install, configure, and manage
+[NullClaw](https://github.com/nullclaw/nullclaw).
+
 Management hub for the nullclaw ecosystem.
 
 `NullHub` is a single Zig binary with an embedded Svelte web UI for installing,
