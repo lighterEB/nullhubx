@@ -484,6 +484,7 @@ fn buildPostResponse(buf: *std.array_list.Managed(u8), component_name: []const u
 fn buildErrorResponse(allocator: std.mem.Allocator, err: orchestrator.InstallError) ?[]const u8 {
     const msg = switch (err) {
         error.UnknownComponent => "unknown component",
+        error.InstanceExists => "instance name already exists",
         error.ManifestNotFound => "manifest not found",
         error.ManifestParseError => "manifest parse error",
         error.FetchFailed => "failed to fetch release info",

@@ -22,11 +22,25 @@
     } catch {}
   });
 
+  function isPlaceholderEntry(entry: { provider: string; api_key: string; model: string }) {
+    return entry.api_key.trim().length === 0 && entry.model.trim().length === 0;
+  }
+
   function useSaved(sp: any) {
-    entries = [
-      ...entries,
-      { provider: sp.provider, api_key: sp.api_key, model: sp.model || "" },
-    ];
+    const savedEntry = {
+      provider: sp.provider,
+      api_key: sp.api_key,
+      model: sp.model || "",
+    };
+
+    if (entries.length === 1 && isPlaceholderEntry(entries[0])) {
+      entries = [savedEntry];
+    } else {
+      entries = [
+        ...entries,
+        savedEntry,
+      ];
+    }
     showSavedDropdown = false;
     emitChange();
   }
@@ -246,6 +260,7 @@
     align-items: center;
     gap: 0.75rem;
     margin-bottom: 0.75rem;
+    min-width: 0;
   }
 
   .provider-number {
@@ -258,6 +273,7 @@
 
   .provider-row-header select {
     flex: 1;
+    min-width: 0;
     background: var(--bg-surface);
     border: 1px solid var(--border);
     border-radius: 2px;
@@ -277,6 +293,7 @@
   .provider-row-actions {
     display: flex;
     gap: 0.375rem;
+    flex: 0 0 auto;
   }
 
   .icon-btn {

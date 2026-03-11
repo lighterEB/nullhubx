@@ -29,6 +29,7 @@
   let providerValidationResults = $state<any[]>([]);
   let channelValidationResults = $state<any[]>([]);
   let validationError = $state("");
+  let existingInstanceNames = $state<string[]>([]);
 
   // Auto-generate instance name on mount
   $effect(() => {
@@ -38,15 +39,26 @@
         .then((data: any) => {
           const existing = data?.instances?.[component] || {};
           const names = Object.keys(existing);
+          existingInstanceNames = names;
           let id = 1;
           while (names.includes(`instance-${id}`)) id++;
           instanceName = `instance-${id}`;
         })
         .catch(() => {
+          existingInstanceNames = [];
           instanceName = "instance-1";
         });
     }
   });
+
+  let trimmedInstanceName = $derived(instanceName.trim());
+  let instanceNameError = $derived(
+    !trimmedInstanceName
+      ? "Instance name is required"
+      : existingInstanceNames.includes(trimmedInstanceName)
+        ? "Instance name must be unique for this component"
+        : "",
+  );
 
   // Fetch available versions
   $effect(() => {
@@ -157,6 +169,12 @@
     }
   });
 
+  $effect(() => {
+    component;
+    steps;
+    showAdvanced = false;
+  });
+
   async function validateProviders(): Promise<boolean> {
     validating = true;
     validationError = "";
@@ -207,6 +225,10 @@
   async function handleNext() {
     const page = pageKinds[currentPage];
     if (page === "setup") {
+      if (instanceNameError) {
+        validationError = instanceNameError;
+        return;
+      }
       if (providerStep) {
         const valid = await validateProviders();
         if (!valid) return;
@@ -237,7 +259,7 @@
     try {
       const { _providers, ...rest } = answers;
       const payload: any = {
-        instance_name: instanceName,
+        instance_name: trimmedInstanceName,
         version: selectedVersion,
         ...rest,
       };
@@ -299,6 +321,9 @@
           bind:value={instanceName}
           placeholder="instance-1"
         />
+        {#if instanceNameError}
+          <p class="name-error">{instanceNameError}</p>
+        {/if}
       </div>
 
       {#if versions.length > 1}
@@ -379,7 +404,7 @@
       <button
         class="primary-btn"
         onclick={handleNext}
-        disabled={validating || !instanceName}
+        disabled={validating || !!instanceNameError}
       >
         {validating ? "Validating..." : "Next"}
       </button>
@@ -387,7 +412,7 @@
       <button
         class="primary-btn"
         onclick={submit}
-        disabled={installing || !instanceName}
+        disabled={installing || !!instanceNameError}
       >
         {installing ? "Installing..." : "Install"}
       </button>
@@ -521,6 +546,13 @@
   .name-step input:focus {
     border-color: var(--accent);
     box-shadow: 0 0 8px var(--border-glow);
+  }
+
+  .name-error {
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--error, #e55);
+    font-family: var(--font-mono);
   }
 
   .advanced-toggle {
