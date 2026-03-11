@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { api } from "$lib/api/client";
 
   let {
@@ -10,6 +11,25 @@
   } = $props();
 
   const LOCAL_PROVIDERS = ["ollama", "lm-studio", "claude-cli", "codex-cli"];
+
+  let savedProviders = $state<any[]>([]);
+  let showSavedDropdown = $state(false);
+
+  onMount(async () => {
+    try {
+      const data = await api.getSavedProviders(true);
+      savedProviders = data.providers || [];
+    } catch {}
+  });
+
+  function useSaved(sp: any) {
+    entries = [
+      ...entries,
+      { provider: sp.provider, api_key: sp.api_key, model: sp.model || "" },
+    ];
+    showSavedDropdown = false;
+    emitChange();
+  }
 
   let entries = $state<
     Array<{ provider: string; api_key: string; model: string }>
@@ -161,7 +181,26 @@
     </div>
   {/each}
 
-  <button class="add-btn" onclick={addEntry}>+ Add Provider</button>
+  <div class="add-row">
+    <button class="add-btn" onclick={addEntry}>+ Add Provider</button>
+    {#if savedProviders.length > 0}
+      <div class="saved-dropdown-container">
+        <button class="add-btn saved-btn" onclick={() => (showSavedDropdown = !showSavedDropdown)}>
+          Use Saved
+        </button>
+        {#if showSavedDropdown}
+          <div class="saved-dropdown">
+            {#each savedProviders as sp}
+              <button class="saved-item" onclick={() => useSaved(sp)}>
+                <span class="saved-name">{sp.name}</span>
+                <span class="saved-detail">{sp.model || "no model"}</span>
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    {/if}
+  </div>
 </div>
 
 <style>
@@ -346,5 +385,77 @@
     background: color-mix(in srgb, var(--accent) 10%, transparent);
     box-shadow: 0 0 8px var(--border-glow);
     text-shadow: var(--text-glow);
+  }
+
+  .add-row {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .add-row .add-btn {
+    flex: 1;
+  }
+
+  .saved-dropdown-container {
+    position: relative;
+    flex: 0 0 auto;
+  }
+
+  .saved-btn {
+    border-style: solid !important;
+    border-color: var(--accent-dim) !important;
+    color: var(--accent) !important;
+    width: auto !important;
+    padding: 0.75rem 1.25rem !important;
+  }
+
+  .saved-dropdown {
+    position: absolute;
+    bottom: 100%;
+    right: 0;
+    min-width: 220px;
+    background: var(--bg-surface);
+    border: 1px solid var(--accent-dim);
+    border-radius: 2px;
+    margin-bottom: 0.25rem;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
+    z-index: 10;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .saved-item {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    padding: 0.625rem 1rem;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    color: var(--fg);
+    cursor: pointer;
+    text-align: left;
+    font-family: var(--font-mono);
+    transition: all 0.15s ease;
+  }
+
+  .saved-item:last-child {
+    border-bottom: none;
+  }
+
+  .saved-item:hover {
+    background: var(--bg-hover);
+    color: var(--accent);
+  }
+
+  .saved-name {
+    font-size: 0.875rem;
+    font-weight: 700;
+  }
+
+  .saved-detail {
+    font-size: 0.75rem;
+    color: var(--fg-dim);
+    margin-top: 0.125rem;
   }
 </style>

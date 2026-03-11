@@ -13,8 +13,10 @@ const paths_mod = @import("../core/paths.zig");
 const state_mod = @import("../core/state.zig");
 const manager_mod = @import("../supervisor/manager.zig");
 const integration_mod = @import("../core/integration.zig");
+const providers_api = @import("providers.zig");
 
 const appendEscaped = helpers.appendEscaped;
+pub const ProviderProbeResult = struct { live_ok: bool, reason: []const u8 };
 
 // ─── Path Parsing ────────────────────────────────────────────────────────────
 
@@ -511,6 +513,7 @@ pub fn handleValidateProviders(
     component_name: []const u8,
     body: []const u8,
     paths: paths_mod.Paths,
+    state: *state_mod.State,
 ) ?[]const u8 {
     if (registry.findKnownComponent(component_name) == null) return null;
 
@@ -544,19 +547,54 @@ pub fn handleValidateProviders(
     errdefer buf.deinit();
     buf.appendSlice("{\"results\":[") catch return null;
 
+    // Track validation results for auto-save
+    const ProbeResult = struct { live_ok: bool };
+    var probe_results = std.array_list.Managed(ProbeResult).init(allocator);
+    defer probe_results.deinit();
+
     for (parsed.value.providers, 0..) |prov, idx| {
         if (idx > 0) buf.append(',') catch return null;
 
         writeMinimalProviderConfig(allocator, tmp_dir, prov.provider, prov.api_key, prov.base_url) catch {
             appendProviderResult(&buf, prov.provider, false, "config_write_failed") catch return null;
+            probe_results.append(.{ .live_ok = false }) catch return null;
             continue;
         };
 
         const result = probeProviderViaComponentBinary(allocator, component_name, bin_path, tmp_dir, prov.provider, prov.model);
         appendProviderResult(&buf, prov.provider, result.live_ok, result.reason) catch return null;
+        probe_results.append(.{ .live_ok = result.live_ok }) catch return null;
     }
 
     buf.appendSlice("]}") catch return null;
+
+    // Auto-save validated providers
+    var did_save = false;
+    for (parsed.value.providers, 0..) |prov, idx| {
+        if (idx < probe_results.items.len and probe_results.items[idx].live_ok) {
+            if (!state.hasSavedProvider(prov.provider, prov.api_key, prov.model)) {
+                state.addSavedProvider(.{
+                    .provider = prov.provider,
+                    .api_key = prov.api_key,
+                    .model = prov.model,
+                    .validated_with = component_name,
+                }) catch continue;
+                // Set validated_at on the just-added provider
+                const providers_list = state.savedProviders();
+                if (providers_list.len > 0) {
+                    const new_id = providers_list[providers_list.len - 1].id;
+                    const now = providers_api.nowIso8601(allocator) catch "";
+                    if (now.len > 0) {
+                        _ = state.updateSavedProvider(new_id, .{ .validated_at = now }) catch {};
+                        allocator.free(now);
+                    }
+                }
+                did_save = true;
+            }
+        }
+    }
+    if (did_save) state.save() catch {};
+
     return buf.toOwnedSlice() catch null;
 }
 
@@ -597,7 +635,7 @@ fn probeProviderViaComponentBinary(
     instance_home: []const u8,
     provider: []const u8,
     model: []const u8,
-) struct { live_ok: bool, reason: []const u8 } {
+) ProviderProbeResult {
     const args: []const []const u8 = if (model.len > 0)
         &.{ "--probe-provider-health", "--provider", provider, "--model", model, "--timeout-secs", "10" }
     else
@@ -748,6 +786,27 @@ fn appendChannelResult(buf: *std.array_list.Managed(u8), channel: []const u8, ac
     try buf.appendSlice(",\"reason\":\"");
     try appendEscaped(buf, reason);
     try buf.appendSlice("\"}");
+}
+
+// ─── Public wrappers for providers API ───────────────────────────────────────
+
+pub fn findOrFetchComponentBinaryPub(allocator: std.mem.Allocator, component: []const u8, paths: paths_mod.Paths) ?[]const u8 {
+    return findOrFetchComponentBinary(allocator, component, paths);
+}
+
+pub fn writeMinimalProviderConfigPub(allocator: std.mem.Allocator, dir: []const u8, provider: []const u8, api_key: []const u8, base_url: []const u8) !void {
+    return writeMinimalProviderConfig(allocator, dir, provider, api_key, base_url);
+}
+
+pub fn probeProviderViaComponentBinaryPub(
+    allocator: std.mem.Allocator,
+    component_name: []const u8,
+    binary_path: []const u8,
+    instance_home: []const u8,
+    provider: []const u8,
+    model: []const u8,
+) ProviderProbeResult {
+    return probeProviderViaComponentBinary(allocator, component_name, binary_path, instance_home, provider, model);
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
