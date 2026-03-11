@@ -14,6 +14,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 export const api = {
   getStatus: () => request<any>('/status'),
+  getGlobalUsage: (window: '24h' | '7d' | '30d' | 'all' = '24h') =>
+    request<any>(`/usage?window=${window}`),
   getComponents: () => request<any>('/components'),
   getInstances: () => request<any>('/instances'),
   getWizard: (component: string) => request<any>(`/wizard/${component}`),

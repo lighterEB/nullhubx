@@ -607,7 +607,7 @@ pub fn parsePath(target: []const u8) ?ParsedPath {
     return .{ .component = component, .name = name, .action = action };
 }
 
-const UsageLedgerLine = struct {
+pub const UsageLedgerLine = struct {
     ts: i64 = 0,
     provider: ?[]const u8 = null,
     model: ?[]const u8 = null,
@@ -617,7 +617,7 @@ const UsageLedgerLine = struct {
     success: bool = true,
 };
 
-const UsageAggregate = struct {
+pub const UsageAggregate = struct {
     provider: []const u8,
     model: []const u8,
     prompt_tokens: u64 = 0,
@@ -627,16 +627,16 @@ const UsageAggregate = struct {
     last_used: i64 = 0,
 };
 
-const TOKEN_USAGE_LEDGER_FILENAME = "llm_token_usage.jsonl";
-const LEGACY_USAGE_LEDGER_FILENAME = "llm_usage.jsonl";
-const USAGE_CACHE_VERSION: u32 = 1;
-const USAGE_CACHE_MAX_LEDGER_BYTES: usize = 128 * 1024 * 1024;
-const USAGE_HOURLY_RETENTION_SECS: i64 = 14 * 24 * 60 * 60;
-const USAGE_DAILY_RETENTION_SECS: i64 = 730 * 24 * 60 * 60;
-const HOUR_SECS: i64 = 60 * 60;
-const DAY_SECS: i64 = 24 * 60 * 60;
+pub const TOKEN_USAGE_LEDGER_FILENAME = "llm_token_usage.jsonl";
+pub const LEGACY_USAGE_LEDGER_FILENAME = "llm_usage.jsonl";
+pub const USAGE_CACHE_VERSION: u32 = 1;
+pub const USAGE_CACHE_MAX_LEDGER_BYTES: usize = 128 * 1024 * 1024;
+pub const USAGE_HOURLY_RETENTION_SECS: i64 = 14 * 24 * 60 * 60;
+pub const USAGE_DAILY_RETENTION_SECS: i64 = 730 * 24 * 60 * 60;
+pub const HOUR_SECS: i64 = 60 * 60;
+pub const DAY_SECS: i64 = 24 * 60 * 60;
 
-const UsageCacheBucket = struct {
+pub const UsageCacheBucket = struct {
     bucket_start: i64 = 0,
     provider: []const u8 = "",
     model: []const u8 = "",
@@ -647,7 +647,7 @@ const UsageCacheBucket = struct {
     last_used: i64 = 0,
 };
 
-const UsageCacheSnapshot = struct {
+pub const UsageCacheSnapshot = struct {
     version: u32 = USAGE_CACHE_VERSION,
     generated_at: i64 = 0,
     ledger_size: u64 = 0,
@@ -655,7 +655,7 @@ const UsageCacheSnapshot = struct {
     hourly: []UsageCacheBucket = &.{},
     daily: []UsageCacheBucket = &.{},
 
-    fn deinit(self: *UsageCacheSnapshot, allocator: std.mem.Allocator) void {
+    pub fn deinit(self: *UsageCacheSnapshot, allocator: std.mem.Allocator) void {
         for (self.hourly) |row| {
             allocator.free(row.provider);
             allocator.free(row.model);
@@ -670,7 +670,7 @@ const UsageCacheSnapshot = struct {
     }
 };
 
-fn emptyUsageCache(now_ts: i64) UsageCacheSnapshot {
+pub fn emptyUsageCache(now_ts: i64) UsageCacheSnapshot {
     return .{ .generated_at = now_ts };
 }
 
@@ -678,11 +678,11 @@ fn bucketFloor(ts: i64, bucket_secs: i64) i64 {
     return @divFloor(ts, bucket_secs) * bucket_secs;
 }
 
-fn isShortUsageWindow(window: []const u8) bool {
+pub fn isShortUsageWindow(window: []const u8) bool {
     return std.mem.eql(u8, window, "24h") or std.mem.eql(u8, window, "7d");
 }
 
-fn resolveUsageLedgerPath(allocator: std.mem.Allocator, inst_dir: []const u8) ![]u8 {
+pub fn resolveUsageLedgerPath(allocator: std.mem.Allocator, inst_dir: []const u8) ![]u8 {
     const preferred = try std.fs.path.join(allocator, &.{ inst_dir, TOKEN_USAGE_LEDGER_FILENAME });
     std.fs.accessAbsolute(preferred, .{}) catch {
         const legacy = try std.fs.path.join(allocator, &.{ inst_dir, LEGACY_USAGE_LEDGER_FILENAME });
@@ -695,7 +695,7 @@ fn resolveUsageLedgerPath(allocator: std.mem.Allocator, inst_dir: []const u8) ![
     return preferred;
 }
 
-fn usageCachePath(allocator: std.mem.Allocator, paths: paths_mod.Paths, component: []const u8, name: []const u8) ![]u8 {
+pub fn usageCachePath(allocator: std.mem.Allocator, paths: paths_mod.Paths, component: []const u8, name: []const u8) ![]u8 {
     const filename = try std.fmt.allocPrint(allocator, "{s}.json", .{name});
     defer allocator.free(filename);
     return std.fs.path.join(allocator, &.{ paths.root, "cache", "usage", component, filename });
@@ -760,7 +760,7 @@ fn parseUsageCacheBuckets(allocator: std.mem.Allocator, value: std.json.Value) !
     return list.toOwnedSlice(allocator);
 }
 
-fn loadUsageCacheSnapshot(allocator: std.mem.Allocator, cache_path: []const u8, now_ts: i64) !?UsageCacheSnapshot {
+pub fn loadUsageCacheSnapshot(allocator: std.mem.Allocator, cache_path: []const u8, now_ts: i64) !?UsageCacheSnapshot {
     const file = std.fs.openFileAbsolute(cache_path, .{}) catch |err| switch (err) {
         error.FileNotFound => return null,
         else => return err,
@@ -820,7 +820,7 @@ fn writeUsageCacheBuckets(
     try w.writeByte(']');
 }
 
-fn writeUsageCacheSnapshot(allocator: std.mem.Allocator, cache_path: []const u8, snapshot: *const UsageCacheSnapshot) !void {
+pub fn writeUsageCacheSnapshot(allocator: std.mem.Allocator, cache_path: []const u8, snapshot: *const UsageCacheSnapshot) !void {
     const cache_dir = std.fs.path.dirname(cache_path) orelse return error.InvalidPath;
     std.fs.makeDirAbsolute(cache_dir) catch |err| switch (err) {
         error.PathAlreadyExists => {},
@@ -897,7 +897,7 @@ fn pruneUsageBuckets(allocator: std.mem.Allocator, list: *std.ArrayListUnmanaged
     }
 }
 
-fn rebuildUsageCacheSnapshot(
+pub fn rebuildUsageCacheSnapshot(
     allocator: std.mem.Allocator,
     ledger_path: []const u8,
     ledger_size: u64,
@@ -993,7 +993,7 @@ fn rebuildUsageCacheSnapshot(
     return snapshot;
 }
 
-fn parseUsageWindow(target: []const u8) []const u8 {
+pub fn parseUsageWindow(target: []const u8) []const u8 {
     const qmark = std.mem.indexOfScalar(u8, target, '?') orelse return "24h";
     const query = target[qmark + 1 ..];
     var params = std.mem.splitScalar(u8, query, '&');
@@ -1008,7 +1008,7 @@ fn parseUsageWindow(target: []const u8) []const u8 {
     return "24h";
 }
 
-fn usageWindowMinTs(window: []const u8, now_ts: i64) ?i64 {
+pub fn usageWindowMinTs(window: []const u8, now_ts: i64) ?i64 {
     if (std.mem.eql(u8, window, "all")) return null;
     if (std.mem.eql(u8, window, "24h")) return now_ts - 24 * 60 * 60;
     if (std.mem.eql(u8, window, "7d")) return now_ts - 7 * 24 * 60 * 60;
@@ -1393,6 +1393,10 @@ pub fn handleUsage(allocator: std.mem.Allocator, s: *state_mod.State, paths: pat
         } else if (snapshot.ledger_size != ledger_size or snapshot.ledger_mtime_ns != ledger_mtime_ns) {
             should_rebuild = true;
         }
+    } else if (has_cache) {
+        snapshot.deinit(allocator);
+        snapshot = emptyUsageCache(now_ts);
+        has_cache = false;
     }
 
     if (should_rebuild) {
