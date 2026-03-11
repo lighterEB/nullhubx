@@ -195,11 +195,15 @@ pub fn install(
     const default_port = if (parsed_manifest) |pm| (if (pm.value.ports.len > 0) pm.value.ports[0].default else comp.default_port) else comp.default_port;
     defer if (parsed_manifest) |pm| pm.deinit();
 
-    const port = resolveConfiguredPort(allocator, opts.answers_json, default_port, p, s);
+    const managed_port = std.mem.eql(u8, opts.component, "nullclaw");
+    const port = if (managed_port)
+        findNextAvailablePort(allocator, default_port, p, s)
+    else
+        resolveConfiguredPort(allocator, opts.answers_json, default_port, p, s);
 
     // 5. Run --from-json to generate config (component owns its config generation)
     // Inject the resolved port and instance home so generated configs align with supervisor state.
-    const answers_with_port = injectPortFieldsIfMissing(allocator, opts.answers_json, port) catch opts.answers_json;
+    const answers_with_port = injectPortFields(allocator, opts.answers_json, port, managed_port) catch opts.answers_json;
     defer if (answers_with_port.ptr != opts.answers_json.ptr) allocator.free(answers_with_port);
     const answers_with_home = injectHomeField(allocator, answers_with_port, inst_dir) catch answers_with_port;
     defer if (answers_with_home.ptr != answers_with_port.ptr) allocator.free(answers_with_home);
@@ -427,7 +431,12 @@ fn readPortFromConfigPath(allocator: std.mem.Allocator, config_path: []const u8,
     };
 }
 
-fn injectPortFieldsIfMissing(allocator: std.mem.Allocator, json: []const u8, port: u16) ![]const u8 {
+fn injectPortFields(
+    allocator: std.mem.Allocator,
+    json: []const u8,
+    port: u16,
+    overwrite: bool,
+) ![]const u8 {
     var parsed = try std.json.parseFromSlice(std.json.Value, allocator, json, .{
         .allocate = .alloc_always,
         .ignore_unknown_fields = true,
@@ -436,10 +445,10 @@ fn injectPortFieldsIfMissing(allocator: std.mem.Allocator, json: []const u8, por
     if (parsed.value != .object) return error.InvalidJson;
 
     var root = &parsed.value.object;
-    if (root.get("port") == null) {
+    if (overwrite or root.get("port") == null) {
         try root.put("port", .{ .integer = @as(i64, port) });
     }
-    if (root.get("gateway_port") == null) {
+    if (overwrite or root.get("gateway_port") == null) {
         try root.put("gateway_port", .{ .integer = @as(i64, port) });
     }
 
@@ -748,9 +757,29 @@ test "resolveConfiguredPort skips configured instance ports" {
     try std.testing.expect(port > 43000);
 }
 
-test "injectPortFieldsIfMissing fills missing port fields" {
+test "injectPortFields fills missing port fields" {
     const allocator = std.testing.allocator;
-    const rendered = try injectPortFieldsIfMissing(allocator, "{\"instance_name\":\"instance-2\"}", 3002);
+    const rendered = try injectPortFields(allocator, "{\"instance_name\":\"instance-2\"}", 3002, false);
+    defer allocator.free(rendered);
+
+    const parsed = try std.json.parseFromSlice(std.json.Value, allocator, rendered, .{
+        .allocate = .alloc_always,
+        .ignore_unknown_fields = true,
+    });
+    defer parsed.deinit();
+
+    try std.testing.expectEqual(@as(i64, 3002), parsed.value.object.get("port").?.integer);
+    try std.testing.expectEqual(@as(i64, 3002), parsed.value.object.get("gateway_port").?.integer);
+}
+
+test "injectPortFields overwrites existing port fields when requested" {
+    const allocator = std.testing.allocator;
+    const rendered = try injectPortFields(
+        allocator,
+        "{\"instance_name\":\"instance-2\",\"port\":3000,\"gateway_port\":3000}",
+        3002,
+        true,
+    );
     defer allocator.free(rendered);
 
     const parsed = try std.json.parseFromSlice(std.json.Value, allocator, rendered, .{
