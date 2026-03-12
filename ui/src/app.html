@@ -11,7 +11,10 @@
       try {
         var theme = localStorage.getItem('nullhub-theme');
         var effects = localStorage.getItem('nullhub-effects');
-        if (theme) document.body.classList.replace('theme-matrix', theme);
+        if (theme) {
+          document.body.classList.replace('theme-matrix', theme);
+          document.documentElement.classList.add(theme);
+        }
         if (effects === 'true') document.body.classList.remove('effects-disabled');
       } catch (e) {}
     </script>

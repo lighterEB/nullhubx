@@ -826,7 +826,8 @@ pub const Server = struct {
         if (logs_api.isLogsPath(target)) {
             if (logs_api.parseLogsPath(target)) |parsed| {
                 if (std.mem.eql(u8, method, "DELETE")) {
-                    const resp = logs_api.handleDelete(allocator, self.paths, parsed.component, parsed.name);
+                    const source = logs_api.parseSource(target);
+                    const resp = logs_api.handleDelete(allocator, self.paths, parsed.component, parsed.name, source);
                     return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
                 }
                 if (!std.mem.eql(u8, method, "GET")) {
@@ -838,11 +839,13 @@ pub const Server = struct {
                 }
                 if (parsed.is_stream) {
                     const max_lines = logs_api.parseLines(target);
-                    const resp = logs_api.handleStream(allocator, self.paths, parsed.component, parsed.name, max_lines);
+                    const source = logs_api.parseSource(target);
+                    const resp = logs_api.handleStream(allocator, self.paths, parsed.component, parsed.name, max_lines, source);
                     return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
                 }
                 const max_lines = logs_api.parseLines(target);
-                const resp = logs_api.handleGet(allocator, self.paths, parsed.component, parsed.name, max_lines);
+                const source = logs_api.parseSource(target);
+                const resp = logs_api.handleGet(allocator, self.paths, parsed.component, parsed.name, max_lines, source);
                 return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
             }
         }

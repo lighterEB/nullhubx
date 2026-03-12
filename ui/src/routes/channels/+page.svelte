@@ -612,6 +612,15 @@
     box-shadow: 0 0 6px var(--warning, #ca0);
   }
 
+  :global(body.theme-8bit-lobster) .status-dot {
+    border-radius: var(--radius) !important;
+  }
+
+  :global(body.theme-8bit-lobster) .status-dot.validated {
+    background: var(--success) !important;
+    box-shadow: 0 0 8px var(--success) !important;
+  }
+
   .card-body {
     margin-bottom: 1rem;
   }

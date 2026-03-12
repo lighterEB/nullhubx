@@ -68,6 +68,7 @@
     component === "nullboiler" || component === "nulltickets",
   );
   let supportsAgentData = $derived(component === "nullclaw");
+  let supportsVerboseStartup = $derived(component === "nullclaw");
   let instanceRouteKey = $derived(`${component}/${name}`);
   let queueSummary = $derived(summarizeQueue(integration?.queue));
   let linkedBoilers = $derived(integration?.linked_boilers || []);
@@ -458,7 +459,7 @@
     loading = true;
     instance = { ...instance, status: "starting" };
     try {
-      await api.startInstance(component, name);
+      await api.startInstance(component, name, { verbose: Boolean(instance?.verbose) });
       await refresh();
     } catch {
       instance = { ...instance, status: "stopped" };
@@ -470,7 +471,10 @@
     loading = true;
     instance = { ...instance, status: "starting" };
     try {
-      await api.startInstance(component, name, "agent");
+      await api.startInstance(component, name, {
+        launch_mode: "agent",
+        verbose: Boolean(instance?.verbose),
+      });
       await refresh();
     } catch {
       instance = { ...instance, status: "stopped" };
@@ -494,7 +498,7 @@
     loading = true;
     instance = { ...instance, status: "restarting" };
     try {
-      await api.restartInstance(component, name);
+      await api.restartInstance(component, name, { verbose: Boolean(instance?.verbose) });
       await refresh();
     } catch {
     } finally {
@@ -521,6 +525,12 @@
   async function toggleAutoStart() {
     await api.patchInstance(component, name, {
       auto_start: !instance?.auto_start,
+    });
+    await refresh();
+  }
+  async function toggleVerbose() {
+    await api.patchInstance(component, name, {
+      verbose: !instance?.verbose,
     });
     await refresh();
   }
@@ -605,6 +615,19 @@
             {instance?.auto_start ? "On" : "Off"}
           </button>
         </div>
+        {#if supportsVerboseStartup}
+          <div class="info-card">
+            <span class="label">Verbose</span>
+            <button
+              class="toggle-btn"
+              class:on={instance?.verbose}
+              onclick={toggleVerbose}
+            >
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              {instance?.verbose ? "On" : "Off"}
+            </button>
+          </div>
+        {/if}
         {#if instance?.pid}
           <div class="info-card">
             <span class="label">PID</span>
@@ -1305,6 +1328,12 @@
     letter-spacing: 1px;
     cursor: pointer;
     padding: 0;
+  }
+  .toggle-btn:hover:not(:disabled) {
+    background: none;
+    border-color: transparent;
+    box-shadow: none;
+    text-shadow: none;
   }
   .toggle-track {
     position: relative;

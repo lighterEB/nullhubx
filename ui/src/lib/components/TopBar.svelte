@@ -3,7 +3,7 @@
   import { browser } from "$app/environment";
   import { api } from "$lib/api/client";
 
-  let { title = "Dashboard" } = $props();
+  let { title = "NullHub" } = $props();
   let hubOk = $state(true);
 
   let currentTheme = $state("theme-matrix");
@@ -38,15 +38,21 @@
       localStorage.setItem("nullhub-effects", effectsEnabled.toString());
 
       const body = document.body;
-      body.classList.remove(
+      const root = document.documentElement;
+      const themeClasses = [
         "theme-matrix",
         "theme-8bit-lobster",
         "theme-dracula",
         "theme-synthwave",
         "theme-amber",
         "theme-light",
-      );
-      if (currentTheme) body.classList.add(currentTheme);
+      ];
+      body.classList.remove(...themeClasses);
+      root.classList.remove(...themeClasses);
+      if (currentTheme) {
+        body.classList.add(currentTheme);
+        root.classList.add(currentTheme);
+      }
 
       if (effectsEnabled) {
         body.classList.remove("effects-disabled");
@@ -58,7 +64,9 @@
 </script>
 
 <header class="topbar">
-  <h1>{title}</h1>
+  <a href="/" class="brand-link" aria-label="Go to dashboard">
+    <h1>{title}</h1>
+  </a>
   <div class="topbar-right">
     <div class="theme-controls">
       <label class="effect-toggle" title="Toggle CRT Effects">
@@ -100,6 +108,15 @@
     text-transform: uppercase;
     letter-spacing: 2px;
     text-shadow: var(--text-glow);
+  }
+
+  .brand-link {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .brand-link:hover {
+    text-decoration: none;
   }
 
   .topbar-right {
@@ -145,9 +162,9 @@
   }
 
   .effect-toggle input[type="checkbox"]:checked {
-    background: color-mix(in srgb, var(--accent) 20%, transparent);
-    border-color: var(--accent);
-    box-shadow: inset 0 0 5px var(--accent);
+    background: color-mix(in srgb, var(--fx-accent) 20%, transparent);
+    border-color: var(--fx-accent);
+    box-shadow: inset 0 0 5px var(--fx-accent);
   }
 
   .effect-toggle input[type="checkbox"]:checked::after {
@@ -157,9 +174,9 @@
     left: 2px;
     width: 8px;
     height: 8px;
-    background: var(--accent);
+    background: var(--fx-accent);
     border-radius: 1px;
-    box-shadow: 0 0 3px var(--border-glow);
+    box-shadow: 0 0 3px var(--fx-accent-glow);
   }
 
   .theme-select {
