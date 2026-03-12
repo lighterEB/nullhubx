@@ -36,6 +36,11 @@ export const api = {
   getInstances: () => request<any>('/instances'),
   getWizard: (component: string) => request<any>(`/wizard/${component}`),
   getVersions: (component: string) => request<any>(`/wizard/${component}/versions`),
+  getWizardModels: (component: string, provider: string, apiKey = '') =>
+    request<any>(`/wizard/${component}/models`, {
+      method: 'POST',
+      body: JSON.stringify({ provider, api_key: apiKey }),
+    }),
   getFreePort: () => request<any>('/free-port'),
   postWizard: (component: string, data: any) =>
     request<any>(`/wizard/${component}`, { method: 'POST', body: JSON.stringify(data) }),

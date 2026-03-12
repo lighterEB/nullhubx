@@ -618,14 +618,22 @@ pub const Server = struct {
             }
         }
 
-        // Models API — GET /api/wizard/{component}/models?provider=X&api_key=Y
-        if (std.mem.eql(u8, method, "GET") and wizard_api.isModelsPath(target)) {
+        // Models API — GET/POST /api/wizard/{component}/models
+        if ((std.mem.eql(u8, method, "GET") or std.mem.eql(u8, method, "POST")) and wizard_api.isModelsPath(target)) {
             if (wizard_api.extractComponentName(target)) |comp_name| {
-                if (wizard_api.handleGetModels(allocator, comp_name, self.paths, target)) |json| {
+                const json = if (std.mem.eql(u8, method, "POST"))
+                    wizard_api.handlePostModels(allocator, comp_name, self.paths, body)
+                else
+                    wizard_api.handleGetModels(allocator, comp_name, self.paths, target);
+                if (json) |payload| {
+                    const status = if (std.mem.indexOf(u8, payload, "\"error\"") != null)
+                        "400 Bad Request"
+                    else
+                        "200 OK";
                     return .{
-                        .status = "200 OK",
+                        .status = status,
                         .content_type = "application/json",
-                        .body = json,
+                        .body = payload,
                     };
                 }
                 return .{
