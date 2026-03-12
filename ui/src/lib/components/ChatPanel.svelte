@@ -1,23 +1,130 @@
 <script lang="ts">
+  import { api } from "$lib/api/client";
   import ModuleFrame from "./ModuleFrame.svelte";
 
   let { port = 0, moduleName = "", moduleVersion = "", instanceKey = "" } = $props();
 
+  type HistorySession = {
+    session_id: string;
+    message_count: number;
+  };
+
+  type HistoryMessage = {
+    role: string;
+    content: string;
+    created_at: string;
+  };
+
+  type ChatSeedMessage = {
+    id: string;
+    role: "user" | "assistant" | "system";
+    content: string;
+    timestamp: number;
+  };
+
+  const DEFAULT_HISTORY_LIMIT = 200;
+
   const wsUrl = $derived(port > 0 ? `ws://127.0.0.1:${port}/ws` : "");
   const hasModule = $derived(moduleName.length > 0 && moduleVersion.length > 0);
   const mountKey = $derived(`${instanceKey}:${moduleName}:${moduleVersion}:${wsUrl}`);
+
+  let historyReady = $state(false);
+  let initialMessages = $state<ChatSeedMessage[]>([]);
+  let historyRequestSeq = 0;
+
+  function parseInstanceKey(value: string): { component: string; name: string } | null {
+    const slashIndex = value.indexOf("/");
+    if (slashIndex <= 0 || slashIndex === value.length - 1) return null;
+    return {
+      component: value.slice(0, slashIndex),
+      name: value.slice(slashIndex + 1),
+    };
+  }
+
+  function historyRoleToChatRole(role: string): ChatSeedMessage["role"] {
+    switch ((role || "").toLowerCase()) {
+      case "assistant":
+        return "assistant";
+      case "system":
+      case "tool":
+        return "system";
+      default:
+        return "user";
+    }
+  }
+
+  async function loadLatestHistory(component: string, name: string): Promise<ChatSeedMessage[]> {
+    const sessions = await api.getHistory(component, name, { limit: 1, offset: 0 });
+    const latestSession = Array.isArray(sessions?.sessions)
+      ? (sessions.sessions[0] as HistorySession | undefined)
+      : undefined;
+    if (!latestSession?.session_id) return [];
+
+    const totalMessages = Math.max(0, Number(latestSession.message_count || 0));
+    if (totalMessages === 0) return [];
+
+    const limit = Math.min(DEFAULT_HISTORY_LIMIT, totalMessages);
+    const offset = Math.max(totalMessages - limit, 0);
+    const transcript = await api.getHistory(component, name, {
+      sessionId: latestSession.session_id,
+      limit,
+      offset,
+    });
+    const messages = Array.isArray(transcript?.messages)
+      ? (transcript.messages as HistoryMessage[])
+      : [];
+
+    return messages.map((message, index) => {
+      const parsedTimestamp = Date.parse(message.created_at || "");
+      return {
+        id: `history-${latestSession.session_id}-${offset + index}`,
+        role: historyRoleToChatRole(message.role),
+        content: message.content || "",
+        timestamp: Number.isFinite(parsedTimestamp) ? parsedTimestamp : Date.now() + index,
+      };
+    });
+  }
+
+  $effect(() => {
+    const parsed = parseInstanceKey(instanceKey);
+    if (!hasModule || !wsUrl || !parsed) {
+      initialMessages = [];
+      historyReady = true;
+      return;
+    }
+
+    const requestSeq = ++historyRequestSeq;
+    historyReady = false;
+    initialMessages = [];
+
+    void loadLatestHistory(parsed.component, parsed.name)
+      .then((messages) => {
+        if (requestSeq !== historyRequestSeq) return;
+        initialMessages = messages;
+        historyReady = true;
+      })
+      .catch(() => {
+        if (requestSeq !== historyRequestSeq) return;
+        initialMessages = [];
+        historyReady = true;
+      });
+  });
 </script>
 
 <div class="chat-panel">
   {#if hasModule && wsUrl}
-    {#key mountKey}
-      <ModuleFrame
-        {moduleName}
-        {moduleVersion}
-        instanceUrl={wsUrl}
-        moduleProps={{ wsUrl, pairingCode: "123456" }}
-      />
-    {/key}
+    {#if historyReady}
+      {#key mountKey}
+        <ModuleFrame
+          {moduleName}
+          {moduleVersion}
+          instanceUrl={wsUrl}
+          moduleProps={{ wsUrl, pairingCode: "123456", initialMessages }}
+        />
+      {/key}
+    {:else}
+      <div class="chat-unavailable">Loading chat history...</div>
+    {/if}
   {:else if !hasModule}
     <div class="chat-unavailable">
       Chat UI module not installed. Reinstall this instance to add it.
