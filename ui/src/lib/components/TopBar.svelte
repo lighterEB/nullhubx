@@ -113,7 +113,7 @@
     align-items: center;
     gap: 1rem;
     padding-right: 1.5rem;
-    border-right: 1px dashed var(--border);
+    border-right: 1px dotted var(--border);
   }
 
   .effect-toggle {
@@ -204,7 +204,7 @@
   }
 
   .status-dot.running {
-    background: var(--accent);
-    box-shadow: 0 0 10px var(--border-glow);
+    background: var(--success);
+    box-shadow: 0 0 10px var(--success);
   }
 </style>
