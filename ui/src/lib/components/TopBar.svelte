@@ -113,7 +113,7 @@
     align-items: center;
     gap: 1rem;
     padding-right: 1.5rem;
-    border-right: 1px dotted var(--border);
+    border-right: 1px solid var(--border);
   }
 
   .effect-toggle {

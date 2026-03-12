@@ -12,6 +12,7 @@
 
 <span
   class="badge"
+  class:running={status === "running"}
   style="--badge-color: {colors[status] || 'var(--text-muted)'}"
 >
   {status}

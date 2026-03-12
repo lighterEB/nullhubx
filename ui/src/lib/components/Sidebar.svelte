@@ -162,15 +162,15 @@
     display: inline-block;
     width: 6px;
     height: 6px;
-    border-radius: 50%;
+    border-radius: var(--radius);
     background: var(--error);
     box-shadow: 0 0 5px var(--error);
     flex-shrink: 0;
   }
 
   .status-dot.running {
-    background: var(--accent);
-    box-shadow: 0 0 8px var(--border-glow);
+    background: var(--success);
+    box-shadow: 0 0 10px var(--success);
   }
 
   .nav-bottom {

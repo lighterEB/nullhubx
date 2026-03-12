@@ -123,7 +123,7 @@
     text-align: center;
     padding: 4rem 2rem;
     color: var(--fg-dim);
-    border: 1px dotted var(--border);
+    border: 1px solid var(--border);
     background: var(--bg-surface);
     border-radius: 4px;
   }

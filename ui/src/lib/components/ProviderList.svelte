@@ -407,7 +407,7 @@
   .status-dot {
     width: 10px;
     height: 10px;
-    border-radius: 50%;
+    border-radius: var(--radius);
     flex-shrink: 0;
   }
   .status-dot.ok {

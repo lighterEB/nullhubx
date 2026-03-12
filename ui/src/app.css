@@ -97,6 +97,7 @@ body.theme-8bit-lobster {
   --font-mono: 'VT323', 'JetBrains Mono', 'Fira Code', monospace;
   --radius: 0px;
   --radius-sm: 0px;
+  
 }
 
 :root,
@@ -218,16 +219,23 @@ button:hover:not(:disabled) {
 }
 
 body.theme-8bit-lobster button:hover:not(:disabled) {
-  /* Solid retro 8-bit shadow, just flat color and slight pop */
-  box-shadow: 2px 2px 0px var(--border-glow);
+  /* Flatten hover effect, no jumping shadow */
+  box-shadow: 0 0 8px var(--border-glow);
   transform: none;
 }
 
-/* Retro blinking cursor effect on hover for the 8-bit theme */
-body.theme-8bit-lobster button:hover:not(:disabled)::after {
-  content: " \2588";
-  animation: blinkCursor 1s steps(2, start) infinite;
-  color: var(--accent);
+/* Retro green LED indicators for the 8-bit theme */
+body.theme-8bit-lobster .status-dot.running,
+body.theme-8bit-lobster .status-dot.ok,
+body.theme-8bit-lobster .badge.running::before {
+  background: #4caf50 !important;
+  box-shadow: 0 0 8px #4caf50 !important;
+  animation: retroPulse 2s steps(2, start) infinite;
+}
+
+@keyframes retroPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
 
 button:disabled {
