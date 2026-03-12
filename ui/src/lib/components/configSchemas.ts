@@ -30,7 +30,7 @@ export const channelSchemas: Record<string, ChannelSchema> = {
     hasAccounts: true,
     fields: [
       { key: 'bot_token', label: 'Bot Token', type: 'password' },
-      { key: 'allow_from', label: 'Allow From', type: 'list', default: [], hint: 'User IDs or * for all' },
+      { key: 'allow_from', label: 'Allow From', type: 'list', default: [], hint: 'Comma-separated @username, username, user IDs, or * for all' },
       { key: 'group_allow_from', label: 'Group Allow From', type: 'list', default: [], advanced: true },
       { key: 'group_policy', label: 'Group Policy', type: 'select', options: ['allowlist', 'open', 'mention_only'], default: 'allowlist', advanced: true },
       { key: 'reply_in_private', label: 'Reply in Private', type: 'toggle', default: true, advanced: true },
