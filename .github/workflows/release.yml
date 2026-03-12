@@ -119,8 +119,8 @@ jobs:
             --exclude='.generated_ui_assets.zig' \
             --exclude='ui/node_modules' \
             --exclude='ui/.svelte-kit' \
-            --exclude='nullhub-source-*.tar.gz' \
-            -czf "${archive_name}" .
+            -czf "/tmp/${archive_name}" .
+          mv "/tmp/${archive_name}" .
           echo "ARCHIVE_NAME=${archive_name}" >> "$GITHUB_ENV"
 
       - name: Upload source archive
