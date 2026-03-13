@@ -36,6 +36,7 @@
     role: "user" | "assistant" | "system";
     content: string;
     timestamp: number;
+    order?: number;
   };
 
   const DEFAULT_HISTORY_LIMIT = 200;
@@ -142,6 +143,7 @@
         role: historyRoleToChatRole(message.role),
         content: message.content || "",
         timestamp: Number.isFinite(parsedTimestamp) ? parsedTimestamp : Date.now() + index,
+        order: offset + index,
       };
     });
   }
