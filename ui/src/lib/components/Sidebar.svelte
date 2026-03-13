@@ -53,6 +53,13 @@
   </div>
 
   <div class="nav-section">
+    <h3>Orchestration</h3>
+    <a href="/orchestration" class:active={currentPath === "/orchestration"}>Dashboard</a>
+    <a href="/orchestration/workflows" class:active={currentPath.startsWith("/orchestration/workflows")}>Workflows</a>
+    <a href="/orchestration/runs" class:active={currentPath.startsWith("/orchestration/runs")}>Runs</a>
+  </div>
+
+  <div class="nav-section">
     <a href="/providers" class:active={currentPath === "/providers"}>Providers</a>
   </div>
 
