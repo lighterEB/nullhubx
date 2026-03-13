@@ -16,6 +16,7 @@
   let config = $state<any>(null);
   let uiModules = $state<Record<string, string>>({});
   let activeTab = $state("overview");
+  let bootstrapChatAutoOpenedFor = $state("");
   let loading = $state(false);
   let providerHealth = $state<any>(null);
   let providerHealthLoading = $state(false);
@@ -556,6 +557,18 @@
   });
 
   $effect(() => {
+    const marker = onboardingPending
+      ? `${instanceRouteKey}:${onboardingMarker || "bootstrap"}`
+      : "";
+    if (!marker || !chatReady) return;
+    if (activeTab !== "overview") return;
+    if (bootstrapChatAutoOpenedFor === marker) return;
+
+    bootstrapChatAutoOpenedFor = marker;
+    activeTab = "chat";
+  });
+
+  $effect(() => {
     instanceRouteKey;
     if (!component || !name) return;
     instance = null;
@@ -565,6 +578,7 @@
     integration = null;
     integrationError = null;
     onboardingStatus = null;
+    bootstrapChatAutoOpenedFor = "";
     lastUsageRefreshAt = 0;
     void refresh(true, true);
   });
@@ -1169,8 +1183,8 @@
                 This is the defining chat that makes the agent itself instead of a blank instance.
               </div>
               <div class="chat-onboarding-note">
-                Start with <code>{onboardingStarterMessage}</code>, then help it figure out its
-                name, nature, vibe, emoji, and how it should address you.
+                This chat auto-starts with <code>{onboardingStarterMessage}</code>. Then help it
+                figure out its name, nature, vibe, emoji, and how it should address you.
               </div>
             </div>
           {/if}
