@@ -12,7 +12,7 @@
   const CIRCLE_R = 16;
 
   const typeLabels: Record<string, string> = {
-    task: 'T', route: 'R', interrupt: 'I', agent: 'A', send: 'S', transform: 'X',
+    task: 'T', route: 'R', interrupt: 'I', agent: 'A', send: 'S', transform: 'X', subgraph: 'G',
   };
 
   const statusColors: Record<string, string> = {

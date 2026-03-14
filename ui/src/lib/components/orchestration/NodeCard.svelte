@@ -8,6 +8,7 @@
     agent: 'A',
     send: 'S',
     transform: 'X',
+    subgraph: 'G',
   };
 
   const statusColors: Record<string, string> = {
