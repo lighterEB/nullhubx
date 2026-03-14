@@ -20,7 +20,7 @@ NullTickets).
 - **One-click updates** -- download, migrate config, rollback on failure
 - **Multi-instance** -- run multiple instances of the same component side by side
 - **Web UI + CLI** -- browser dashboard for humans, CLI for automation
-- **Orchestration UI** -- workflow editor, run monitoring with live SSE streaming, checkpoint forking, and key-value store browser (proxied to NullBoiler)
+- **Orchestration UI** -- workflow editor, poll-based run monitoring, checkpoint forking, encoded workflow/run/store links, and key-value store browser (proxied to NullTickets through NullHub)
 
 ## Quick Start
 
@@ -105,8 +105,10 @@ UI modules. NullHub is a generic engine that interprets manifests.
 logs, cached manifests).
 
 **Orchestration proxy** -- requests to `/api/orchestration/*` are reverse-proxied
-to NullBoiler's REST API. Set `NULLBOILER_URL` (e.g. `http://localhost:8080`) and
-optionally `NULLBOILER_TOKEN` for authentication.
+to the local orchestration stack. Most routes go to NullBoiler's REST API via
+`NULLBOILER_URL` (e.g. `http://localhost:8080`) and optional `NULLBOILER_TOKEN`.
+`/api/orchestration/store/*` is proxied to NullTickets via `NULLTICKETS_URL` and
+optional `NULLTICKETS_TOKEN`.
 
 ## Development
 
@@ -132,7 +134,9 @@ End-to-end:
 
 - Zig 0.15.2
 - Svelte 5 + SvelteKit (static adapter)
-- JSON over HTTP/1.1, SSE for streaming
+- JSON over HTTP/1.1
+- SSE for instance log streaming
+- Poll-based orchestration run updates over the `/orchestration/runs/{id}/stream` API
 
 ## Project Layout
 
