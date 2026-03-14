@@ -23,12 +23,60 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => null);
-    throw new Error(body?.error || `HTTP ${res.status}`);
+    const errMsg = typeof body?.error === 'string' ? body.error : body?.error?.message || `HTTP ${res.status}`;
+    throw new Error(errMsg);
   }
   if (res.status === 204) return undefined as T;
   const text = await res.text();
   if (!text) return undefined as T;
   return JSON.parse(text);
+}
+
+function msToIso(ms: number | undefined | null): string | undefined {
+  if (!ms) return undefined;
+  return new Date(ms).toISOString();
+}
+
+function tryParseJson(val: string | undefined | null): any {
+  if (!val) return undefined;
+  try { return JSON.parse(val); } catch { return val; }
+}
+
+function normalizeRun(raw: any): any {
+  if (!raw) return raw;
+  return {
+    ...raw,
+    state: raw.state ?? tryParseJson(raw.state_json),
+    workflow: raw.workflow ?? tryParseJson(raw.workflow_json),
+    input: raw.input ?? tryParseJson(raw.input_json),
+    config: raw.config ?? tryParseJson(raw.config_json),
+    created_at: raw.created_at ?? msToIso(raw.created_at_ms),
+    completed_at: raw.completed_at ?? raw.ended_at ?? msToIso(raw.ended_at_ms),
+    updated_at: raw.updated_at ?? msToIso(raw.updated_at_ms),
+    started_at: raw.started_at ?? msToIso(raw.started_at_ms),
+    interrupt_message: raw.interrupt_message ?? raw.error_text,
+  };
+}
+
+function normalizeCheckpoint(raw: any): any {
+  if (!raw) return raw;
+  return {
+    ...raw,
+    state: raw.state ?? tryParseJson(raw.state_json),
+    completed_nodes: raw.completed_nodes ?? tryParseJson(raw.completed_nodes_json),
+    metadata: raw.metadata ?? tryParseJson(raw.metadata_json),
+    created_at: raw.created_at ?? msToIso(raw.created_at_ms),
+    step_name: raw.step_name ?? raw.step_id,
+    after_step: raw.after_step ?? raw.step_id,
+  };
+}
+
+function normalizeValidation(raw: any): any {
+  if (!raw) return raw;
+  if (raw.errors && Array.isArray(raw.errors) && raw.errors.length > 0 && typeof raw.errors[0] === 'object') {
+    return { ...raw, errors: raw.errors.map((e: any) => e.message || `${e.err_type}: ${e.key || e.node || 'unknown'}`) };
+  }
+  return raw;
 }
 
 export const api = {
@@ -184,12 +232,15 @@ export const api = {
   createWorkflow: (data: any) => request<any>('/orchestration/workflows', { method: 'POST', body: JSON.stringify(data) }),
   updateWorkflow: (id: string, data: any) => request<any>(`/orchestration/workflows/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteWorkflow: (id: string) => request<void>(`/orchestration/workflows/${id}`, { method: 'DELETE' }),
-  validateWorkflow: (id: string) => request<any>(`/orchestration/workflows/${id}/validate`, { method: 'POST' }),
+  validateWorkflow: async (id: string) => normalizeValidation(await request<any>(`/orchestration/workflows/${id}/validate`, { method: 'POST' })),
   runWorkflow: (id: string, input: any) => request<any>(`/orchestration/workflows/${id}/run`, { method: 'POST', body: JSON.stringify(input) }),
 
   // Orchestration - Runs
-  listRuns: (params?: { status?: string; workflow_id?: string }) => request<any[]>(withQuery('/orchestration/runs', params ?? {})),
-  getRun: (id: string) => request<any>(`/orchestration/runs/${id}`),
+  listRuns: async (params?: { status?: string; workflow_id?: string }) => {
+    const runs = await request<any[]>(withQuery('/orchestration/runs', params ?? {}));
+    return (runs || []).map(normalizeRun);
+  },
+  getRun: async (id: string) => normalizeRun(await request<any>(`/orchestration/runs/${id}`)),
   cancelRun: (id: string) => request<void>(`/orchestration/runs/${id}/cancel`, { method: 'POST' }),
   resumeRun: (id: string, updates: any) => request<any>(`/orchestration/runs/${id}/resume`, { method: 'POST', body: JSON.stringify({ state_updates: updates }) }),
   forkRun: (checkpointId: string, overrides?: any) => request<any>('/orchestration/runs/fork', { method: 'POST', body: JSON.stringify({ checkpoint_id: checkpointId, state_overrides: overrides }) }),
@@ -197,8 +248,11 @@ export const api = {
   injectState: (id: string, updates: any, afterStep?: string) => request<any>(`/orchestration/runs/${id}/state`, { method: 'POST', body: JSON.stringify({ updates, apply_after_step: afterStep }) }),
 
   // Orchestration - Checkpoints
-  listCheckpoints: (runId: string) => request<any[]>(`/orchestration/runs/${runId}/checkpoints`),
-  getCheckpoint: (runId: string, cpId: string) => request<any>(`/orchestration/runs/${runId}/checkpoints/${cpId}`),
+  listCheckpoints: async (runId: string) => {
+    const cps = await request<any[]>(`/orchestration/runs/${runId}/checkpoints`);
+    return (cps || []).map(normalizeCheckpoint);
+  },
+  getCheckpoint: async (runId: string, cpId: string) => normalizeCheckpoint(await request<any>(`/orchestration/runs/${runId}/checkpoints/${cpId}`)),
 
   // Store API (proxied through NullBoiler or direct to NullTickets)
   storeList: (namespace: string) => request<any[]>(`/orchestration/store/${namespace}`),
@@ -210,9 +264,20 @@ export const api = {
   streamRun: (runId: string, onEvent: (event: { type: string; data: any }) => void) => {
     const source = new EventSource(`${BASE}/orchestration/runs/${runId}/stream`);
     source.onmessage = (e) => onEvent({ type: 'message', data: JSON.parse(e.data) });
-    ['state_update', 'step_started', 'step_completed', 'step_failed', 'agent_event', 'interrupted', 'run_completed', 'run_failed', 'send_progress'].forEach(type => {
+    // NullBoiler event types vary by stream mode:
+    // values mode: "values" events; updates mode: "updates" events;
+    // tasks mode: "task_start", "task_result"; debug mode: "debug";
+    // custom mode: "ui_message", "ui_message_delete", "message"
+    // Also listen for UI-friendly aliases for backward compat
+    const eventTypes = [
+      'values', 'updates', 'task_start', 'task_result', 'debug',
+      'ui_message', 'ui_message_delete',
+      'state_update', 'step_started', 'step_completed', 'step_failed',
+      'agent_event', 'interrupted', 'run_completed', 'run_failed', 'send_progress',
+    ];
+    for (const type of eventTypes) {
       source.addEventListener(type, (e: any) => onEvent({ type, data: JSON.parse(e.data) }));
-    });
+    }
     return source;
   },
 };

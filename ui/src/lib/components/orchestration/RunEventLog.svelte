@@ -6,6 +6,15 @@
   let autoScroll = $state(true);
 
   const typeColors: Record<string, string> = {
+    // NullBoiler event types
+    values: 'var(--accent)',
+    updates: 'var(--accent)',
+    task_start: 'var(--accent)',
+    task_result: 'var(--success)',
+    debug: 'var(--fg-dim)',
+    ui_message: 'var(--accent)',
+    ui_message_delete: 'var(--warning)',
+    // UI-friendly aliases
     state_update: 'var(--accent)',
     step_started: 'var(--accent)',
     step_completed: 'var(--success)',
