@@ -299,6 +299,12 @@ export const api = {
   // SSE connections. We poll every 1 second to approximate real-time streaming.
   streamRun: (runId: string, onEvent: (event: { type: string; data: any }) => void) => {
     let active = true;
+    let deliveredInitialSnapshot = false;
+
+    const emitEvent = (ev: any) => {
+      onEvent({ type: ev.event || ev.type || ev.kind || 'message', data: ev.data ?? ev });
+    };
+
     const poll = async () => {
       while (active) {
         try {
@@ -306,13 +312,14 @@ export const api = {
           // NullBoiler returns {status, state?, events, stream_events}
           if (res?.stream_events) {
             for (const ev of res.stream_events) {
-              onEvent({ type: ev.event || ev.type || 'message', data: ev.data ?? ev });
+              emitEvent(ev);
             }
           }
-          if (res?.events) {
+          if (!deliveredInitialSnapshot && res?.events) {
             for (const ev of res.events) {
-              onEvent({ type: ev.event || ev.type || 'message', data: ev.data ?? ev });
+              emitEvent(ev);
             }
+            deliveredInitialSnapshot = true;
           }
           // Stop polling if run is terminal
           if (res?.status && ['completed', 'failed', 'cancelled'].includes(res.status)) {
