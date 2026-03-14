@@ -55,7 +55,11 @@
     const queue: string[] = ['__start__'];
     layers.set('__start__', 0);
 
-    while (queue.length > 0) {
+    // Guard against cycles: limit total iterations to n * e
+    const maxIter = allIds.size * (edges?.length || 1) + allIds.size;
+    let iter = 0;
+    while (queue.length > 0 && iter < maxIter) {
+      iter++;
       const cur = queue.shift()!;
       const cl = layers.get(cur)!;
       for (const next of adj.get(cur) || []) {
