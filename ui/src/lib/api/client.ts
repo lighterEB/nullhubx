@@ -278,7 +278,7 @@ export const api = {
   cancelRun: (id: string) => request<any>(`/orchestration/runs/${encodePathSegment(id)}/cancel`, { method: 'POST' }),
   resumeRun: (id: string, updates: any) => request<any>(`/orchestration/runs/${encodePathSegment(id)}/resume`, { method: 'POST', body: JSON.stringify({ state_updates: updates }) }),
   forkRun: (checkpointId: string, overrides?: any) => request<any>('/orchestration/runs/fork', { method: 'POST', body: JSON.stringify({ checkpoint_id: checkpointId, state_overrides: overrides }) }),
-  replayRun: (id: string, checkpointId: string) => request<any>(`/orchestration/runs/${encodePathSegment(id)}/replay`, { method: 'POST', body: JSON.stringify({ checkpoint_id: checkpointId }) }),
+  replayRun: (id: string, checkpointId: string) => request<any>(`/orchestration/runs/${encodePathSegment(id)}/replay`, { method: 'POST', body: JSON.stringify({ from_checkpoint_id: checkpointId }) }),
   injectState: (id: string, updates: any, afterStep?: string) => request<any>(`/orchestration/runs/${encodePathSegment(id)}/state`, { method: 'POST', body: JSON.stringify({ updates, apply_after_step: afterStep }) }),
 
   // Orchestration - Checkpoints
