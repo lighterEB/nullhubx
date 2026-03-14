@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import { api } from "$lib/api/client";
 
   const PROVIDER_OPTIONS = [
@@ -27,6 +27,8 @@
   let loading = $state(true);
   let error = $state("");
   let message = $state("");
+  let messageTone = $state<"success" | "error">("success");
+  let messageTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Add form state
   let showAddForm = $state(false);
@@ -53,6 +55,20 @@
     } catch {}
   });
 
+  onDestroy(() => {
+    if (messageTimer) clearTimeout(messageTimer);
+  });
+
+  function flashMessage(text: string, tone: "success" | "error" = "success", timeoutMs = 3000) {
+    message = text;
+    messageTone = tone;
+    if (messageTimer) clearTimeout(messageTimer);
+    messageTimer = setTimeout(() => {
+      message = "";
+      messageTimer = null;
+    }, timeoutMs);
+  }
+
   async function loadProviders() {
     loading = true;
     error = "";
@@ -77,8 +93,7 @@
       });
       showAddForm = false;
       addForm = { provider: "openrouter", api_key: "", model: "" };
-      message = "Provider saved";
-      setTimeout(() => (message = ""), 3000);
+      flashMessage("Provider saved");
       await loadProviders();
     } catch (e) {
       addError = (e as Error).message;
@@ -106,11 +121,11 @@
       payload.model = editForm.model;
       await api.updateSavedProvider(id, payload);
       editingId = null;
-      message = "Provider updated";
-      setTimeout(() => (message = ""), 3000);
+      flashMessage("Provider updated");
       await loadProviders();
     } catch (e) {
       editError = (e as Error).message;
+      await loadProviders();
     } finally {
       editValidating = false;
     }
@@ -119,8 +134,7 @@
   async function handleDelete(id: string) {
     try {
       await api.deleteSavedProvider(id);
-      message = "Provider deleted";
-      setTimeout(() => (message = ""), 3000);
+      flashMessage("Provider deleted");
       await loadProviders();
     } catch (e) {
       error = (e as Error).message;
@@ -130,18 +144,12 @@
   async function handleRevalidate(id: string) {
     revalidatingId = id;
     try {
-      const result = await api.revalidateSavedProvider(id);
-      if (result.live_ok) {
-        message = "Validation passed";
-      } else {
-        message = `Validation failed: ${result.reason || "unknown error"}`;
-      }
-      setTimeout(() => (message = ""), 5000);
-      await loadProviders();
+      await api.revalidateSavedProvider(id);
+      flashMessage("Validation passed", "success", 5000);
     } catch (e) {
-      message = `Validation failed: ${(e as Error).message}`;
-      setTimeout(() => (message = ""), 5000);
+      flashMessage(`Validation failed: ${(e as Error).message}`, "error", 5000);
     } finally {
+      await loadProviders();
       revalidatingId = null;
     }
   }
@@ -163,6 +171,16 @@
       });
     } catch { return iso; }
   }
+
+  function providerIndicatorState(provider: any): "live-ok" | "live-error" | "has-history" | "needs-validation" {
+    if (provider.last_validation_at) return provider.last_validation_ok ? "live-ok" : "live-error";
+    if (provider.validated_at) return "has-history";
+    return "needs-validation";
+  }
+
+  function lastValidationAt(provider: any) {
+    return provider.last_validation_at || provider.validated_at || "";
+  }
 </script>
 
 <div class="providers-page">
@@ -176,7 +194,7 @@
   </div>
 
   {#if message}
-    <div class="message">{message}</div>
+    <div class="message" class:success={messageTone === "success"} class:error={messageTone === "error"}>{message}</div>
   {/if}
 
   {#if error}
@@ -255,9 +273,16 @@
               </div>
             </div>
           {:else}
+            {@const indicator = providerIndicatorState(p)}
             <div class="card-header">
               <div class="card-title">
-                <span class="status-dot" class:validated={!!p.validated_at} class:not-validated={!p.validated_at}></span>
+                <span
+                  class="status-dot"
+                  class:live-ok={indicator === "live-ok"}
+                  class:live-error={indicator === "live-error"}
+                  class:has-history={indicator === "has-history"}
+                  class:needs-validation={indicator === "needs-validation"}
+                ></span>
                 <h3>{p.name}</h3>
               </div>
               <span class="provider-type">{getProviderLabel(p.provider)}</span>
@@ -273,9 +298,16 @@
               </div>
               {#if p.validated_at}
                 <div class="card-field">
-                  <span class="label">Validated</span>
+                  <span class="label">Last Successful Validation</span>
                   <span>{formatDate(p.validated_at)}</span>
                 </div>
+              {/if}
+              <div class="card-field">
+                <span class="label">Last Validation</span>
+                <span>{formatDate(lastValidationAt(p)) || "Never"}</span>
+              </div>
+              {#if !lastValidationAt(p)}
+                <div class="card-note">Not validated yet. Use Re-validate to run a live auth check.</div>
               {/if}
             </div>
             <div class="card-actions">
@@ -403,12 +435,22 @@
     flex-shrink: 0;
   }
 
-  .status-dot.validated {
+  .status-dot.live-ok {
     background: var(--success, #4a4);
     box-shadow: 0 0 6px var(--success, #4a4);
   }
 
-  .status-dot.not-validated {
+  .status-dot.live-error {
+    background: var(--error, #e55);
+    box-shadow: 0 0 6px var(--error, #e55);
+  }
+
+  .status-dot.has-history {
+    background: var(--accent, #4af);
+    box-shadow: 0 0 6px var(--accent, #4af);
+  }
+
+  .status-dot.needs-validation {
     background: var(--warning, #ca0);
     box-shadow: 0 0 6px var(--warning, #ca0);
   }
@@ -418,14 +460,33 @@
     border-radius: var(--radius) !important;
   }
 
-  :global(body.theme-8bit-lobster) .status-dot.validated,
-  :global(body.theme-8bit-lobster-light) .status-dot.validated {
+  :global(body.theme-8bit-lobster) .status-dot.live-ok,
+  :global(body.theme-8bit-lobster-light) .status-dot.live-ok {
     background: var(--success) !important;
     box-shadow: 0 0 8px var(--success) !important;
   }
 
+  :global(body.theme-8bit-lobster) .status-dot.live-error,
+  :global(body.theme-8bit-lobster-light) .status-dot.live-error {
+    background: var(--error) !important;
+    box-shadow: 0 0 8px var(--error) !important;
+  }
+
+  :global(body.theme-8bit-lobster) .status-dot.has-history,
+  :global(body.theme-8bit-lobster-light) .status-dot.has-history {
+    background: var(--accent) !important;
+    box-shadow: 0 0 8px var(--accent) !important;
+  }
+
   .card-body {
     margin-bottom: 1rem;
+  }
+
+  .card-note {
+    margin-top: 0.75rem;
+    font-size: 0.75rem;
+    color: var(--fg-dim);
+    line-height: 1.5;
   }
 
   .card-field {
@@ -522,14 +583,24 @@
 
   .message {
     padding: 0.875rem 1.25rem;
-    background: color-mix(in srgb, var(--success) 10%, transparent);
-    border: 1px solid var(--success);
     border-radius: 2px;
     font-size: 0.875rem;
     font-weight: bold;
-    color: var(--success);
     margin-bottom: 1.5rem;
+  }
+
+  .message.success {
+    background: color-mix(in srgb, var(--success) 10%, transparent);
+    border: 1px solid var(--success);
+    color: var(--success);
     box-shadow: 0 0 10px color-mix(in srgb, var(--success) 30%, transparent);
+  }
+
+  .message.error {
+    background: color-mix(in srgb, var(--error, #e55) 10%, transparent);
+    border: 1px solid var(--error, #e55);
+    color: var(--error, #e55);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--error, #e55) 30%, transparent);
   }
 
   .error-message {

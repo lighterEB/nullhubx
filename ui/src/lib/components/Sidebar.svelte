@@ -5,18 +5,30 @@
   import { orchestrationUiRoutes } from "$lib/orchestration/routes";
 
   let instances = $state<Record<string, any>>({});
+  let installedComponents = $state<Record<string, any>>({});
   let currentPath = $derived($page.url.pathname);
+  let showOrchestration = $derived(Boolean(installedComponents["nullboiler"]?.installed));
 
-  async function loadInstances() {
-    try {
-      const status = await api.getStatus();
-      instances = status.instances || {};
-    } catch {}
+  async function loadSidebarState() {
+    const [statusResult, componentsResult] = await Promise.allSettled([
+      api.getStatus(),
+      api.getComponents(),
+    ]);
+
+    if (statusResult.status === "fulfilled") {
+      instances = statusResult.value.instances || {};
+    }
+
+    if (componentsResult.status === "fulfilled") {
+      installedComponents = Object.fromEntries(
+        (componentsResult.value.components || []).map((component: any) => [component.name, component]),
+      );
+    }
   }
 
   onMount(() => {
-    loadInstances();
-    const interval = setInterval(loadInstances, 5000);
+    void loadSidebarState();
+    const interval = setInterval(loadSidebarState, 5000);
     return () => clearInterval(interval);
   });
 </script>
@@ -53,13 +65,15 @@
     {/each}
   </div>
 
-  <div class="nav-section">
-    <h3>Orchestration</h3>
-    <a href={orchestrationUiRoutes.dashboard()} class:active={currentPath === orchestrationUiRoutes.dashboard()}>Dashboard</a>
-    <a href={orchestrationUiRoutes.workflows()} class:active={currentPath.startsWith(orchestrationUiRoutes.workflows())}>Workflows</a>
-    <a href={orchestrationUiRoutes.runs()} class:active={currentPath.startsWith(orchestrationUiRoutes.runs())}>Runs</a>
-    <a href={orchestrationUiRoutes.store()} class:active={currentPath.startsWith(orchestrationUiRoutes.store())}>Store</a>
-  </div>
+  {#if showOrchestration}
+    <div class="nav-section">
+      <h3>Orchestration</h3>
+      <a href={orchestrationUiRoutes.dashboard()} class:active={currentPath === orchestrationUiRoutes.dashboard()}>Dashboard</a>
+      <a href={orchestrationUiRoutes.workflows()} class:active={currentPath.startsWith(orchestrationUiRoutes.workflows())}>Workflows</a>
+      <a href={orchestrationUiRoutes.runs()} class:active={currentPath.startsWith(orchestrationUiRoutes.runs())}>Runs</a>
+      <a href={orchestrationUiRoutes.store()} class:active={currentPath.startsWith(orchestrationUiRoutes.store())}>Store</a>
+    </div>
+  {/if}
 
   <div class="nav-section">
     <a href="/providers" class:active={currentPath === "/providers"}>Providers</a>

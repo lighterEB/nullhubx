@@ -17,6 +17,8 @@ pub const SavedProvider = struct {
     model: []const u8 = "",
     validated_at: []const u8 = "",
     validated_with: []const u8 = "",
+    last_validation_at: []const u8 = "",
+    last_validation_ok: bool = false,
 };
 
 pub const SavedProviderInput = struct {
@@ -32,6 +34,8 @@ pub const SavedProviderUpdate = struct {
     model: ?[]const u8 = null,
     validated_at: ?[]const u8 = null,
     validated_with: ?[]const u8 = null,
+    last_validation_at: ?[]const u8 = null,
+    last_validation_ok: ?bool = null,
 };
 
 pub const SavedChannel = struct {
@@ -156,6 +160,7 @@ pub const State = struct {
         if (sp.model.len > 0) self.allocator.free(sp.model);
         if (sp.validated_at.len > 0) self.allocator.free(sp.validated_at);
         if (sp.validated_with.len > 0) self.allocator.free(sp.validated_with);
+        if (sp.last_validation_at.len > 0) self.allocator.free(sp.last_validation_at);
     }
 
     fn freeSavedChannelStrings(self: *State, sc: SavedChannel) void {
@@ -265,6 +270,8 @@ pub const State = struct {
             errdefer if (owned_validated_at.len > 0) allocator.free(@constCast(owned_validated_at));
             const owned_validated_with = if (sp.validated_with.len > 0) try allocator.dupe(u8, sp.validated_with) else @as([]const u8, "");
             errdefer if (owned_validated_with.len > 0) allocator.free(@constCast(owned_validated_with));
+            const owned_last_validation_at = if (sp.last_validation_at.len > 0) try allocator.dupe(u8, sp.last_validation_at) else @as([]const u8, "");
+            errdefer if (owned_last_validation_at.len > 0) allocator.free(@constCast(owned_last_validation_at));
 
             try state.saved_providers.append(.{
                 .id = sp.id,
@@ -274,6 +281,8 @@ pub const State = struct {
                 .model = owned_model,
                 .validated_at = owned_validated_at,
                 .validated_with = owned_validated_with,
+                .last_validation_at = owned_last_validation_at,
+                .last_validation_ok = sp.last_validation_ok,
             });
         }
 
@@ -489,6 +498,8 @@ pub const State = struct {
             .model = model,
             .validated_at = "",
             .validated_with = validated_with,
+            .last_validation_at = "",
+            .last_validation_ok = false,
         });
     }
 
@@ -514,7 +525,12 @@ pub const State = struct {
                     if (validated_with.len > 0) try self.allocator.dupe(u8, validated_with) else @as([]const u8, "")
                 else
                     null;
-                // No errdefer needed for the last one - nothing after can fail
+                errdefer if (new_validated_with) |w| if (w.len > 0) self.allocator.free(@constCast(w));
+                const new_last_validation_at = if (update.last_validation_at) |last_validation_at|
+                    if (last_validation_at.len > 0) try self.allocator.dupe(u8, last_validation_at) else @as([]const u8, "")
+                else
+                    null;
+                errdefer if (new_last_validation_at) |t| if (t.len > 0) self.allocator.free(@constCast(t));
 
                 // Apply all at once (no more failures possible)
                 if (update.name != null) {
@@ -541,6 +557,14 @@ pub const State = struct {
                     const w = new_validated_with.?;
                     if (sp.validated_with.len > 0) self.allocator.free(sp.validated_with);
                     sp.validated_with = w;
+                }
+                if (update.last_validation_at != null) {
+                    const t = new_last_validation_at.?;
+                    if (sp.last_validation_at.len > 0) self.allocator.free(sp.last_validation_at);
+                    sp.last_validation_at = t;
+                }
+                if (update.last_validation_ok) |ok| {
+                    sp.last_validation_ok = ok;
                 }
 
                 return true;
@@ -570,6 +594,18 @@ pub const State = struct {
             }
         }
         return false;
+    }
+
+    pub fn findSavedProviderId(self: *State, provider: []const u8, api_key: []const u8, model: []const u8) ?u32 {
+        for (self.saved_providers.items) |sp| {
+            if (std.mem.eql(u8, sp.provider, provider) and
+                std.mem.eql(u8, sp.api_key, api_key) and
+                std.mem.eql(u8, sp.model, model))
+            {
+                return sp.id;
+            }
+        }
+        return null;
     }
 
     // ─── SavedChannel CRUD ──────────────────────────────────────────────
@@ -1169,6 +1205,42 @@ test "update saved provider clears model" {
 
     const providers = s.savedProviders();
     try std.testing.expectEqualStrings("", providers[0].model);
+}
+
+test "saved provider validation metadata persists through update and load" {
+    const allocator = std.testing.allocator;
+    const path = try testPath(allocator, "state.json");
+    defer allocator.free(path);
+    defer cleanupTestDir();
+
+    {
+        var s = State.init(allocator, path);
+        defer s.deinit();
+
+        try s.addSavedProvider(.{
+            .provider = "openrouter",
+            .api_key = "key1",
+            .validated_with = "nullclaw",
+        });
+        const updated = try s.updateSavedProvider(1, .{
+            .validated_at = "2026-03-11T18:59:00Z",
+            .validated_with = "nullclaw",
+            .last_validation_at = "2026-03-14T11:22:33Z",
+            .last_validation_ok = false,
+        });
+        try std.testing.expect(updated);
+        try s.save();
+    }
+
+    {
+        var s = try State.load(allocator, path);
+        defer s.deinit();
+
+        const provider = s.getSavedProvider(1).?;
+        try std.testing.expectEqualStrings("2026-03-11T18:59:00Z", provider.validated_at);
+        try std.testing.expectEqualStrings("2026-03-14T11:22:33Z", provider.last_validation_at);
+        try std.testing.expect(!provider.last_validation_ok);
+    }
 }
 
 test "remove saved provider" {
