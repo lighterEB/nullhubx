@@ -257,7 +257,7 @@
           {:else}
             <div class="card-header">
               <div class="card-title">
-                <span class="status-dot" class:validated={!!p.validated_at} class:not-validated={!p.validated_at}></span>
+                <span class="status-dot" class:has-history={!!p.validated_at} class:needs-validation={!p.validated_at}></span>
                 <h3>{p.name}</h3>
               </div>
               <span class="provider-type">{getProviderLabel(p.provider)}</span>
@@ -273,9 +273,12 @@
               </div>
               {#if p.validated_at}
                 <div class="card-field">
-                  <span class="label">Validated</span>
+                  <span class="label">Last Successful Validation</span>
                   <span>{formatDate(p.validated_at)}</span>
                 </div>
+                <div class="card-note">Historical result only. Use Re-validate for the current live auth check.</div>
+              {:else}
+                <div class="card-note">Not validated yet. Use Re-validate to run a live auth check.</div>
               {/if}
             </div>
             <div class="card-actions">
@@ -403,12 +406,12 @@
     flex-shrink: 0;
   }
 
-  .status-dot.validated {
-    background: var(--success, #4a4);
-    box-shadow: 0 0 6px var(--success, #4a4);
+  .status-dot.has-history {
+    background: var(--accent, #4af);
+    box-shadow: 0 0 6px var(--accent, #4af);
   }
 
-  .status-dot.not-validated {
+  .status-dot.needs-validation {
     background: var(--warning, #ca0);
     box-shadow: 0 0 6px var(--warning, #ca0);
   }
@@ -418,14 +421,21 @@
     border-radius: var(--radius) !important;
   }
 
-  :global(body.theme-8bit-lobster) .status-dot.validated,
-  :global(body.theme-8bit-lobster-light) .status-dot.validated {
-    background: var(--success) !important;
-    box-shadow: 0 0 8px var(--success) !important;
+  :global(body.theme-8bit-lobster) .status-dot.has-history,
+  :global(body.theme-8bit-lobster-light) .status-dot.has-history {
+    background: var(--accent) !important;
+    box-shadow: 0 0 8px var(--accent) !important;
   }
 
   .card-body {
     margin-bottom: 1rem;
+  }
+
+  .card-note {
+    margin-top: 0.75rem;
+    font-size: 0.75rem;
+    color: var(--fg-dim);
+    line-height: 1.5;
   }
 
   .card-field {
