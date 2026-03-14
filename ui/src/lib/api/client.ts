@@ -33,7 +33,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 function msToIso(ms: number | undefined | null): string | undefined {
-  if (!ms) return undefined;
+  if (ms == null) return undefined;
   return new Date(ms).toISOString();
 }
 
@@ -291,6 +291,8 @@ export const api = {
   storeDelete: (namespace: string, key: string) => request<void>(`/orchestration/store/${namespace}/${key}`, { method: 'DELETE' }),
 
   // Orchestration - Stream (poll-based: NullBoiler returns JSON, not true SSE)
+  // NullBoiler's HTTP/1.1 server returns complete JSON responses, not held-open
+  // SSE connections. We poll every 1 second to approximate real-time streaming.
   streamRun: (runId: string, onEvent: (event: { type: string; data: any }) => void) => {
     let active = true;
     const poll = async () => {

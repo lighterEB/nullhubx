@@ -404,6 +404,8 @@ pub const Server = struct {
         });
     }
 
+    // std.posix.getenv is unavailable on Windows (WTF-16 encoding).
+    // Orchestration proxy requires Unix — returns null on Windows.
     fn getEnv(name: []const u8) ?[]const u8 {
         const native = @import("builtin").os.tag;
         if (native == .windows) return null;
