@@ -349,9 +349,18 @@ pub const Server = struct {
         if (std.mem.eql(u8, method, "GET") or std.mem.eql(u8, method, "HEAD")) {
             if (try self.redirectLocationForAliasHost(alloc, raw, target)) |location| {
                 defer alloc.free(location);
-                try sendRedirect(conn.stream, location);
+                try sendRedirect(conn.stream, location, raw, self.host, self.port);
                 return;
             }
+        }
+
+        if (!requestOriginAllowed(raw, target, self.host, self.port)) {
+            try sendResponse(conn.stream, .{
+                .status = "403 Forbidden",
+                .content_type = "application/json",
+                .body = "{\"error\":\"forbidden origin\"}",
+            }, raw, self.host, self.port);
+            return;
         }
 
         // Read remaining body if Content-Length indicates more data
@@ -363,7 +372,7 @@ pub const Server = struct {
                 .status = "204 No Content",
                 .content_type = "text/plain",
                 .body = "",
-            });
+            }, raw, self.host, self.port);
             return;
         }
 
@@ -374,7 +383,7 @@ pub const Server = struct {
                     .status = "401 Unauthorized",
                     .content_type = "application/json",
                     .body = "{\"error\":\"unauthorized\"}",
-                });
+                }, raw, self.host, self.port);
                 return;
             }
         }
@@ -387,7 +396,7 @@ pub const Server = struct {
             defer self.mutex.unlock();
             break :blk self.route(alloc, method, target, body);
         };
-        try sendResponse(conn.stream, response);
+        try sendResponse(conn.stream, response, raw, self.host, self.port);
     }
 
     fn redirectLocationForAliasHost(self: *const Server, allocator: std.mem.Allocator, raw: []const u8, target: []const u8) !?[]u8 {
@@ -1050,39 +1059,35 @@ fn readBody(raw: []const u8, n: usize, stream: std.net.Stream, alloc: std.mem.Al
     return extractBody(raw);
 }
 
-fn sendResponse(stream: std.net.Stream, response: Response) !void {
+fn sendResponse(stream: std.net.Stream, response: Response, raw_request: []const u8, bind_host: []const u8, port: u16) !void {
     var buf: [4096]u8 = undefined;
-    const header = try std.fmt.bufPrint(
-        &buf,
-        "HTTP/1.1 {s}\r\n" ++
-            "Content-Type: {s}\r\n" ++
-            "Content-Length: {d}\r\n" ++
-            "Access-Control-Allow-Origin: *\r\n" ++
-            "Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS\r\n" ++
-            "Access-Control-Allow-Headers: Content-Type, Authorization\r\n" ++
-            "Connection: close\r\n\r\n",
-        .{ response.status, response.content_type, response.body.len },
-    );
-    _ = try stream.write(header);
+    var header_stream = std.io.fixedBufferStream(&buf);
+    const writer = header_stream.writer();
+
+    try writer.print("HTTP/1.1 {s}\r\n", .{response.status});
+    try writer.print("Content-Type: {s}\r\n", .{response.content_type});
+    try writer.print("Content-Length: {d}\r\n", .{response.body.len});
+    try appendCorsHeaders(writer, raw_request, bind_host, port);
+    try writer.writeAll("Connection: close\r\n\r\n");
+
+    _ = try stream.write(header_stream.getWritten());
     if (response.body.len > 0) {
         _ = try stream.write(response.body);
     }
 }
 
-fn sendRedirect(stream: std.net.Stream, location: []const u8) !void {
+fn sendRedirect(stream: std.net.Stream, location: []const u8, raw_request: []const u8, bind_host: []const u8, port: u16) !void {
     var buf: [4096]u8 = undefined;
-    const header = try std.fmt.bufPrint(
-        &buf,
-        "HTTP/1.1 308 Permanent Redirect\r\n" ++
-            "Location: {s}\r\n" ++
-            "Content-Length: 0\r\n" ++
-            "Access-Control-Allow-Origin: *\r\n" ++
-            "Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS\r\n" ++
-            "Access-Control-Allow-Headers: Content-Type, Authorization\r\n" ++
-            "Connection: close\r\n\r\n",
-        .{location},
-    );
-    _ = try stream.write(header);
+    var header_stream = std.io.fixedBufferStream(&buf);
+    const writer = header_stream.writer();
+
+    try writer.writeAll("HTTP/1.1 308 Permanent Redirect\r\n");
+    try writer.print("Location: {s}\r\n", .{location});
+    try writer.writeAll("Content-Length: 0\r\n");
+    try appendCorsHeaders(writer, raw_request, bind_host, port);
+    try writer.writeAll("Connection: close\r\n\r\n");
+
+    _ = try stream.write(header_stream.getWritten());
 }
 
 pub fn extractBody(raw: []const u8) []const u8 {
@@ -1110,6 +1115,48 @@ pub fn extractHeader(raw: []const u8, name: []const u8) ?[]const u8 {
         }
     }
     return null;
+}
+
+fn requestOriginAllowed(raw_request: []const u8, target: []const u8, bind_host: []const u8, port: u16) bool {
+    if (!std.mem.startsWith(u8, target, "/api/")) return true;
+    const origin = extractHeader(raw_request, "Origin") orelse return true;
+    return isAllowedCorsOrigin(origin, bind_host, port);
+}
+
+fn appendCorsHeaders(writer: anytype, raw_request: []const u8, bind_host: []const u8, port: u16) !void {
+    const origin = allowedCorsOrigin(raw_request, bind_host, port) orelse return;
+    try writer.print("Access-Control-Allow-Origin: {s}\r\n", .{origin});
+    try writer.writeAll("Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS\r\n");
+    try writer.writeAll("Access-Control-Allow-Headers: Content-Type, Authorization\r\n");
+    try writer.writeAll("Vary: Origin\r\n");
+}
+
+fn allowedCorsOrigin(raw_request: []const u8, bind_host: []const u8, port: u16) ?[]const u8 {
+    const origin = extractHeader(raw_request, "Origin") orelse return null;
+    if (!isAllowedCorsOrigin(origin, bind_host, port)) return null;
+    return origin;
+}
+
+fn isAllowedCorsOrigin(origin: []const u8, bind_host: []const u8, port: u16) bool {
+    if (originMatchesHost(origin, bind_host, port)) return true;
+    if (!access.isLocalBindHost(bind_host)) return false;
+
+    inline for (&[_][]const u8{
+        "127.0.0.1",
+        "localhost",
+        "[::1]",
+        access.canonical_local_host,
+        access.public_alias_host,
+    }) |host| {
+        if (originMatchesHost(origin, host, port)) return true;
+    }
+    return false;
+}
+
+fn originMatchesHost(origin: []const u8, host: []const u8, port: u16) bool {
+    var buf: [256]u8 = undefined;
+    const expected = std.fmt.bufPrint(&buf, "http://{s}:{d}", .{ host, port }) catch return false;
+    return std.ascii.eqlIgnoreCase(origin, expected);
 }
 
 fn hostMatchesAliasHost(host_header: []const u8, alias_host: []const u8) bool {
@@ -1326,6 +1373,31 @@ test "hostMatchesAliasHost matches bare host and host with port" {
     try std.testing.expect(hostMatchesAliasHost("nullhub.local", "nullhub.local"));
     try std.testing.expect(hostMatchesAliasHost("nullhub.local:19800", "nullhub.local"));
     try std.testing.expect(!hostMatchesAliasHost("nullhub.localhost:19800", "nullhub.local"));
+}
+
+test "isAllowedCorsOrigin allows local aliases for loopback binds" {
+    try std.testing.expect(isAllowedCorsOrigin("http://127.0.0.1:19800", "127.0.0.1", 19800));
+    try std.testing.expect(isAllowedCorsOrigin("http://nullhub.localhost:19800", "127.0.0.1", 19800));
+    try std.testing.expect(isAllowedCorsOrigin("http://nullhub.local:19800", "127.0.0.1", 19800));
+}
+
+test "isAllowedCorsOrigin rejects foreign or mismatched origins" {
+    try std.testing.expect(!isAllowedCorsOrigin("http://evil.example:19800", "127.0.0.1", 19800));
+    try std.testing.expect(!isAllowedCorsOrigin("http://127.0.0.1:19801", "127.0.0.1", 19800));
+}
+
+test "requestOriginAllowed rejects foreign API origins" {
+    const evil_raw =
+        "GET /api/status HTTP/1.1\r\n" ++
+        "Host: 127.0.0.1:19800\r\n" ++
+        "Origin: http://evil.example:19800\r\n\r\n";
+    try std.testing.expect(!requestOriginAllowed(evil_raw, "/api/status", "127.0.0.1", 19800));
+
+    const local_raw =
+        "GET /api/status HTTP/1.1\r\n" ++
+        "Host: 127.0.0.1:19800\r\n" ++
+        "Origin: http://nullhub.localhost:19800\r\n\r\n";
+    try std.testing.expect(requestOriginAllowed(local_raw, "/api/status", "127.0.0.1", 19800));
 }
 
 test "extractBody returns body after headers" {

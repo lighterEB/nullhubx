@@ -3,6 +3,13 @@
 
   let diffMode = $state(false);
 
+  function escapeHtml(value: string): string {
+    return value
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;');
+  }
+
   function syntaxHighlight(json: string): string {
     return json.replace(
       /("(\\u[\da-fA-F]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g,
@@ -15,7 +22,7 @@
         } else if (/null/.test(match)) {
           cls = 'json-null';
         }
-        return `<span class="${cls}">${match}</span>`;
+        return `<span class="${cls}">${escapeHtml(match)}</span>`;
       }
     );
   }
