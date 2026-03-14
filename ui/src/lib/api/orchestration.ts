@@ -132,6 +132,7 @@ export function createOrchestrationApi(request: RequestFn, withQuery: WithQueryF
     streamRun: (runId: string, onEvent: (event: { type: string; data: any; timestamp?: number }) => void) => {
       let active = true;
       let deliveredInitialSnapshot = false;
+      let afterSeq = 0;
 
       const emitEvent = (ev: any) => {
         if (!active) return;
@@ -141,7 +142,9 @@ export function createOrchestrationApi(request: RequestFn, withQuery: WithQueryF
       const poll = async () => {
         while (active) {
           try {
-            const res = await request<any>(orchestrationApiPaths.runStream(runId));
+            const res = await request<any>(withQuery(orchestrationApiPaths.runStream(runId), {
+              after_seq: afterSeq > 0 ? afterSeq : undefined,
+            }));
             if (!active) break;
             if (res?.stream_events) {
               for (const ev of res.stream_events) emitEvent(ev);
@@ -149,6 +152,9 @@ export function createOrchestrationApi(request: RequestFn, withQuery: WithQueryF
             if (!deliveredInitialSnapshot && res?.events) {
               for (const ev of res.events) emitEvent(ev);
               deliveredInitialSnapshot = true;
+            }
+            if (typeof res?.next_stream_seq === 'number') {
+              afterSeq = Math.max(afterSeq, res.next_stream_seq);
             }
             if (res?.status && ['completed', 'failed', 'cancelled'].includes(res.status)) {
               break;
