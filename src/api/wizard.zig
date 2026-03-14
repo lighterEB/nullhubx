@@ -661,7 +661,23 @@ pub fn handleValidateProviders(
     var did_save = false;
     for (parsed.value.providers, 0..) |prov, idx| {
         if (idx < probe_results.items.len and probe_results.items[idx].live_ok) {
-            if (!state.hasSavedProvider(prov.provider, prov.api_key, prov.model)) {
+            const now = providers_api.nowIso8601(allocator) catch "";
+            defer if (now.len > 0) allocator.free(now);
+
+            if (state.findSavedProviderId(prov.provider, prov.api_key, prov.model)) |existing_id| {
+                if (now.len > 0) {
+                    _ = state.updateSavedProvider(existing_id, .{
+                        .validated_at = now,
+                        .validated_with = component_name,
+                        .last_validation_at = now,
+                        .last_validation_ok = true,
+                    }) catch {
+                        saved_providers_warning = "validated providers could not be fully saved";
+                        continue;
+                    };
+                    did_save = true;
+                }
+            } else {
                 state.addSavedProvider(.{
                     .provider = prov.provider,
                     .api_key = prov.api_key,
@@ -671,18 +687,20 @@ pub fn handleValidateProviders(
                     saved_providers_warning = "validated providers could not be saved";
                     continue;
                 };
-                // Set validated_at on the just-added provider
+                // Set both the last successful validation and the latest validation attempt.
                 const providers_list = state.savedProviders();
                 if (providers_list.len > 0) {
                     const new_id = providers_list[providers_list.len - 1].id;
-                    const now = providers_api.nowIso8601(allocator) catch "";
                     if (now.len > 0) {
-                        _ = state.updateSavedProvider(new_id, .{ .validated_at = now }) catch {
+                        _ = state.updateSavedProvider(new_id, .{
+                            .validated_at = now,
+                            .validated_with = component_name,
+                            .last_validation_at = now,
+                            .last_validation_ok = true,
+                        }) catch {
                             saved_providers_warning = "validated providers could not be fully saved";
-                            allocator.free(now);
                             continue;
                         };
-                        allocator.free(now);
                     }
                 }
                 did_save = true;

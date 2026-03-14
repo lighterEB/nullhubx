@@ -28,7 +28,6 @@
   let error = $state("");
   let message = $state("");
   let messageTone = $state<"success" | "error">("success");
-  let validationStatusById = $state<Record<string, "ok" | "error">>({});
   let messageTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Add form state
@@ -75,12 +74,7 @@
     error = "";
     try {
       const data = await api.getSavedProviders();
-      const nextProviders = data.providers || [];
-      const nextIds = new Set(nextProviders.map((provider: any) => provider.id));
-      providers = nextProviders;
-      validationStatusById = Object.fromEntries(
-        Object.entries(validationStatusById).filter(([id]) => nextIds.has(id)),
-      ) as Record<string, "ok" | "error">;
+      providers = data.providers || [];
     } catch (e) {
       error = (e as Error).message;
     } finally {
@@ -131,6 +125,7 @@
       await loadProviders();
     } catch (e) {
       editError = (e as Error).message;
+      await loadProviders();
     } finally {
       editValidating = false;
     }
@@ -149,24 +144,12 @@
   async function handleRevalidate(id: string) {
     revalidatingId = id;
     try {
-      const result = await api.revalidateSavedProvider(id);
-      validationStatusById = {
-        ...validationStatusById,
-        [id]: result.live_ok ? "ok" : "error",
-      };
-      if (result.live_ok) {
-        flashMessage("Validation passed", "success", 5000);
-      } else {
-        flashMessage(`Validation failed: ${result.reason || "unknown error"}`, "error", 5000);
-      }
-      await loadProviders();
+      await api.revalidateSavedProvider(id);
+      flashMessage("Validation passed", "success", 5000);
     } catch (e) {
-      validationStatusById = {
-        ...validationStatusById,
-        [id]: "error",
-      };
       flashMessage(`Validation failed: ${(e as Error).message}`, "error", 5000);
     } finally {
+      await loadProviders();
       revalidatingId = null;
     }
   }
@@ -190,11 +173,13 @@
   }
 
   function providerIndicatorState(provider: any): "live-ok" | "live-error" | "has-history" | "needs-validation" {
-    const liveStatus = validationStatusById[provider.id];
-    if (liveStatus === "ok") return "live-ok";
-    if (liveStatus === "error") return "live-error";
+    if (provider.last_validation_at) return provider.last_validation_ok ? "live-ok" : "live-error";
     if (provider.validated_at) return "has-history";
     return "needs-validation";
+  }
+
+  function lastValidationAt(provider: any) {
+    return provider.last_validation_at || provider.validated_at || "";
   }
 </script>
 
@@ -316,21 +301,13 @@
                   <span class="label">Last Successful Validation</span>
                   <span>{formatDate(p.validated_at)}</span>
                 </div>
-                {#if indicator === "live-error"}
-                  <div class="card-note error">The latest live auth check failed. The timestamp above is only the last successful validation.</div>
-                {:else if indicator === "live-ok"}
-                  <div class="card-note success">The latest live auth check passed in this session.</div>
-                {:else}
-                  <div class="card-note">Historical result only. Use Re-validate for the current live auth check.</div>
-                {/if}
-              {:else}
-                {#if indicator === "live-error"}
-                  <div class="card-note error">The latest live auth check failed.</div>
-                {:else if indicator === "live-ok"}
-                  <div class="card-note success">The latest live auth check passed in this session.</div>
-                {:else}
-                  <div class="card-note">Not validated yet. Use Re-validate to run a live auth check.</div>
-                {/if}
+              {/if}
+              <div class="card-field">
+                <span class="label">Last Validation</span>
+                <span>{formatDate(lastValidationAt(p)) || "Never"}</span>
+              </div>
+              {#if !lastValidationAt(p)}
+                <div class="card-note">Not validated yet. Use Re-validate to run a live auth check.</div>
               {/if}
             </div>
             <div class="card-actions">
@@ -510,14 +487,6 @@
     font-size: 0.75rem;
     color: var(--fg-dim);
     line-height: 1.5;
-  }
-
-  .card-note.success {
-    color: var(--success, #4a4);
-  }
-
-  .card-note.error {
-    color: var(--error, #e55);
   }
 
   .card-field {

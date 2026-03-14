@@ -105,14 +105,10 @@ pub fn handleCreate(
         .validated_with = component_name,
     });
 
-    // Update validated_at on the just-added provider
+    // Record both the last successful validation and the latest validation attempt.
     const providers = state.savedProviders();
     const new_id = providers[providers.len - 1].id;
-    const now = try nowIso8601(allocator);
-    defer allocator.free(now);
-    _ = try state.updateSavedProvider(new_id, .{ .validated_at = now });
-
-    try state.save();
+    try persistValidationAttempt(allocator, state, new_id, component_name, true);
 
     // Return the saved provider
     const sp = state.getSavedProvider(new_id).?;
@@ -162,7 +158,14 @@ pub fn handleUpdate(
 
         const probe_result = probeProvider(allocator, component_name, bin_path, existing.provider, effective_key, effective_model, "");
         defer probe_result.deinit(allocator);
+        const now = try nowIso8601(allocator);
+        defer allocator.free(now);
         if (!probe_result.live_ok) {
+            _ = try state.updateSavedProvider(id, .{
+                .last_validation_at = now,
+                .last_validation_ok = false,
+            });
+            try state.save();
             var buf = std.array_list.Managed(u8).init(allocator);
             errdefer buf.deinit();
             try buf.appendSlice("{\"error\":\"Provider validation failed: ");
@@ -171,15 +174,14 @@ pub fn handleUpdate(
             return buf.toOwnedSlice();
         }
 
-        const now = nowIso8601(allocator) catch "";
-        defer if (now.len > 0) allocator.free(now);
-
         _ = try state.updateSavedProvider(id, .{
             .name = parsed.value.name,
             .api_key = parsed.value.api_key,
             .model = parsed.value.model,
             .validated_at = now,
             .validated_with = component_name,
+            .last_validation_at = now,
+            .last_validation_ok = true,
         });
     } else {
         // Name-only update
@@ -224,12 +226,7 @@ pub fn handleValidate(
     const probe_result = probeProvider(allocator, component_name, bin_path, existing.provider, existing.api_key, existing.model, "");
     defer probe_result.deinit(allocator);
 
-    if (probe_result.live_ok) {
-        const now = try nowIso8601(allocator);
-        defer allocator.free(now);
-        _ = try state.updateSavedProvider(id, .{ .validated_at = now, .validated_with = component_name });
-        try state.save();
-    }
+    try persistValidationAttempt(allocator, state, id, component_name, probe_result.live_ok);
 
     var buf = std.array_list.Managed(u8).init(allocator);
     errdefer buf.deinit();
@@ -289,6 +286,25 @@ fn maskApiKey(buf: *std.array_list.Managed(u8), key: []const u8) !void {
     }
 }
 
+fn persistValidationAttempt(
+    allocator: std.mem.Allocator,
+    state: *state_mod.State,
+    id: u32,
+    component_name: []const u8,
+    live_ok: bool,
+) !void {
+    const now = try nowIso8601(allocator);
+    defer allocator.free(now);
+
+    _ = try state.updateSavedProvider(id, .{
+        .validated_at = if (live_ok) now else null,
+        .validated_with = if (live_ok) component_name else null,
+        .last_validation_at = now,
+        .last_validation_ok = live_ok,
+    });
+    try state.save();
+}
+
 fn appendProviderJson(buf: *std.array_list.Managed(u8), sp: state_mod.SavedProvider, reveal: bool) !void {
     try buf.appendSlice("{\"id\":\"sp_");
     var id_buf: [16]u8 = undefined;
@@ -311,7 +327,11 @@ fn appendProviderJson(buf: *std.array_list.Managed(u8), sp: state_mod.SavedProvi
     try appendEscaped(buf, sp.validated_at);
     try buf.appendSlice("\",\"validated_with\":\"");
     try appendEscaped(buf, sp.validated_with);
-    try buf.appendSlice("\"}");
+    try buf.appendSlice("\",\"last_validation_at\":\"");
+    try appendEscaped(buf, sp.last_validation_at);
+    try buf.appendSlice("\",\"last_validation_ok\":");
+    try buf.appendSlice(if (sp.last_validation_ok) "true" else "false");
+    try buf.appendSlice("}");
 }
 
 pub fn nowIso8601(allocator: std.mem.Allocator) ![]const u8 {
