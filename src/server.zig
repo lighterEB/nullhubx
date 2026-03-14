@@ -404,24 +404,30 @@ pub const Server = struct {
         });
     }
 
+    fn getEnv(name: []const u8) ?[]const u8 {
+        const native = @import("builtin").os.tag;
+        if (native == .windows) return null;
+        return std.posix.getenv(name);
+    }
+
     fn getBoilerUrl(self: *Server) ?[]const u8 {
         _ = self;
-        return std.posix.getenv("NULLBOILER_URL");
+        return getEnv("NULLBOILER_URL");
     }
 
     fn getBoilerToken(self: *Server) ?[]const u8 {
         _ = self;
-        return std.posix.getenv("NULLBOILER_TOKEN");
+        return getEnv("NULLBOILER_TOKEN");
     }
 
     fn getTicketsUrl(self: *Server) ?[]const u8 {
         _ = self;
-        return std.posix.getenv("NULLTICKETS_URL");
+        return getEnv("NULLTICKETS_URL");
     }
 
     fn getTicketsToken(self: *Server) ?[]const u8 {
         _ = self;
-        return std.posix.getenv("NULLTICKETS_TOKEN");
+        return getEnv("NULLTICKETS_TOKEN");
     }
 
     fn route(self: *Server, allocator: std.mem.Allocator, method: []const u8, target: []const u8, body: []const u8) Response {
