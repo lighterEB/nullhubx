@@ -414,6 +414,16 @@ pub const Server = struct {
         return std.posix.getenv("NULLBOILER_TOKEN");
     }
 
+    fn getTicketsUrl(self: *Server) ?[]const u8 {
+        _ = self;
+        return std.posix.getenv("NULLTICKETS_URL");
+    }
+
+    fn getTicketsToken(self: *Server) ?[]const u8 {
+        _ = self;
+        return std.posix.getenv("NULLTICKETS_TOKEN");
+    }
+
     fn route(self: *Server, allocator: std.mem.Allocator, method: []const u8, target: []const u8, body: []const u8) Response {
         if (std.mem.eql(u8, method, "GET")) {
             if (std.mem.eql(u8, target, "/health")) {
@@ -941,6 +951,20 @@ pub const Server = struct {
             if (instances_api.dispatch(allocator, self.state, self.manager, self.mutex, self.paths, method, target, body)) |api_resp| {
                 return .{ .status = api_resp.status, .content_type = api_resp.content_type, .body = api_resp.body };
             }
+        }
+
+        // Store API — proxy to NullTickets (must be checked before NullBoiler catch-all)
+        if (std.mem.startsWith(u8, target, "/api/orchestration/store/") or std.mem.eql(u8, target, "/api/orchestration/store")) {
+            const tickets_url = self.getTicketsUrl();
+            if (tickets_url) |url| {
+                const resp = orchestration_api.handle(allocator, method, target, body, url, self.getTicketsToken());
+                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
+            }
+            return .{
+                .status = "503 Service Unavailable",
+                .content_type = "application/json",
+                .body = "{\"error\":\"NullTickets not configured\"}",
+            };
         }
 
         // Orchestration API — proxy to NullBoiler
