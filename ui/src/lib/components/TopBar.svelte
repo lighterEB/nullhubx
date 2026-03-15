@@ -1,23 +1,26 @@
 <script lang="ts">
+  import { page } from "$app/stores";
   import { onMount } from "svelte";
   import { browser } from "$app/environment";
   import { api } from "$lib/api/client";
-  import LiveSync from "./LiveSync.svelte";
 
   let hubOk = $state(true);
-  let theme = $state<"dark" | "light">("dark");
+  let currentPath = $derived($page.url.pathname);
+
+  const navItems = [
+    { href: "/", label: "Status" },
+    { href: "/dashboard", label: "Dashboard" },
+    { href: "/install", label: "Components" },
+    { href: "/providers", label: "Providers" },
+    { href: "/channels", label: "Channels" },
+  ];
+
+  function isActive(href: string): boolean {
+    if (href === "/") return currentPath === "/";
+    return currentPath.startsWith(href);
+  }
 
   onMount(() => {
-    // 加载保存的主题
-    if (browser) {
-      const saved = localStorage.getItem("nullhubx-theme") as "dark" | "light" | null;
-      if (saved) {
-        theme = saved;
-        document.documentElement.setAttribute("data-theme", saved);
-      }
-    }
-
-    // 检查 Hub 状态
     async function check() {
       try {
         await api.getStatus();
@@ -30,38 +33,86 @@
     const interval = setInterval(check, 10000);
     return () => clearInterval(interval);
   });
-
-  function toggleTheme() {
-    theme = theme === "dark" ? "light" : "dark";
-    document.documentElement.setAttribute("data-theme", theme);
-    if (browser) {
-      localStorage.setItem("nullhubx-theme", theme);
-    }
-  }
 </script>
 
 <header class="topbar">
+  <a href="/" class="logo">NULLHUBX</a>
+  
+  <nav class="nav-tabs">
+    {#each navItems as item}
+      <a 
+        href={item.href} 
+        class="nav-tab" 
+        class:active={isActive(item.href)}
+      >
+        {item.label}
+      </a>
+    {/each}
+  </nav>
+  
   <div class="topbar-right">
-    <LiveSync connected={hubOk} />
-    <button class="theme-toggle" onclick={toggleTheme} title="切换主题">
-      {#if theme === "dark"}
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>
-      {:else}
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg>
-      {/if}
-    </button>
+    <div class="live-sync">
+      <span class="sync-dot" class:pulse-dot={hubOk}></span>
+      <span class="sync-label">LIVE SYNC</span>
+    </div>
+    <div class="avatar">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    </div>
   </div>
 </header>
 
 <style>
   .topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--topbar-height);
     display: flex;
     align-items: center;
-    justify-content: flex-end;
-    padding: var(--spacing-md) var(--spacing-xl);
-    background: var(--bg-surface);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
+    justify-content: space-between;
+    padding: 0 var(--spacing-5xl);
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--slate-200);
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: var(--font-mono);
+    font-size: var(--text-base);
+    font-weight: 700;
+    color: var(--indigo-600);
+    letter-spacing: 3px;
+    text-decoration: none;
+  }
+
+  .nav-tabs {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xl);
+  }
+
+  .nav-tab {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--slate-400);
+    text-decoration: none;
+    padding: var(--spacing-md) 0;
+    border-bottom: 2px solid transparent;
+    transition: all var(--transition-fast);
+    letter-spacing: 0.5px;
+  }
+
+  .nav-tab:hover {
+    color: var(--slate-600);
+  }
+
+  .nav-tab.active {
+    color: var(--indigo-600);
+    border-bottom-color: var(--indigo-600);
   }
 
   .topbar-right {
@@ -70,24 +121,49 @@
     gap: var(--spacing-lg);
   }
 
-  .theme-toggle {
+  .live-sync {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  .sync-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--emerald-500);
+  }
+
+  .sync-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    color: var(--slate-500);
+    letter-spacing: 1px;
+  }
+
+  .avatar {
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all var(--transition-base);
+    background: var(--slate-100);
+    border: 1px solid var(--slate-200);
+    border-radius: 50%;
+    color: var(--slate-500);
   }
 
-  .theme-toggle:hover {
-    background: var(--bg-hover);
-    border-color: var(--border-hover);
-    color: var(--color-primary);
+  @keyframes pulse {
+    0%, 100% {
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+    }
+    50% {
+      box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+    }
+  }
+
+  .pulse-dot {
+    animation: pulse 2s ease-in-out infinite;
   }
 </style>

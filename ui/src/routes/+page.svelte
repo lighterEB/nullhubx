@@ -22,48 +22,91 @@
   });
 
   onDestroy(() => clearInterval(interval));
+
+  let instanceCount = $derived(() => {
+    let count = 0;
+    for (const instances of Object.values(status?.instances || {})) {
+      count += Object.keys(instances as Record<string, any>).length;
+    }
+    return count;
+  });
+
+  let runningCount = $derived(() => {
+    let count = 0;
+    for (const instances of Object.values(status?.instances || {})) {
+      for (const inst of Object.values(instances as Record<string, any>)) {
+        if ((inst as any).status === "running") count++;
+      }
+    }
+    return count;
+  });
 </script>
 
+<svelte:head>
+  <title>System Status - NullHubX</title>
+</svelte:head>
+
 <div class="page">
-  <div class="page-header">
-    <div class="header-content">
-      <h1>System Status</h1>
-      <p class="subtitle">Monitor and manage your instances</p>
+  <header class="page-header">
+    <div class="header-left">
+      <div class="breadcrumb">
+        <span class="breadcrumb-item">System</span>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-item active">Status</span>
+      </div>
+      <h1>
+        SYSTEM <span class="highlight">STATUS</span>
+      </h1>
+      <p class="subtitle">Monitor and manage your null stack instances</p>
     </div>
-    <a href="/install" class="btn btn-primary">Install Component</a>
-  </div>
+    <div class="header-right">
+      <span class="badge badge-indigo">{instanceCount()} instances</span>
+      <span class="badge badge-emerald">{runningCount()} running</span>
+      <a href="/install" class="btn-add">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Component
+      </a>
+    </div>
+  </header>
+
+  <hr class="divider" />
 
   {#if error}
     <div class="error-banner">
-      <strong>Error:</strong> {error}
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span>ERR: {error}</span>
     </div>
   {/if}
 
   {#if status}
     {#if Object.keys(status.instances || {}).length > 0}
       <div class="instance-grid">
-        {#each Object.entries(status.instances || {}) as [component, instances]}
-          {#each Object.entries(instances as Record<string, any>) as [name, info]}
-            <InstanceCard
-              {component}
-              {name}
-              version={info.version}
-              status={info.status || "stopped"}
-              autoStart={info.auto_start}
-              port={info.port || 0}
-              onAction={refresh}
-            />
+        {#each Object.entries(status.instances || {}) as [component, instances], i}
+          {#each Object.entries(instances as Record<string, any>) as [name, info], j}
+            <div class="card-wrapper" style="animation-delay: {(i * 3 + j) * 60}ms">
+              <InstanceCard
+                {component}
+                {name}
+                version={info.version}
+                status={info.status || "stopped"}
+                autoStart={info.auto_start}
+                port={info.port || 0}
+                onAction={refresh}
+              />
+            </div>
           {/each}
         {/each}
       </div>
     {:else}
       <div class="empty-state">
         <div class="empty-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"></rect><rect width="20" height="8" x="2" y="14" rx="2" ry="2"></rect><line x1="6" x2="6.01" y1="6" y2="6"></line><line x1="6" x2="6.01" y1="18" y2="18"></line></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>
         </div>
-        <h2>No instances yet</h2>
-        <p>Install your first component to get started</p>
-        <a href="/install" class="btn btn-primary">Browse Components</a>
+        <h2>No Instances Yet</h2>
+        <p>Initialize your first component to get started with the null stack.</p>
+        <a href="/install" class="btn-primary">
+          Install Component →
+        </a>
       </div>
     {/if}
   {/if}
@@ -71,61 +114,105 @@
 
 <style>
   .page {
-    max-width: 1200px;
+    padding: var(--spacing-4xl) var(--spacing-5xl);
+    max-width: 1400px;
+    margin: 0 auto;
   }
 
   .page-header {
     display: flex;
-    align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: var(--spacing-3xl);
+    align-items: flex-start;
+    margin-bottom: var(--spacing-xl);
   }
 
-  .header-content h1 {
-    font-size: var(--text-2xl);
+  .header-left {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--slate-400);
+    letter-spacing: 1px;
+  }
+
+  .breadcrumb-sep {
+    color: var(--slate-300);
+  }
+
+  .breadcrumb-item.active {
+    color: var(--slate-600);
+  }
+
+  h1 {
+    font-family: var(--font-mono);
+    font-size: var(--text-3xl);
     font-weight: 700;
-    color: var(--text-primary);
-    margin: 0;
+    color: var(--slate-900);
+    letter-spacing: 3px;
+  }
+
+  .highlight {
+    color: var(--indigo-600);
   }
 
   .subtitle {
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-    margin: var(--spacing-sm) 0 0 0;
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    color: var(--slate-500);
+    margin-top: var(--spacing-xs);
   }
 
-  .btn {
-    display: inline-flex;
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+  }
+
+  .btn-add {
+    display: flex;
     align-items: center;
     gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    background: var(--indigo-600);
+    color: white;
+    font-family: var(--font-mono);
     font-size: var(--text-sm);
     font-weight: 600;
-    padding: var(--spacing-sm) var(--spacing-lg);
+    letter-spacing: 0.5px;
     border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: all var(--transition-base);
     text-decoration: none;
+    transition: all var(--transition-fast);
   }
 
-  .btn-primary {
-    background: var(--color-primary);
-    border: 1px solid var(--color-primary);
-    color: white;
+  .btn-add:hover {
+    background: var(--indigo-700);
+    transform: translateY(-1px);
   }
 
-  .btn-primary:hover {
-    background: var(--color-primary-hover);
-    border-color: var(--color-primary-hover);
-    color: white;
-    text-decoration: none;
+  .divider {
+    border: none;
+    height: 1px;
+    background: var(--slate-200);
+    margin: var(--spacing-xl) 0;
   }
 
   .error-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
     padding: var(--spacing-md) var(--spacing-lg);
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid var(--status-error);
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
     border-radius: var(--radius-md);
-    color: var(--status-error);
+    color: var(--red-500);
+    font-family: var(--font-mono);
     font-size: var(--text-sm);
     margin-bottom: var(--spacing-xl);
   }
@@ -136,33 +223,88 @@
     gap: var(--spacing-xl);
   }
 
+  .card-wrapper {
+    opacity: 0;
+    animation: fadeUp 0.4s ease forwards;
+  }
+
+  @keyframes fadeUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
   .empty-state {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
     text-align: center;
-    padding: var(--spacing-3xl) var(--spacing-xl);
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
+    padding: var(--spacing-5xl);
+    background: white;
+    border: 1px dashed var(--slate-200);
     border-radius: var(--radius-lg);
   }
 
   .empty-icon {
-    color: var(--text-muted);
+    color: var(--slate-300);
     margin-bottom: var(--spacing-lg);
   }
 
   .empty-state h2 {
-    font-size: var(--text-lg);
-    font-weight: 600;
-    color: var(--text-primary);
-    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--text-xl);
+    font-weight: 700;
+    color: var(--slate-900);
+    letter-spacing: 2px;
+    margin: 0 0 var(--spacing-sm);
   }
 
   .empty-state p {
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    color: var(--slate-500);
+    margin: 0 0 var(--spacing-xl);
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--spacing-md) var(--spacing-xl);
+    background: var(--indigo-600);
+    color: white;
+    font-family: var(--font-mono);
     font-size: var(--text-sm);
-    color: var(--text-secondary);
-    margin: var(--spacing-sm) 0 var(--spacing-xl) 0;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    transition: all var(--transition-fast);
+  }
+
+  .btn-primary:hover {
+    background: var(--indigo-700);
+    box-shadow: var(--shadow-indigo);
+    transform: translateY(-1px);
+  }
+
+  @media (max-width: 768px) {
+    .page {
+      padding: var(--spacing-xl);
+    }
+    
+    .page-header {
+      flex-direction: column;
+      gap: var(--spacing-lg);
+    }
+    
+    .header-right {
+      width: 100%;
+      justify-content: flex-start;
+    }
   }
 </style>

@@ -11,6 +11,7 @@
     port = 0,
     onAction = () => {},
   } = $props();
+  
   let loading = $state(false);
   let localStatus = $state("stopped");
   let displayVersion = $derived(
@@ -50,98 +51,161 @@
       loading = false;
     }
   }
+
+  const colorMap: Record<string, "indigo" | "violet" | "amber"> = {
+    nullclaw: "indigo",
+    nullboiler: "violet",
+    nulltickets: "amber",
+  };
+
+  const iconMap: Record<string, string> = {
+    nullclaw: "⬡",
+    nullboiler: "⊗",
+    nulltickets: "⊞",
+  };
 </script>
 
-<a href="/instances/{component}/{name}" class="card">
-  <div class="card-header">
-    <div class="card-title">
-      <span class="card-name">{name}</span>
-      <span class="component-badge">{component}</span>
+<a href="/instances/{component}/{name}" class="instance-card">
+  <div class="accent-bar {colorMap[component] || 'indigo'}"></div>
+  
+  <div class="card-top">
+    <div class="icon-box {colorMap[component] || 'indigo'}">
+      {iconMap[component] || "◈"}
     </div>
     <StatusBadge status={localStatus} />
   </div>
   
-  <p class="card-description">
-    {component === "nullclaw" ? "AI Agent Runtime" : component === "nullboiler" ? "Workflow Orchestrator" : "Task Tracker"}
-  </p>
+  <h3 class="card-name">{name}</h3>
+  
+  <div class="card-meta">
+    <span class="component-tag">{component}</span>
+    <span class="version">{displayVersion}</span>
+  </div>
   
   {#if localStatus === "running" && port > 0}
     <div class="gateway-info">
-      <span class="gateway-label">Gateway</span>
+      <span class="gateway-label">Gateway:</span>
       <code class="gateway-addr">127.0.0.1:{port}</code>
     </div>
   {/if}
   
-  <div class="card-footer">
-    <span class="version">{displayVersion}</span>
-    <div class="card-actions">
-      {#if localStatus === "running" || localStatus === "stopping"}
-        <button class="btn-stop" onclick={stop} disabled={loading}>
-          {loading ? "Stopping..." : "Stop"}
-        </button>
-      {:else}
-        <button class="btn-start" onclick={start} disabled={loading}>
-          {loading ? "Starting..." : "Start"}
-        </button>
-      {/if}
-    </div>
+  <div class="card-actions">
+    {#if localStatus === "running" || localStatus === "stopping"}
+      <button class="btn-stop" onclick={stop} disabled={loading}>
+        {loading ? "Stopping..." : "Stop"}
+      </button>
+    {:else}
+      <button class="btn-start" onclick={start} disabled={loading}>
+        {loading ? "Starting..." : "Start"}
+      </button>
+    {/if}
   </div>
 </a>
 
 <style>
-  .card {
+  .instance-card {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md);
     padding: var(--spacing-xl);
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
+    padding-left: calc(var(--spacing-xl) + 3px);
+    background: white;
+    border: 1px solid var(--slate-200);
     border-radius: var(--radius-lg);
-    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
     text-decoration: none;
+    color: inherit;
     transition: all var(--transition-base);
+    overflow: hidden;
   }
 
-  .card:hover {
-    border-color: var(--border-hover);
+  .instance-card:hover {
+    transform: translateY(-3px);
     box-shadow: var(--shadow-md);
+    border-color: var(--indigo-200);
   }
 
-  .card-header {
+  .accent-bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(to bottom, var(--indigo-500), var(--indigo-600));
+  }
+
+  .accent-bar.violet {
+    background: linear-gradient(to bottom, var(--violet-500), #7c3aed);
+  }
+
+  .accent-bar.amber {
+    background: linear-gradient(to bottom, var(--amber-500), var(--amber-600));
+  }
+
+  .card-top {
     display: flex;
-    align-items: flex-start;
     justify-content: space-between;
-    gap: var(--spacing-md);
+    align-items: flex-start;
   }
 
-  .card-title {
+  .icon-box {
+    width: 36px;
+    height: 36px;
     display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    border-radius: var(--radius-md);
+    background: var(--indigo-50);
+    border: 1px solid var(--indigo-200);
+    color: var(--indigo-500);
+  }
+
+  .icon-box.violet {
+    background: rgba(139, 92, 246, 0.1);
+    border-color: rgba(139, 92, 246, 0.2);
+    color: var(--violet-500);
+  }
+
+  .icon-box.amber {
+    background: rgba(245, 158, 11, 0.1);
+    border-color: rgba(245, 158, 11, 0.2);
+    color: var(--amber-500);
   }
 
   .card-name {
+    font-family: var(--font-mono);
     font-size: var(--text-lg);
-    font-weight: 600;
-    color: var(--text-primary);
+    font-weight: 700;
+    color: var(--slate-900);
+    letter-spacing: 2px;
+    margin: 0;
   }
 
-  .component-badge {
-    font-size: var(--text-xs);
+  .card-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  .component-tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
     font-weight: 500;
-    padding: 2px var(--spacing-sm);
-    background: var(--badge-primary);
-    color: var(--badge-primary-text);
+    padding: var(--spacing-xs) var(--spacing-sm);
     border-radius: var(--radius-sm);
+    background: var(--indigo-50);
+    color: var(--indigo-500);
+    border: 1px solid var(--indigo-200);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    width: fit-content;
   }
 
-  .card-description {
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-    margin: 0;
+  .version {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--slate-400);
   }
 
   .gateway-info {
@@ -149,82 +213,70 @@
     align-items: center;
     gap: var(--spacing-sm);
     padding: var(--spacing-sm) var(--spacing-md);
-    background: var(--bg-elevated);
+    background: rgba(6, 182, 212, 0.08);
+    border: 1px solid rgba(6, 182, 212, 0.15);
     border-radius: var(--radius-md);
   }
 
   .gateway-label {
+    font-family: var(--font-mono);
     font-size: var(--text-xs);
-    color: var(--text-muted);
-    text-transform: uppercase;
+    color: var(--slate-500);
     letter-spacing: 0.5px;
   }
 
   .gateway-addr {
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--color-primary);
-    font-weight: 500;
-  }
-
-  .card-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding-top: var(--spacing-md);
-    border-top: 1px solid var(--border);
-    margin-top: auto;
-  }
-
-  .version {
     font-size: var(--text-xs);
-    color: var(--text-muted);
-    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--cyan-500);
+    background: none;
   }
 
   .card-actions {
     display: flex;
     gap: var(--spacing-sm);
+    margin-top: auto;
   }
 
-  .btn-start,
-  .btn-stop {
-    font-size: var(--text-xs);
+  .btn-start, .btn-stop {
+    flex: 1;
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
     font-weight: 600;
-    padding: var(--spacing-xs) var(--spacing-md);
+    letter-spacing: 1px;
     border-radius: var(--radius-md);
     cursor: pointer;
-    transition: all var(--transition-base);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    transition: all var(--transition-fast);
   }
 
   .btn-start {
-    background: var(--color-primary);
-    border: 1px solid var(--color-primary);
+    background: var(--indigo-600);
     color: white;
+    border: none;
   }
 
   .btn-start:hover:not(:disabled) {
-    background: var(--color-primary-hover);
-    border-color: var(--color-primary-hover);
+    background: var(--indigo-700);
+    box-shadow: var(--shadow-indigo);
+    transform: translateY(-1px);
   }
 
   .btn-stop {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text-secondary);
+    background: white;
+    color: var(--slate-600);
+    border: 1px solid var(--slate-200);
   }
 
   .btn-stop:hover:not(:disabled) {
-    background: var(--bg-hover);
-    border-color: var(--status-error);
-    color: var(--status-error);
+    background: var(--slate-50);
+    border-color: var(--slate-300);
   }
 
-  .btn-start:disabled,
-  .btn-stop:disabled {
+  .btn-start:disabled, .btn-stop:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+    transform: none;
   }
 </style>

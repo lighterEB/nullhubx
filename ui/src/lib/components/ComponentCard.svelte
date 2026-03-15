@@ -10,9 +10,11 @@
     standalone = false,
     instanceCount = 0,
   } = $props();
+  
   let importing = $state(false);
   let imported = $state(false);
   let comingSoon = $derived(alpha && !installed && !standalone);
+  let isAvailable = $derived(!comingSoon);
 
   async function handleImport(e: MouseEvent) {
     e.preventDefault();
@@ -30,168 +32,346 @@
       importing = false;
     }
   }
+
+  const iconMap: Record<string, string> = {
+    nullclaw: "⬡",
+    nullboiler: "⊗",
+    nulltickets: "⊞",
+  };
+
+  const colorMap: Record<string, "indigo" | "violet" | "amber"> = {
+    nullclaw: "indigo",
+    nullboiler: "violet",
+    nulltickets: "amber",
+  };
+
+  let icon = $derived(iconMap[name] || "◈");
+  let color = $derived(colorMap[name] || "indigo");
 </script>
 
 {#if comingSoon}
 <div class="component-card disabled">
-  <div class="card-header">
-    <div class="card-title">
-      {#if alpha}
-        <span class="alpha-badge">Alpha</span>
-      {/if}
-      <h3>{displayName}</h3>
+  <div class="accent-bar {colorMap[name] || 'indigo'}"></div>
+  
+  <div class="card-top">
+    <div class="icon-box {colorMap[name] || 'indigo'}">
+      {iconMap[name] || "◈"}
     </div>
-    <span class="coming-soon">Coming Soon</span>
+    <div class="badges">
+      <span class="alpha-badge">ALPHA</span>
+      <span class="badge badge-slate">COMING SOON</span>
+    </div>
   </div>
+  
+  <h3 class="card-name">{displayName}</h3>
   <p class="card-description">{description}</p>
+  
+  <div class="tag-row">
+    <span class="tag">{name === "nullboiler" ? "orchestrator" : "tracker"}</span>
+    <span class="tag">{name === "nullboiler" ? "dag" : "api"}</span>
+  </div>
+  
+  <button class="btn-notify" disabled>
+    Notify me
+  </button>
 </div>
 {:else}
-<a href="/install/{name}" class="component-card">
-  <div class="card-header">
-    <div class="card-title">
-      {#if alpha}
-        <span class="alpha-badge">Alpha</span>
-      {/if}
-      <h3>{displayName}</h3>
+<a href="/install/{name}" class="component-card featured">
+  <div class="accent-bar {colorMap[name] || 'indigo'}"></div>
+  
+  <div class="card-top">
+    <div class="icon-box {colorMap[name] || 'indigo'}">
+      {iconMap[name] || "◈"}
     </div>
-    <div class="card-status">
+    <div class="badges">
       {#if imported}
-        <span class="badge success">Imported</span>
+        <span class="import-badge">IMPORTED</span>
       {:else if standalone}
-        <button class="btn-import" onclick={handleImport} disabled={importing}>
-          {importing ? "Importing..." : "Import"}
+        <button class="import-btn" onclick={handleImport} disabled={importing}>
+          {importing ? "..." : "IMPORT"}
         </button>
       {:else if installed}
-        <span class="instance-count">{instanceCount} instance{instanceCount !== 1 ? "s" : ""}</span>
+        <span class="instance-badge">{instanceCount} instance{instanceCount !== 1 ? "s" : ""}</span>
       {:else}
-        <span class="install-hint">Click to install</span>
+        <span class="import-badge">AVAILABLE</span>
       {/if}
     </div>
   </div>
+  
+  <h3 class="card-name">{displayName}</h3>
   <p class="card-description">{description}</p>
+  
+  <div class="tag-row">
+    <span class="tag">runtime</span>
+    <span class="tag">stable</span>
+    <span class="tag">v2.4.1</span>
+  </div>
+  
+  {#if !installed && !standalone}
+    <button class="btn-install" onclick={(e) => { e.preventDefault(); }}>
+      Install →
+    </button>
+  {:else if standalone && !imported}
+    <button class="btn-install" onclick={handleImport} disabled={importing}>
+      {importing ? "Importing..." : "Import →"}
+    </button>
+  {:else}
+    <div class="installed-status">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--emerald-500)"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <span>Installed</span>
+    </div>
+  {/if}
 </a>
 {/if}
 
 <style>
   .component-card {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md);
     padding: var(--spacing-xl);
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
+    padding-left: calc(var(--spacing-xl) + 3px);
+    background: white;
     border-radius: var(--radius-lg);
-    color: var(--text-primary);
     text-decoration: none;
+    color: inherit;
     transition: all var(--transition-base);
+    overflow: hidden;
   }
 
-  .component-card:hover:not(.disabled) {
-    border-color: var(--border-hover);
+  .component-card.featured {
+    border: 1px solid var(--indigo-200);
+    box-shadow: var(--shadow-indigo);
+  }
+
+  .component-card:not(.featured) {
+    border: 1px solid var(--slate-200);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .component-card:not(.disabled):hover {
+    transform: translateY(-3px);
     box-shadow: var(--shadow-md);
   }
 
   .component-card.disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    opacity: 0.72;
+    cursor: default;
     pointer-events: none;
   }
 
-  .card-header {
+  .accent-bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(to bottom, var(--indigo-500), var(--indigo-600));
+  }
+
+  .accent-bar.violet {
+    background: linear-gradient(to bottom, var(--violet-500), #7c3aed);
+  }
+
+  .accent-bar.amber {
+    background: linear-gradient(to bottom, var(--amber-500), var(--amber-600));
+  }
+
+  .card-top {
     display: flex;
-    align-items: flex-start;
     justify-content: space-between;
-    gap: var(--spacing-md);
+    align-items: flex-start;
   }
 
-  .card-title {
+  .icon-box {
+    width: 36px;
+    height: 36px;
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    border-radius: var(--radius-md);
+    background: var(--indigo-50);
+    border: 1px solid var(--indigo-200);
+    color: var(--indigo-500);
+  }
+
+  .icon-box.violet {
+    background: rgba(139, 92, 246, 0.1);
+    border-color: rgba(139, 92, 246, 0.2);
+    color: var(--violet-500);
+  }
+
+  .icon-box.amber {
+    background: rgba(245, 158, 11, 0.1);
+    border-color: rgba(245, 158, 11, 0.2);
+    color: var(--amber-500);
+  }
+
+  .badges {
+    display: flex;
     gap: var(--spacing-xs);
-  }
-
-  .alpha-badge {
-    display: inline-block;
-    font-size: var(--text-xs);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--radius-sm);
-    background: var(--badge-warning);
-    color: var(--badge-warning-text);
-    width: fit-content;
-  }
-
-  h3 {
-    font-size: var(--text-lg);
-    font-weight: 600;
-    color: var(--text-primary);
-    letter-spacing: 0.5px;
-  }
-
-  .card-status {
-    display: flex;
     align-items: center;
   }
 
-  .badge {
-    font-size: var(--text-xs);
+  .alpha-badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--amber-600);
+    letter-spacing: 0.5px;
+  }
+
+  .import-badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    background: var(--indigo-600);
+    color: white;
+    letter-spacing: 0.5px;
+  }
+
+  .instance-badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
     font-weight: 500;
     padding: var(--spacing-xs) var(--spacing-sm);
     border-radius: var(--radius-sm);
+    background: var(--slate-100);
+    color: var(--slate-600);
   }
 
-  .badge.success {
-    background: var(--badge-success);
-    color: var(--badge-success-text);
-  }
-
-  .instance-count {
-    font-size: var(--text-xs);
-    color: var(--text-secondary);
-    background: var(--bg-elevated);
+  .import-btn {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
     padding: var(--spacing-xs) var(--spacing-sm);
     border-radius: var(--radius-sm);
-  }
-
-  .install-hint {
-    font-size: var(--text-xs);
-    color: var(--color-primary);
-  }
-
-  .coming-soon {
-    font-size: var(--text-xs);
-    color: var(--text-muted);
-    background: var(--bg-elevated);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--radius-sm);
-  }
-
-  .btn-import {
-    font-size: var(--text-xs);
-    font-weight: 600;
-    padding: var(--spacing-xs) var(--spacing-md);
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: all var(--transition-base);
-    background: var(--color-primary);
-    border: 1px solid var(--color-primary);
+    background: var(--indigo-600);
     color: white;
+    border: none;
+    cursor: pointer;
+    letter-spacing: 0.5px;
   }
 
-  .btn-import:hover:not(:disabled) {
-    background: var(--color-primary-hover);
+  .import-btn:hover:not(:disabled) {
+    background: var(--indigo-700);
   }
 
-  .btn-import:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  .import-btn:disabled {
+    opacity: 0.6;
+  }
+
+  .card-name {
+    font-family: var(--font-mono);
+    font-size: var(--text-lg);
+    font-weight: 700;
+    color: var(--slate-900);
+    letter-spacing: 2px;
+    margin: 0;
+  }
+
+  .disabled .card-name {
+    color: var(--slate-700);
   }
 
   .card-description {
+    font-family: var(--font-sans);
     font-size: var(--text-sm);
-    color: var(--text-secondary);
-    line-height: 1.6;
+    color: var(--slate-500);
+    line-height: 1.8;
+    margin: 0;
+  }
+
+  .disabled .card-description {
+    color: var(--slate-400);
+  }
+
+  .tag-row {
+    display: flex;
+    gap: var(--spacing-xs);
+    flex-wrap: wrap;
+  }
+
+  .tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    background: var(--indigo-50);
+    color: var(--indigo-500);
+    border: 1px solid var(--indigo-200);
+  }
+
+  .disabled .tag {
+    background: var(--slate-100);
+    color: var(--slate-500);
+    border-color: var(--slate-200);
+  }
+
+  .btn-install {
+    width: 100%;
+    padding: var(--spacing-md);
+    background: var(--indigo-600);
+    color: white;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    margin-top: auto;
+  }
+
+  .btn-install:hover:not(:disabled) {
+    background: var(--indigo-700);
+    box-shadow: var(--shadow-indigo);
+    transform: translateY(-1px);
+  }
+
+  .btn-install:active:not(:disabled) {
+    transform: translateY(0) scale(0.98);
+  }
+
+  .btn-install:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .btn-notify {
+    width: 100%;
+    padding: var(--spacing-md);
+    background: var(--slate-100);
+    color: var(--slate-500);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius-md);
+    cursor: not-allowed;
+    margin-top: auto;
+  }
+
+  .installed-status {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background: rgba(16, 185, 129, 0.08);
+    border-radius: var(--radius-md);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--emerald-600);
+    margin-top: auto;
   }
 </style>

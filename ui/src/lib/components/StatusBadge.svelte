@@ -1,25 +1,25 @@
 <script lang="ts">
   let { status = "stopped" } = $props();
 
-  const statusConfig: Record<string, { color: string; bg: string }> = {
-    running: { color: "var(--status-running)", bg: "var(--badge-success)" },
-    stopped: { color: "var(--status-stopped)", bg: "var(--bg-elevated)" },
-    starting: { color: "var(--status-warning)", bg: "var(--badge-warning)" },
-    stopping: { color: "var(--status-warning)", bg: "var(--badge-warning)" },
-    failed: { color: "var(--status-error)", bg: "rgba(239, 68, 68, 0.1)" },
-    restarting: { color: "var(--status-warning)", bg: "var(--badge-warning)" },
+  const statusConfig: Record<string, { bg: string; color: string; text: string }> = {
+    running: { bg: "rgba(16, 185, 129, 0.12)", color: "var(--emerald-500)", text: "RUNNING" },
+    stopped: { bg: "var(--slate-100)", color: "var(--slate-500)", text: "STOPPED" },
+    starting: { bg: "rgba(99, 102, 241, 0.12)", color: "var(--indigo-500)", text: "STARTING" },
+    stopping: { bg: "rgba(99, 102, 241, 0.12)", color: "var(--indigo-500)", text: "STOPPING" },
+    failed: { bg: "rgba(239, 68, 68, 0.12)", color: "var(--red-500)", text: "FAILED" },
+    restarting: { bg: "rgba(245, 158, 11, 0.12)", color: "var(--amber-500)", text: "RESTARTING" },
   };
 
   let config = $derived(statusConfig[status] || statusConfig.stopped);
 </script>
 
-<span
-  class="status-badge"
+<span 
+  class="status-badge" 
   class:running={status === "running"}
-  style="--status-color: {config.color}; --status-bg: {config.bg}"
+  style="--bg: {config.bg}; --color: {config.color}"
 >
-  <span class="status-indicator"></span>
-  {status}
+  <span class="dot" class:pulse={status === "running"}></span>
+  {config.text}
 </span>
 
 <style>
@@ -29,23 +29,31 @@
     gap: var(--spacing-sm);
     padding: var(--spacing-xs) var(--spacing-sm);
     border-radius: var(--radius-sm);
-    font-size: var(--text-xs);
+    background: var(--bg);
+    font-family: var(--font-mono);
+    font-size: 10px;
     font-weight: 600;
-    text-transform: uppercase;
+    color: var(--color);
     letter-spacing: 0.5px;
-    background: var(--status-bg);
-    color: var(--status-color);
   }
 
-  .status-indicator {
-    display: inline-block;
+  .dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--status-color);
+    background: var(--color);
   }
 
-  .status-badge.running .status-indicator {
-    box-shadow: 0 0 6px var(--status-running);
+  .running .dot {
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+    }
+    50% {
+      box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+    }
   }
 </style>

@@ -1,8 +1,8 @@
 <script>
   import '../app.css';
   import { onMount } from 'svelte';
-  import Sidebar from '$lib/components/Sidebar.svelte';
   import TopBar from '$lib/components/TopBar.svelte';
+  import StatusBar from '$lib/components/StatusBar.svelte';
   import { redirectToPreferredOrigin } from '$lib/nullhubxAccess';
 
   let { children } = $props();
@@ -13,33 +13,24 @@
 </script>
 
 <div class="app-layout">
-  <Sidebar />
-  <div class="main-area">
-    <TopBar />
-    <main class="content">
-      {@render children()}
-    </main>
-  </div>
+  <TopBar />
+  <main class="content">
+    {@render children()}
+  </main>
+  <StatusBar />
 </div>
 
 <style>
   .app-layout {
     display: flex;
-    height: 100vh;
-    overflow: hidden;
-    background: var(--bg-base);
-  }
-
-  .main-area {
-    flex: 1;
-    display: flex;
     flex-direction: column;
-    overflow: hidden;
+    min-height: 100vh;
   }
 
   .content {
     flex: 1;
+    margin-top: var(--topbar-height);
+    margin-bottom: var(--statusbar-height);
     overflow-y: auto;
-    padding: var(--spacing-3xl);
   }
 </style>
