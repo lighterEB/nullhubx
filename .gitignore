@@ -3,3 +3,4 @@ zig-out/
 .worktrees/
 .generated_ui_assets.zig
 src/.generated_ui_assets.zig
+AGENTS.md

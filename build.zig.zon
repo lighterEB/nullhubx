@@ -1,7 +1,7 @@
 .{
     .name = .nullhubx,
     .version = "2026.3.13",
-    .fingerprint = 0x8708b11cb233b548,
+    .fingerprint = 0x985a427d54ca40cc,
     .minimum_zig_version = "0.15.2",
     .dependencies = .{},
     .paths = .{

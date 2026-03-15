@@ -60,7 +60,13 @@ pub fn main() !void {
                 browser_thread.detach();
             }
 
-            try srv.run();
+            srv.run() catch |err| {
+                if (err == error.PortAlreadyInUse) {
+                    std.debug.print("error: port {d} is already in use\n", .{opts.port});
+                    std.process.exit(1);
+                }
+                return err;
+            };
         },
         .status => |opts| try status_cli.run(allocator, opts),
         .routes => |opts| try routes_cli.run(allocator, opts),

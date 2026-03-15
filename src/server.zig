@@ -302,6 +302,15 @@ pub const Server = struct {
 
     pub fn run(self: *Server) !void {
         const addr = try std.net.Address.resolveIp(self.host, self.port);
+
+        // Check if port is already in use by attempting to connect
+        if (std.net.tcpConnectToAddress(addr)) |conn| {
+            conn.close();
+            return error.PortAlreadyInUse;
+        } else |_| {
+            // Connection refused means port is free, which is what we want
+        }
+
         var listener = try addr.listen(.{ .reuse_address = true });
         defer listener.deinit();
 
