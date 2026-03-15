@@ -139,6 +139,7 @@
     busyAction = `bundled:${entry.name}`;
     try {
       const result = await api.installBundledSkill(component, name, entry.name);
+      if (isInstanceCliError(result)) throw new Error(describeInstanceCliError(result, `Failed to install ${entry.name}.`));
       actionMessage = result?.status === "updated"
         ? `Updated ${entry.name}.`
         : `Installed ${entry.name}.`;
@@ -161,7 +162,8 @@
     actionMessage = null;
     busyAction = `clawhub:${slug}`;
     try {
-      await api.installSkillFromClawhub(component, name, slug);
+      const result = await api.installSkillFromClawhub(component, name, slug);
+      if (isInstanceCliError(result)) throw new Error(describeInstanceCliError(result, `Failed to install ${slug} from ClawHub.`));
       clawhubSlug = "";
       actionMessage = `Installed ${slug} from ClawHub.`;
       await refreshAll();
@@ -183,7 +185,8 @@
     actionMessage = null;
     busyAction = `source:${source}`;
     try {
-      await api.installSkillFromSource(component, name, source);
+      const result = await api.installSkillFromSource(component, name, source);
+      if (isInstanceCliError(result)) throw new Error(describeInstanceCliError(result, "Failed to install skill from source."));
       sourceInput = "";
       actionMessage = "Installed skill from source.";
       await refreshAll();
@@ -199,7 +202,8 @@
     actionMessage = null;
     busyAction = `remove:${skillName}`;
     try {
-      await api.removeSkill(component, name, skillName);
+      const result = await api.removeSkill(component, name, skillName);
+      if (isInstanceCliError(result)) throw new Error(describeInstanceCliError(result, `Failed to remove ${skillName}.`));
       actionMessage = `Removed ${skillName}.`;
       await refreshAll();
     } catch (err) {

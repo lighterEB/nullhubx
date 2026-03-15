@@ -27,7 +27,12 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => null);
-    const errMsg = typeof body?.error === 'string' ? body.error : body?.error?.message || `HTTP ${res.status}`;
+    const errMsg =
+      typeof body?.message === 'string'
+        ? body.message
+        : typeof body?.error === 'string'
+          ? body.error
+          : body?.error?.message || `HTTP ${res.status}`;
     throw new Error(errMsg);
   }
   if (res.status === 204) return undefined as T;

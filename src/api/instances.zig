@@ -1294,6 +1294,21 @@ fn jsonCliError(
     return jsonOk(body);
 }
 
+fn jsonCliConflict(
+    allocator: std.mem.Allocator,
+    code: []const u8,
+    message: []const u8,
+    stderr: ?[]const u8,
+    stdout: ?[]const u8,
+) ApiResponse {
+    const body = buildCliJsonError(allocator, code, message, stderr, stdout) catch return helpers.serverError();
+    return .{
+        .status = "409 Conflict",
+        .content_type = "application/json",
+        .body = body,
+    };
+}
+
 const CapturedInstanceCli = union(enum) {
     response: ApiResponse,
     result: component_cli.RunResult,
@@ -2084,14 +2099,14 @@ fn handleSkillsInstall(
             .cwd = workspace_dir,
             .max_output_bytes = 64 * 1024,
         }) catch |err| switch (err) {
-            error.FileNotFound => return jsonCliError(
+            error.FileNotFound => return jsonCliConflict(
                 allocator,
                 "clawhub_not_available",
                 "clawhub CLI is not installed on the nullhub host",
                 null,
                 null,
             ),
-            else => return jsonCliError(
+            else => return jsonCliConflict(
                 allocator,
                 "clawhub_exec_failed",
                 "Failed to execute clawhub install",
@@ -2109,7 +2124,7 @@ fn handleSkillsInstall(
             else => false,
         };
         if (!success) {
-            return jsonCliError(
+            return jsonCliConflict(
                 allocator,
                 "clawhub_install_failed",
                 "clawhub install failed",
@@ -2133,13 +2148,22 @@ fn handleSkillsInstall(
 
     const captured = runInstanceCliCaptured(allocator, s, paths, component, name, args.items);
     const result = switch (captured) {
-        .response => |resp| return resp,
+        .response => |resp| {
+            if (std.mem.eql(u8, resp.status, "200 OK")) {
+                return .{
+                    .status = "409 Conflict",
+                    .content_type = resp.content_type,
+                    .body = resp.body,
+                };
+            }
+            return resp;
+        },
         .result => |value| value,
     };
     defer allocator.free(result.stdout);
     defer allocator.free(result.stderr);
     if (!result.success) {
-        return jsonCliError(
+        return jsonCliConflict(
             allocator,
             "skills_install_failed",
             "Failed to install skill from source",
@@ -2180,13 +2204,22 @@ fn handleSkillsRemove(
 
     const captured = runInstanceCliCaptured(allocator, s, paths, component, name, args.items);
     const result = switch (captured) {
-        .response => |resp| return resp,
+        .response => |resp| {
+            if (std.mem.eql(u8, resp.status, "200 OK")) {
+                return .{
+                    .status = "409 Conflict",
+                    .content_type = resp.content_type,
+                    .body = resp.body,
+                };
+            }
+            return resp;
+        },
         .result => |value| value,
     };
     defer allocator.free(result.stdout);
     defer allocator.free(result.stderr);
     if (!result.success) {
-        return jsonCliError(
+        return jsonCliConflict(
             allocator,
             "skills_remove_failed",
             "Failed to remove skill",
@@ -4110,6 +4143,40 @@ test "dispatch routes DELETE skills action" {
     defer allocator.free(resp.body);
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"status\":\"removed\"") != null);
+}
+
+test "dispatch routes POST source install returns conflict on CLI failure" {
+    const allocator = std.testing.allocator;
+    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    defer s.deinit();
+    var mctx = TestManagerCtx.init(allocator);
+    defer mctx.deinit(allocator);
+
+    std.fs.deleteTreeAbsolute(mctx.paths.root) catch {};
+    defer std.fs.deleteTreeAbsolute(mctx.paths.root) catch {};
+
+    try s.addInstance("nullclaw", "my-agent", .{ .version = "1.0.4" });
+    const script =
+        \\#!/bin/sh
+        \\echo "network blocked" >&2
+        \\exit 1
+        \\
+    ;
+    try writeTestBinary(allocator, mctx.paths, "nullclaw", "1.0.4", script);
+
+    const resp = dispatch(
+        allocator,
+        &s,
+        &mctx.manager,
+        &mctx.mutex,
+        mctx.paths,
+        "POST",
+        "/api/instances/nullclaw/my-agent/skills",
+        "{\"source\":\"https://example.com/skill.git\"}",
+    ).?;
+    defer allocator.free(resp.body);
+    try std.testing.expectEqualStrings("409 Conflict", resp.status);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"error\":\"skills_install_failed\"") != null);
 }
 
 test "dispatch returns null for non-matching path" {
