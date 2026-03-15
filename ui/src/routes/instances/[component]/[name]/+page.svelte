@@ -482,12 +482,18 @@
     }
   }
 
+  let instanceNotFound = $state(false);
+
   async function refresh(loadProviderHealth = false, forceUsage = false) {
     try {
       const status = await api.getStatus();
       const instances = status.instances || {};
       if (instances[component] && instances[component][name]) {
         instance = instances[component][name];
+        instanceNotFound = false;
+      } else {
+        instance = null;
+        instanceNotFound = true;
       }
     } catch (e) {
       console.error(e);
@@ -669,6 +675,13 @@
   }
 </script>
 
+{#if instanceNotFound}
+  <div class="not-found">
+    <h1>Instance Not Found</h1>
+    <p>The instance <strong>{component}/{name}</strong> does not exist or has been deleted.</p>
+    <a href="/" class="btn">Back to Home</a>
+  </div>
+{:else}
 <div class="instance-detail">
   <div class="detail-header">
     <div>
@@ -1204,8 +1217,36 @@
     {/if}
   </div>
 </div>
+{/if}
 
 <style>
+  .not-found {
+    padding: 4rem 2rem;
+    text-align: center;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  .not-found h1 {
+    font-size: 1.75rem;
+    color: var(--error);
+    margin-bottom: 1rem;
+  }
+  .not-found p {
+    color: var(--fg-dim);
+    margin-bottom: 2rem;
+  }
+  .not-found .btn {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    background: var(--bg-surface);
+    color: var(--accent);
+    border: 1px solid var(--accent-dim);
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
   .instance-detail {
     padding: 2rem;
     max-width: 1200px;
