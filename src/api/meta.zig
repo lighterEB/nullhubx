@@ -174,6 +174,13 @@ const skill_name_query = ParamSpec{
     .description = "Optional skill name filter.",
 };
 
+const skill_catalog_query = ParamSpec{
+    .name = "catalog",
+    .location = "query",
+    .required = false,
+    .description = "When true, return the recommended skill catalog instead of installed skills.",
+};
+
 const common_instance_params = [_]ParamSpec{ component_param, instance_name_param };
 const component_only_params = [_]ParamSpec{component_param};
 const provider_id_params = [_]ParamSpec{provider_id_param};
@@ -186,7 +193,7 @@ const reveal_query_params = [_]ParamSpec{reveal_query};
 const logs_query_params = [_]ParamSpec{ lines_query, log_source_query };
 const history_query_params = [_]ParamSpec{ history_session_query, history_limit_query, history_offset_query };
 const memory_query_params = [_]ParamSpec{ memory_stats_query, memory_key_query, memory_query_query, memory_category_query, memory_limit_query };
-const skills_query_params = [_]ParamSpec{skill_name_query};
+const skills_query_params = [_]ParamSpec{ skill_name_query, skill_catalog_query };
 
 const route_examples_status = [_]ExampleSpec{
     .{
@@ -213,6 +220,31 @@ const route_examples_provider_validate = [_]ExampleSpec{
     .{
         .command = "nullhub api POST /api/providers/2/validate",
         .description = "Run a live provider credential probe.",
+    },
+};
+
+const route_examples_skill_catalog = [_]ExampleSpec{
+    .{
+        .command = "nullhub api GET '/api/instances/nullclaw/instance-1/skills?catalog=1' --pretty",
+        .description = "Inspect the recommended skill catalog for a managed nullclaw instance.",
+    },
+};
+
+const route_examples_skill_install = [_]ExampleSpec{
+    .{
+        .command = "nullhub api POST /api/instances/nullclaw/instance-1/skills --body '{\"bundled\":\"nullhub-admin\"}'",
+        .description = "Install the bundled nullhub-admin skill into a managed nullclaw workspace.",
+    },
+    .{
+        .command = "nullhub api POST /api/instances/nullclaw/instance-1/skills --body '{\"clawhub_slug\":\"my-skill\"}'",
+        .description = "Install a skill from ClawHub when the host has the clawhub CLI available.",
+    },
+};
+
+const route_examples_skill_remove = [_]ExampleSpec{
+    .{
+        .command = "nullhub api DELETE '/api/instances/nullclaw/instance-1/skills?name=nullhub-admin'",
+        .description = "Remove a workspace-installed skill from a managed nullclaw instance.",
     },
 };
 
@@ -716,6 +748,43 @@ const routes = [_]RouteSpec{
         .path_params = common_instance_params[0..],
         .query_params = skills_query_params[0..],
         .response = "Skill list or single skill detail.",
+    },
+    .{
+        .id = "instances.skills.catalog",
+        .method = "GET",
+        .path_template = "/api/instances/{component}/{name}/skills?catalog=1",
+        .category = "instances",
+        .summary = "List recommended managed skills for the instance component.",
+        .auth_mode = "optional_bearer",
+        .path_params = common_instance_params[0..],
+        .query_params = skills_query_params[0..],
+        .response = "Recommended skill catalog entries.",
+        .examples = route_examples_skill_catalog[0..],
+    },
+    .{
+        .id = "instances.skills.install",
+        .method = "POST",
+        .path_template = "/api/instances/{component}/{name}/skills",
+        .category = "instances",
+        .summary = "Install a skill into a managed nullclaw workspace from a bundled skill, ClawHub slug, or source URL/path.",
+        .auth_mode = "optional_bearer",
+        .path_params = common_instance_params[0..],
+        .body = "JSON body with exactly one of bundled, clawhub_slug, or source.",
+        .response = "Install result payload.",
+        .examples = route_examples_skill_install[0..],
+    },
+    .{
+        .id = "instances.skills.remove",
+        .method = "DELETE",
+        .path_template = "/api/instances/{component}/{name}/skills",
+        .category = "instances",
+        .summary = "Remove a workspace-installed skill from a managed nullclaw instance.",
+        .auth_mode = "optional_bearer",
+        .path_params = common_instance_params[0..],
+        .query_params = skills_query_params[0..],
+        .body = null,
+        .response = "Remove result payload.",
+        .examples = route_examples_skill_remove[0..],
     },
     .{
         .id = "instances.integration.get",
