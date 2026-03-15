@@ -85,103 +85,145 @@
   .card {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
-    padding: 1.5rem;
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    color: var(--fg);
-    transition: all 0.2s ease;
-    backdrop-filter: blur(4px);
-  }
-  .card:hover {
+    gap: var(--spacing-lg);
+    padding: var(--spacing-xl);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    color: var(--text-primary);
     text-decoration: none;
-    background: var(--bg-hover);
-    border-color: var(--accent);
-    box-shadow: 0 0 15px var(--border-glow);
+    transition: all var(--transition-base) ease;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card:hover {
+    border-color: var(--glass-border-hover);
+    box-shadow: var(--glass-shadow);
     transform: translateY(-2px);
   }
+
+  /* 扫光线效果 */
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg,
+      transparent,
+      var(--glass-glow),
+      transparent
+    );
+    transition: left var(--transition-slower) ease;
+    z-index: 1;
+  }
+
+  .card:hover::before {
+    left: 100%;
+  }
+
   .card-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
-    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--glass-border);
+    padding-bottom: var(--spacing-md);
   }
+
   .card-name {
-    font-weight: 700;
-    font-size: 1.125rem;
+    font-weight: 600;
+    font-size: var(--font-size-xl);
     text-transform: uppercase;
-    letter-spacing: 2px;
-    text-shadow: var(--text-glow);
-    color: var(--accent);
+    letter-spacing: 1px;
+    color: var(--text-primary);
   }
+
   .card-meta {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    font-size: 0.8125rem;
-    color: var(--fg-dim);
+    gap: var(--spacing-md);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
   }
+
   .component-tag {
-    padding: 0.25rem 0.5rem;
-    background: color-mix(in srgb, var(--border) 20%, transparent);
-    border: 1px solid var(--border);
-    border-radius: 2px;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: rgba(99, 102, 241, 0.15);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: var(--radius-sm);
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
+    color: var(--color-primary);
   }
+
   .version {
     font-family: var(--font-mono);
-    font-size: 0.75rem;
-    opacity: 0.8;
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
   }
+
   .card-actions {
     display: flex;
-    gap: 0.75rem;
-    margin-top: 0.5rem;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
   }
+
   .card-actions button {
-    padding: 0.5rem 1rem;
-    border: 1px solid var(--accent-dim);
-    border-radius: 2px;
-    background: var(--bg-surface);
-    color: var(--accent);
-    font-size: 0.8125rem;
-    font-weight: bold;
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border: 1px solid var(--color-accent);
+    border-radius: var(--radius-md);
+    background: rgba(6, 182, 212, 0.1);
+    color: var(--color-accent);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
     cursor: pointer;
-    transition: all 0.2s ease;
-    text-shadow: var(--text-glow);
+    transition: all var(--transition-base) ease;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
   }
-  .card-actions button:hover {
-    background: var(--bg-hover);
-    border-color: var(--accent);
-    box-shadow: 0 0 10px var(--border-glow);
-    text-shadow: 0 0 8px var(--accent);
+
+  .card-actions button:hover:not(:disabled) {
+    background: rgba(6, 182, 212, 0.2);
+    border-color: #0891b2;
+    box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);
   }
+
+  .card-actions button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   .gateway-addr {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    font-size: 0.8125rem;
-    padding: 0.5rem;
-    background: color-mix(in srgb, var(--bg-surface) 84%, var(--accent) 8%);
-    border: 1px solid var(--border);
-    border-radius: 2px;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    padding: var(--spacing-sm);
+    background: rgba(6, 182, 212, 0.1);
+    border: 1px solid rgba(6, 182, 212, 0.2);
+    border-radius: var(--radius-md);
   }
+
   .gateway-label {
-    color: var(--fg-dim);
-    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
     text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
+
   .gateway-addr code {
     font-family: var(--font-mono);
-    font-size: 0.8rem;
-    color: var(--accent);
-    text-shadow: var(--text-glow);
+    font-size: var(--font-size-sm);
+    color: var(--color-accent);
+    font-weight: 600;
   }
 </style>

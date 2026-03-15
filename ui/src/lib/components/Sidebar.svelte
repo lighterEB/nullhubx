@@ -90,152 +90,162 @@
 
 <style>
   .sidebar {
-    width: 250px;
-    min-width: 250px;
+    width: 260px;
+    min-width: 260px;
     height: 100vh;
-    background: var(--bg-surface);
-    border-right: 1px solid var(--border);
+    background: var(--glass-bg);
+    border-right: 1px solid var(--glass-border);
     display: flex;
     flex-direction: column;
     overflow-y: auto;
-    backdrop-filter: blur(4px);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     z-index: 20;
   }
 
   .logo {
     display: block;
-    padding: 1.5rem 1.25rem;
-    border-bottom: 1px solid var(--border);
+    padding: var(--spacing-xl) var(--spacing-lg);
+    border-bottom: 1px solid var(--glass-border);
     text-align: center;
     color: inherit;
-    transition: background 0.2s ease, box-shadow 0.2s ease;
+    transition: all var(--transition-base) ease;
+    position: relative;
   }
 
   .logo:hover,
   .logo:focus-visible {
     text-decoration: none;
     background: var(--bg-hover);
-    box-shadow: inset 0 -1px 0 var(--accent-dim);
   }
 
   .logo h2 {
-    font-size: 1.5rem;
+    font-size: var(--font-size-xl);
     font-weight: 700;
-    color: var(--accent);
+    color: var(--color-accent);
     letter-spacing: 2px;
-    text-shadow: var(--text-glow);
     text-transform: uppercase;
+    position: relative;
+  }
+
+  /* Logo 发光效果 */
+  .logo h2::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 2px;
+    background: var(--color-accent);
+    border-radius: 1px;
+    box-shadow: 0 0 10px var(--color-accent);
   }
 
   .nav-section {
-    padding: 1rem 0;
-    border-bottom: 1px solid var(--border);
+    padding: var(--spacing-lg) 0;
+    border-bottom: 1px solid var(--glass-border);
   }
 
   .nav-section h3 {
-    font-size: 0.75rem;
-    font-weight: 700;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 2px;
-    color: var(--accent-dim);
-    padding: 0.5rem 1.25rem;
-    text-shadow: 0 0 2px var(--accent-dim);
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    padding: var(--spacing-sm) var(--spacing-lg);
   }
 
   .nav-section a {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.625rem 1.25rem;
-    color: var(--fg-dim);
-    font-size: 0.875rem;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
     text-transform: uppercase;
-    letter-spacing: 1px;
-    transition: all 0.2s ease;
+    letter-spacing: 0.5px;
+    transition: all var(--transition-base) ease;
     border-left: 3px solid transparent;
+    position: relative;
   }
 
   .nav-section a:hover {
     text-decoration: none;
     background: var(--bg-hover);
-    color: var(--fg);
-    border-left-color: var(--accent-dim);
-    text-shadow: var(--text-glow);
+    color: var(--text-primary);
+    border-left-color: var(--color-primary);
   }
 
   .nav-section a.active {
-    background: color-mix(in srgb, var(--accent) 15%, transparent);
-    color: var(--accent);
-    border-left: 3px solid var(--accent);
-    text-shadow: var(--text-glow);
-    box-shadow: inset 20px 0 20px -20px var(--accent);
+    background: rgba(99, 102, 241, 0.15);
+    color: var(--color-primary);
+    border-left: 3px solid var(--color-primary);
+    font-weight: 600;
   }
 
   .component-group {
-    margin-bottom: 0.5rem;
+    margin-bottom: var(--spacing-sm);
   }
 
   .component-name {
     display: block;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--fg-dim);
-    padding: 0.375rem 1.25rem 0.125rem;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: var(--spacing-xs) var(--spacing-lg) 0;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    opacity: 0.7;
+    letter-spacing: 0.5px;
   }
 
   .component-group a {
-    padding-left: 1.75rem;
-    font-size: 0.8rem;
+    padding-left: calc(var(--spacing-lg) + var(--spacing-md));
+    font-size: var(--font-size-sm);
   }
 
   .status-dot {
     display: inline-block;
     width: 6px;
     height: 6px;
-    border-radius: var(--radius);
-    background: var(--error);
-    box-shadow: 0 0 5px var(--error);
+    border-radius: 50%;
+    background: var(--status-error);
+    box-shadow: 0 0 5px var(--status-error);
     flex-shrink: 0;
   }
 
   .status-dot.running {
-    background: var(--success);
-    box-shadow: 0 0 10px var(--success);
+    background: var(--status-running);
+    box-shadow: 0 0 8px var(--status-running);
   }
 
   .nav-bottom {
     margin-top: auto;
-    padding: 1rem 0;
-    border-top: 1px solid var(--border);
+    padding: var(--spacing-lg) 0;
+    border-top: 1px solid var(--glass-border);
   }
 
   .nav-bottom a {
     display: block;
-    padding: 0.75rem 1.25rem;
-    color: var(--fg-dim);
-    font-size: 0.875rem;
+    padding: var(--spacing-sm) var(--spacing-lg);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
     text-transform: uppercase;
-    letter-spacing: 1px;
-    transition: all 0.2s ease;
+    letter-spacing: 0.5px;
+    transition: all var(--transition-base) ease;
     border-left: 3px solid transparent;
   }
 
   .nav-bottom a:hover {
     text-decoration: none;
     background: var(--bg-hover);
-    color: var(--fg);
-    border-left-color: var(--accent-dim);
-    text-shadow: var(--text-glow);
+    color: var(--text-primary);
+    border-left-color: var(--color-primary);
   }
 
   .nav-bottom a.active {
-    background: color-mix(in srgb, var(--accent) 15%, transparent);
-    color: var(--accent);
-    border-left: 3px solid var(--accent);
-    text-shadow: var(--text-glow);
-    box-shadow: inset 20px 0 20px -20px var(--accent);
+    background: rgba(99, 102, 241, 0.15);
+    color: var(--color-primary);
+    border-left: 3px solid var(--color-primary);
+    font-weight: 600;
   }
 </style>

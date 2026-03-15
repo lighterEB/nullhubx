@@ -1,150 +1,88 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
 
-:root,
-body.theme-matrix {
-  /* Default Theme: Matrix Green */
-  --bg: #030a05;
-  --bg-surface: rgba(0, 20, 5, 0.7);
-  --bg-hover: rgba(0, 40, 10, 0.8);
-  --fg: #00ff41;
-  --fg-dim: #00aa2a;
-  --accent: #00ff41;
-  --accent-dim: #008822;
-  --error: #ff2a2a;
-  --warning: #ffaa00;
-  --border: rgba(0, 255, 65, 0.3);
-  --border-glow: rgba(0, 255, 65, 0.5);
-  --text-glow: 0 0 5px rgba(0, 255, 65, 0.4);
-  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
-}
-
-body.theme-dracula {
-  --bg: #282a36;
-  --bg-surface: rgba(40, 42, 54, 0.85);
-  --bg-hover: rgba(68, 71, 90, 0.8);
-  --fg: #f8f8f2;
-  --fg-dim: #bbbbbb;
-  --accent: #bd93f9;
-  --accent-dim: #ff79c6;
-  --error: #ff5555;
-  --warning: #f1fa8c;
-  --border: rgba(189, 147, 249, 0.4);
-  --border-glow: rgba(189, 147, 249, 0.6);
-  --text-glow: 0 0 5px rgba(189, 147, 249, 0.3);
-}
-
-body.theme-synthwave {
-  --bg: #1a0b2e;
-  --bg-surface: rgba(26, 11, 46, 0.85);
-  --bg-hover: rgba(54, 23, 94, 0.8);
-  --fg: #00ffff;
-  --fg-dim: #36c5c5;
-  --accent: #ff00ff;
-  --accent-dim: #b500b5;
-  --error: #ff3366;
-  --warning: #f7e018;
-  --border: rgba(255, 0, 255, 0.4);
-  --border-glow: rgba(255, 0, 255, 0.6);
-  --text-glow: 0 0 6px rgba(255, 0, 255, 0.5);
-}
-
-body.theme-amber {
-  --bg: #1c0f00;
-  --bg-surface: rgba(28, 15, 0, 0.85);
-  --bg-hover: rgba(66, 32, 0, 0.8);
-  --fg: #ffb000;
-  --fg-dim: #cc8d00;
-  --accent: #ffb000;
-  --accent-dim: #b37b00;
-  --error: #ff4400;
-  --warning: #ffea00;
-  --border: rgba(255, 176, 0, 0.35);
-  --border-glow: rgba(255, 176, 0, 0.55);
-  --text-glow: 0 0 5px rgba(255, 176, 0, 0.4);
-}
-
-body.theme-light {
-  --bg: #e4e2de;
-  /* Vintage paper terminal */
-  --bg-surface: rgba(255, 255, 255, 0.6);
-  --bg-hover: rgba(220, 218, 214, 0.8);
-  --fg: #2b2b2b;
-  --fg-dim: #5c5c5c;
-  --accent: #00702a;
-  --accent-dim: #004b1c;
-  --error: #cf222e;
-  --warning: #9a6700;
-  --border: rgba(0, 0, 0, 0.15);
-  --border-glow: rgba(0, 112, 42, 0.2);
-  --text-glow: none;
-}
-
-html.theme-8bit-lobster-light,
-body.theme-8bit-lobster-light {
-  /* Bright lobster palette on a light CRT paper base */
-  --bg: #f8eee7;
-  --bg-surface: rgba(255, 247, 242, 0.88);
-  --bg-hover: rgba(255, 227, 220, 0.95);
-  --fg: #341313;
-  --fg-dim: #8e5454;
-  --accent: #ff3333;
-  --accent-dim: #cc0000;
-  --error: #ff0000;
-  --success: #4caf50;
-  --warning: #c57a00;
-  --fx-accent: #4caf50;
-  --fx-accent-glow: rgba(76, 175, 80, 0.45);
-  --border: rgba(255, 51, 51, 0.28);
-  --border-glow: rgba(255, 51, 51, 0.35);
-  --text-glow: 0 0 4px rgba(255, 51, 51, 0.18);
-  --font-mono: 'VT323', 'JetBrains Mono', 'Fira Code', monospace;
-  --ui-font-size: 19px;
-  --ui-line-height: 1.55;
-  --radius: 0px;
-  --radius-sm: 0px;
-}
-
-html.theme-8bit-lobster,
-body.theme-8bit-lobster {
-  /* Really blocky, vivid, dark pixel theme */
-  --bg: #0d0505;
-  --bg-surface: rgba(30, 0, 0, 0.85);
-  --bg-hover: rgba(60, 5, 5, 0.9);
-  --fg: #ffefef;
-  --fg-dim: #e4a2a2;
-  --accent: #ff3333;
-  --accent-dim: #cc0000;
-  --error: #ff0000;
-  --success: #4caf50;
-  --warning: #ffaa00;
-  --fx-accent: #4caf50;
-  --fx-accent-glow: rgba(76, 175, 80, 0.7);
-  --border: rgba(255, 51, 51, 0.5);
-  --border-glow: rgba(255, 51, 51, 0.8);
-  --text-glow: 0 0 6px rgba(255, 51, 51, 0.5);
-  --font-mono: 'VT323', 'JetBrains Mono', 'Fira Code', monospace;
-  --ui-font-size: 19px;
-  --ui-line-height: 1.55;
-  --radius: 0px;
-  --radius-sm: 0px;
-}
+/* ========================================
+   深空科技主题 - Deep Space Tech Theme
+   ======================================== */
 
 :root,
 html,
 body {
-  --success: var(--accent);
-  --text-muted: var(--fg-dim);
-  --text-primary: var(--fg);
-  --bg-secondary: var(--bg-surface);
-  --bg-tertiary: var(--bg-hover);
-  --fx-accent: var(--accent);
-  --fx-accent-glow: var(--border-glow);
-  --ui-font-size: 15px;
-  --ui-line-height: 1.6;
-  --radius: 4px;
-  --radius-sm: 2px;
+  /* 核心背景色 */
+  --bg-deep: #060b18;
+  --bg-surface: rgba(10, 18, 35, 0.85);
+  --bg-elevated: rgba(20, 30, 50, 0.9);
+  --bg-hover: rgba(30, 45, 70, 0.7);
+
+  /* 主题强调色 */
+  --color-primary: #6366f1;     /* 靛蓝 - 主要强调 */
+  --color-accent: #06b6d4;      /* 青色 - 科技感强调 */
+
+  /* 实例状态色 */
+  --status-running: #22c55e;    /* 运行中 - 绿色 */
+  --status-stopped: #6b7280;    /* 已停止 - 灰色 */
+  --status-error: #ef4444;      /* 错误 - 红色 */
+  --status-warning: #f59e0b;    /* 警告 - 橙色 */
+  --status-starting: #06b6d4;   /* 启动中 - 青色 */
+  --status-stopping: #f59e0b;   /* 停止中 - 橙色 */
+
+  /* 文本色 */
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  /* 玻璃拟态 */
+  --glass-bg: rgba(10, 18, 35, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-hover: rgba(255, 255, 255, 0.15);
+  --glass-glow: rgba(255, 255, 255, 0.12);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+
+  /* 网格线 */
+  --grid-color: rgba(255, 255, 255, 0.03);
+  --grid-size: 40px;
+
+  /* 边框 */
+  --border: rgba(255, 255, 255, 0.1);
+  --border-active: rgba(255, 255, 255, 0.2);
+
+  /* 字体系统 */
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --font-size-sm: 12px;
+  --font-size-base: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 18px;
+
+  /* 间距系统 */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 20px;
+  --spacing-2xl: 24px;
+  --spacing-3xl: 32px;
+
+  /* 圆角系统 */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* 动画时长 */
+  --transition-fast: 0.15s;
+  --transition-base: 0.2s;
+  --transition-slow: 0.3s;
+  --transition-slower: 0.5s;
+
+  /* 阴影 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.3);
 }
+
+/* ========================================
+   全局重置
+   ======================================== */
 
 *,
 *::before,
@@ -157,289 +95,520 @@ body {
 html,
 body {
   min-height: 100vh;
-  background: var(--bg);
-  color: var(--fg);
+  background: var(--bg-deep);
+  color: var(--text-primary);
   font-family: var(--font-mono);
-  line-height: var(--ui-line-height);
+  font-size: var(--font-size-base);
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   position: relative;
   overflow-x: hidden;
-  transition: background-color 0.5s ease, color 0.5s ease;
 }
 
-html {
-  font-size: var(--ui-font-size);
-}
+/* ========================================
+   网格底纹背景
+   ======================================== */
 
-body {
-  font-size: 1rem;
-}
-
-/* CRT Scanline Effect */
-body:not(.effects-disabled)::before {
-  content: " ";
-  display: block;
+body::before {
+  content: '';
   position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  right: 0;
-  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
-  background-size: 100% 4px;
-  background-position: 0 0;
-  /* Scanline thickness */
-  z-index: 9999;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+  background-size: var(--grid-size) var(--grid-size);
   pointer-events: none;
-  /* Let clicks pass through */
-  animation: crt-scanline-drift 9s linear infinite alternate;
-  will-change: background-position;
+  z-index: -1;
 }
 
-body.theme-8bit-lobster-light:not(.effects-disabled)::before {
-  background: linear-gradient(
-    rgba(255, 255, 255, 0) 50%,
-    rgba(120, 20, 20, 0.08) 50%
-  );
-  background-size: 100% 4px;
+/* ========================================
+   玻璃拟态基础类
+   ======================================== */
+
+.glass {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
-/* CRT Flicker/Pulse */
-@keyframes crt-scanline-drift {
-  0% {
-    background-position: 0 0;
-  }
-
-  50% {
-    background-position: 0 8px;
-  }
-
-  100% {
-    background-position: 0 -8px;
-  }
+.glass-elevated {
+  background: var(--bg-elevated);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: var(--glass-shadow);
 }
 
-@keyframes crt-pulse {
-  0% {
-    opacity: 0.95;
-  }
+/* ========================================
+   卡片样式
+   ======================================== */
 
-  50% {
-    opacity: 1.0;
-  }
-
-  100% {
-    opacity: 0.95;
-  }
+.card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  position: relative;
+  overflow: hidden;
+  transition: all var(--transition-base) ease;
 }
 
-body:not(.effects-disabled)::after {
-  content: " ";
-  display: block;
-  position: fixed;
+.card:hover {
+  border-color: var(--glass-border-hover);
+  box-shadow: var(--glass-shadow);
+}
+
+/* 扫光线效果 */
+.card::before {
+  content: '';
+  position: absolute;
   top: 0;
-  left: 0;
-  bottom: 0;
-  right: 0;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.03) 0%, rgba(0, 0, 0, 0.4) 110%);
-  z-index: 9998;
-  pointer-events: none;
-  animation: crt-pulse 4s infinite linear;
-}
-
-body.theme-8bit-lobster-light:not(.effects-disabled)::after {
-  background: radial-gradient(
-    circle,
-    rgba(255, 255, 255, 0.22) 0%,
-    rgba(160, 48, 48, 0.08) 55%,
-    rgba(80, 10, 10, 0.18) 120%
+  left: -100%;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg,
+    transparent,
+    var(--glass-glow),
+    transparent
   );
+  transition: left var(--transition-slow) ease;
+  z-index: 1;
 }
 
-/* Base Inputs */
-input,
-button,
-textarea {
-  font-family: inherit;
-  font-size: 0.95em;
-  color: inherit;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 8px 12px;
-  outline: none;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(4px);
-  text-shadow: var(--text-glow);
+.card:hover::before {
+  left: 100%;
 }
 
-input:focus,
-textarea:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 8px var(--border-glow);
-}
+/* ========================================
+   按钮样式
+   ======================================== */
 
 button {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-lg);
   cursor: pointer;
-  border-color: var(--accent-dim);
-  color: var(--accent);
-  text-transform: uppercase;
-  font-weight: bold;
-  letter-spacing: 1px;
+  outline: none;
+  transition: all var(--transition-base) ease;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 button:hover:not(:disabled) {
   background: var(--bg-hover);
-  border-color: var(--accent);
-  box-shadow: 0 0 10px var(--border-glow);
-  text-shadow: 0 0 8px var(--accent);
+  border-color: var(--glass-border-hover);
+  box-shadow: var(--shadow-md);
 }
 
-body.theme-8bit-lobster button:hover:not(:disabled),
-body.theme-8bit-lobster-light button:hover:not(:disabled) {
-  /* Flatten hover effect, no jumping shadow */
-  box-shadow: 0 0 8px var(--border-glow);
-  transform: none;
-}
-
-body.theme-8bit-lobster .status-dot,
-body.theme-8bit-lobster-light .status-dot {
-  border-radius: var(--radius) !important;
-}
-
-/* Retro green LED indicators for the 8-bit theme */
-body.theme-8bit-lobster .status-dot.running,
-body.theme-8bit-lobster .status-dot.ok,
-body.theme-8bit-lobster .status-dot.validated,
-body.theme-8bit-lobster-light .status-dot.running,
-body.theme-8bit-lobster-light .status-dot.ok,
-body.theme-8bit-lobster-light .status-dot.validated,
-body.theme-8bit-lobster .badge.running::before {
-  background: var(--success) !important;
-  box-shadow: 0 0 8px var(--success) !important;
-}
-
-body.theme-8bit-lobster-light .badge.running::before {
-  background: var(--success) !important;
-  box-shadow: 0 0 8px var(--success) !important;
-}
-
-body.theme-8bit-lobster:not(.effects-disabled) .status-dot.running,
-body.theme-8bit-lobster:not(.effects-disabled) .status-dot.ok,
-body.theme-8bit-lobster:not(.effects-disabled) .status-dot.validated,
-body.theme-8bit-lobster:not(.effects-disabled) .badge.running::before,
-body.theme-8bit-lobster-light:not(.effects-disabled) .status-dot.running,
-body.theme-8bit-lobster-light:not(.effects-disabled) .status-dot.ok,
-body.theme-8bit-lobster-light:not(.effects-disabled) .status-dot.validated,
-body.theme-8bit-lobster-light:not(.effects-disabled) .badge.running::before {
-  animation: retroPulse 1.6s steps(6, end) infinite;
-}
-
-@keyframes retroPulse {
-  0%, 100% { opacity: 0.95; }
-  50% { opacity: 0.45; }
+button:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-  box-shadow: none;
 }
 
+/* 主要按钮 */
+button.primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--bg-deep);
+}
+
+button.primary:hover:not(:disabled) {
+  background: #0891b2;
+  border-color: #0891b2;
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+}
+
+/* 危险按钮 */
+button.danger {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: var(--status-error);
+  color: var(--status-error);
+}
+
+button.danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.3);
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
+}
+
+/* ========================================
+   输入框样式
+   ======================================== */
+
+input,
+textarea,
+select {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-base);
+  color: var(--text-primary);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  outline: none;
+  transition: all var(--transition-base) ease;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-muted);
+}
+
+/* ========================================
+   链接样式
+   ======================================== */
+
 a {
-  color: var(--accent);
+  color: var(--color-accent);
   text-decoration: none;
-  transition: all 0.2s ease;
-  text-shadow: 0 0 2px color-mix(in srgb, var(--accent) 50%, transparent);
+  transition: all var(--transition-base) ease;
 }
 
 a:hover {
+  color: #0891b2;
   text-decoration: underline;
-  text-shadow: var(--text-glow);
-  color: var(--accent);
 }
 
-body.effects-disabled * {
-  text-shadow: none !important;
+/* ========================================
+   状态指示器
+   ======================================== */
+
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: var(--spacing-sm);
+  position: relative;
 }
 
-body.effects-disabled input:focus,
-body.effects-disabled textarea:focus,
-body.effects-disabled button:hover:not(:disabled) {
-  box-shadow: none !important;
+.status-dot.running {
+  background: var(--status-running);
+  box-shadow: 0 0 8px var(--status-running);
 }
 
-::selection {
-  background: var(--accent-dim);
-  color: var(--bg);
+.status-dot.stopped {
+  background: var(--status-stopped);
 }
 
-/* Scrollbars */
+.status-dot.error {
+  background: var(--status-error);
+  box-shadow: 0 0 8px var(--status-error);
+}
+
+.status-dot.warning {
+  background: var(--status-warning);
+  box-shadow: 0 0 8px var(--status-warning);
+}
+
+/* ========================================
+   徽章样式
+   ======================================== */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+}
+
+.badge.primary {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.badge.success {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: var(--status-running);
+  color: var(--status-running);
+}
+
+.badge.warning {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: var(--status-warning);
+  color: var(--status-warning);
+}
+
+.badge.danger {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: var(--status-error);
+  color: var(--status-error);
+}
+
+/* ========================================
+   滚动条样式
+   ======================================== */
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-surface);
-  border-left: 1px solid var(--border);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--accent-dim);
-  border-radius: var(--radius);
+  background: var(--glass-border);
+  border-radius: var(--radius-sm);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--accent);
+  background: var(--glass-border-hover);
 }
 
-/* Shared utility animations */
-@keyframes typeWriter {
-  from {
-    width: 0;
-    opacity: 0;
-  }
+/* ========================================
+   选中样式
+   ======================================== */
 
-  to {
-    width: 100%;
+::selection {
+  background: rgba(99, 102, 241, 0.3);
+  color: var(--text-primary);
+}
+
+/* ========================================
+   呼吸灯动画
+   ======================================== */
+
+@keyframes breathe {
+  0%, 100% {
+    box-shadow: 0 0 5px var(--status-running), 0 0 10px var(--status-running);
+    opacity: 0.6;
+  }
+  50% {
+    box-shadow: 0 0 15px var(--status-running), 0 0 30px var(--status-running);
     opacity: 1;
   }
 }
 
-@keyframes blinkCursor {
+.breathing {
+  animation: breathe 2s ease-in-out infinite;
+}
 
-  from,
-  to {
-    border-color: transparent;
+/* ========================================
+   脉冲动画
+   ======================================== */
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
   }
-
   50% {
-    border-color: var(--accent);
+    opacity: 0.5;
   }
 }
 
-@keyframes glitch {
-  0% {
-    transform: translate(0)
-  }
+.pulsing {
+  animation: pulse 2s ease-in-out infinite;
+}
 
-  20% {
-    transform: translate(-2px, 2px)
-  }
+/* ========================================
+   旋转动画
+   ======================================== */
 
-  40% {
-    transform: translate(-2px, -2px)
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
   }
+  to {
+    transform: rotate(360deg);
+  }
+}
 
-  60% {
-    transform: translate(2px, 2px)
-  }
+.spinning {
+  animation: spin 1s linear infinite;
+}
 
-  80% {
-    transform: translate(2px, -2px)
-  }
+/* ========================================
+   淡入动画
+   ======================================== */
 
-  100% {
-    transform: translate(0)
+@keyframes fadeIn {
+  from {
+    opacity: 0;
   }
+  to {
+    opacity: 1;
+  }
+}
+
+.fade-in {
+  animation: fadeIn var(--transition-slow) ease;
+}
+
+/* ========================================
+   滑入动画
+   ======================================== */
+
+@keyframes slideIn {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.slide-in {
+  animation: slideIn var(--transition-slow) ease;
+}
+
+/* ========================================
+   工具类
+   ======================================== */
+
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.gap-sm {
+  gap: var(--spacing-sm);
+}
+
+.gap-md {
+  gap: var(--spacing-md);
+}
+
+.gap-lg {
+  gap: var(--spacing-lg);
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-left {
+  text-align: left;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.text-sm {
+  font-size: var(--font-size-sm);
+}
+
+.text-lg {
+  font-size: var(--font-size-lg);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.text-primary {
+  color: var(--color-accent);
+}
+
+.text-success {
+  color: var(--status-running);
+}
+
+.text-warning {
+  color: var(--status-warning);
+}
+
+.text-error {
+  color: var(--status-error);
+}
+
+.mt-sm {
+  margin-top: var(--spacing-sm);
+}
+
+.mt-md {
+  margin-top: var(--spacing-md);
+}
+
+.mt-lg {
+  margin-top: var(--spacing-lg);
+}
+
+.mb-sm {
+  margin-bottom: var(--spacing-sm);
+}
+
+.mb-md {
+  margin-bottom: var(--spacing-md);
+}
+
+.mb-lg {
+  margin-bottom: var(--spacing-lg);
+}
+
+.p-sm {
+  padding: var(--spacing-sm);
+}
+
+.p-md {
+  padding: var(--spacing-md);
+}
+
+.p-lg {
+  padding: var(--spacing-lg);
+}
+
+.rounded {
+  border-radius: var(--radius-md);
+}
+
+.rounded-lg {
+  border-radius: var(--radius-lg);
+}
+
+.hidden {
+  display: none;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.h-full {
+  height: 100%;
 }
