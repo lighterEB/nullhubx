@@ -7,8 +7,12 @@
 
   let { children } = $props();
 
+  // Run redirect check in background - don't block initial render
   onMount(() => {
-    void redirectToPreferredOrigin(window.location);
+    // Delay redirect check to let page render first
+    setTimeout(() => {
+      void redirectToPreferredOrigin(window.location);
+    }, 100);
   });
 </script>
 

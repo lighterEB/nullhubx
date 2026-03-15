@@ -39,7 +39,7 @@ export async function redirectToPreferredOrigin(location: Location): Promise<voi
 
 async function probeOrigin(origin: string): Promise<boolean> {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 350);
+  const timeout = window.setTimeout(() => controller.abort(), 100); // reduced from 350ms
   try {
     const response = await fetch(`${origin}/health`, {
       method: "GET",

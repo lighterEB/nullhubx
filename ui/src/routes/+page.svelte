@@ -1,87 +1,59 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import InstanceCard from "$lib/components/InstanceCard.svelte";
-  import { api } from "$lib/api/client";
+  import { status, statusError, instanceCount, runningCount, subscribeStatus, refreshStatus } from "$lib/statusStore";
 
-  let status = $state<any>(null);
-  let error = $state<string | null>(null);
-  let interval: ReturnType<typeof setInterval>;
-
-  async function refresh() {
-    try {
-      status = await api.getStatus();
-      error = null;
-    } catch (e) {
-      error = (e as Error).message;
-    }
-  }
+  let unsubscribe: (() => void) | null = null;
 
   onMount(() => {
-    refresh();
-    interval = setInterval(refresh, 5000);
+    unsubscribe = subscribeStatus();
   });
 
-  onDestroy(() => clearInterval(interval));
-
-  let instanceCount = $derived(() => {
-    let count = 0;
-    for (const instances of Object.values(status?.instances || {})) {
-      count += Object.keys(instances as Record<string, any>).length;
-    }
-    return count;
-  });
-
-  let runningCount = $derived(() => {
-    let count = 0;
-    for (const instances of Object.values(status?.instances || {})) {
-      for (const inst of Object.values(instances as Record<string, any>)) {
-        if ((inst as any).status === "running") count++;
-      }
-    }
-    return count;
+  onDestroy(() => {
+    unsubscribe?.();
   });
 </script>
 
 <svelte:head>
-  <title>System Status - NullHubX</title>
+  <title>大盘图表 - NullHubX</title>
 </svelte:head>
 
 <div class="page">
   <header class="page-header">
     <div class="header-left">
       <div class="breadcrumb">
-        <span class="breadcrumb-item">System</span>
+        <span class="breadcrumb-item">监控</span>
         <span class="breadcrumb-sep">/</span>
-        <span class="breadcrumb-item active">Status</span>
+        <span class="breadcrumb-item active">大盘图表</span>
       </div>
       <h1>
-        SYSTEM <span class="highlight">STATUS</span>
+        系统总体 <span class="highlight">运行状态</span>
       </h1>
-      <p class="subtitle">Monitor and manage your null stack instances</p>
+      <p class="subtitle">监控全局资源占用与活跃实例</p>
     </div>
     <div class="header-right">
-      <span class="badge badge-indigo">{instanceCount()} instances</span>
-      <span class="badge badge-emerald">{runningCount()} running</span>
-      <a href="/install" class="btn-add">
+      <span class="badge badge-indigo">{$instanceCount} 个管理实例</span>
+      <span class="badge badge-emerald">{$runningCount} 正在运行</span>
+      <a href="/hub" class="btn-add">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Add Component
+        前往应用市场
       </a>
     </div>
   </header>
 
   <hr class="divider" />
 
-  {#if error}
+  {#if $statusError}
     <div class="error-banner">
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      <span>ERR: {error}</span>
+      <span>ERR: {$statusError}</span>
     </div>
   {/if}
 
-  {#if status}
-    {#if Object.keys(status.instances || {}).length > 0}
+  {#if $status}
+    {#if Object.keys($status.instances || {}).length > 0}
       <div class="instance-grid">
-        {#each Object.entries(status.instances || {}) as [component, instances], i}
+        {#each Object.entries($status.instances || {}) as [component, instances], i}
           {#each Object.entries(instances as Record<string, any>) as [name, info], j}
             <div class="card-wrapper" style="animation-delay: {(i * 3 + j) * 60}ms">
               <InstanceCard
@@ -91,7 +63,7 @@
                 status={info.status || "stopped"}
                 autoStart={info.auto_start}
                 port={info.port || 0}
-                onAction={refresh}
+                onAction={refreshStatus}
               />
             </div>
           {/each}
@@ -102,11 +74,11 @@
         <div class="empty-icon-circle">
           <span class="empty-symbol">◉</span>
         </div>
-        <h2>No instances running</h2>
-        <p>Deploy your first component to get started</p>
-        <a href="/install" class="btn-add-empty">
+        <h2>暂无运行中的引擎</h2>
+        <p>请先在应用市场安装核心组件</p>
+        <a href="/hub" class="btn-add-empty">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Add Component
+          前往应用市场
         </a>
       </div>
     {/if}

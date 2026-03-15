@@ -1,37 +1,56 @@
 <script lang="ts">
   import { page } from "$app/stores";
-  import { onMount } from "svelte";
-  import { browser } from "$app/environment";
-  import { api } from "$lib/api/client";
+  import { onMount, onDestroy } from "svelte";
+  import { subscribeStatus, hubConnected } from "$lib/statusStore";
+  import { t, i18n, type Locale } from "$lib/i18n/index.svelte";
 
-  let hubOk = $state(true);
   let currentPath = $derived($page.url.pathname);
+  let unsubscribe: (() => void) | null = null;
+  let showLangMenu = $state(false);
 
-  const navItems = [
-    { href: "/", label: "Status" },
-    { href: "/dashboard", label: "Dashboard" },
-    { href: "/install", label: "Components" },
-    { href: "/providers", label: "Providers" },
-    { href: "/channels", label: "Channels" },
-  ];
+  let navItems = $derived([
+    { href: "/", label: t("nav.overview") },
+    { href: "/agents", label: t("nav.agents") },
+    { href: "/connections", label: t("nav.connections") },
+    { href: "/hub", label: t("nav.hub") },
+    { href: "/settings", label: t("nav.settings") }
+  ]);
 
   function isActive(href: string): boolean {
     if (href === "/") return currentPath === "/";
     return currentPath.startsWith(href);
   }
 
+  function toggleLangMenu() {
+    showLangMenu = !showLangMenu;
+  }
+
+  function setLocale(locale: Locale) {
+    i18n.locale = locale;
+    showLangMenu = false;
+    // Persist to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('nullhubx-locale', locale);
+    }
+  }
+
+  function getLocaleLabel(locale: Locale): string {
+    return locale === 'zh-CN' ? '中文' : 'EN';
+  }
+
   onMount(() => {
-    async function check() {
-      try {
-        await api.getStatus();
-        hubOk = true;
-      } catch {
-        hubOk = false;
+    unsubscribe = subscribeStatus();
+    // Restore locale from localStorage
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('nullhubx-locale') as Locale | null;
+      if (saved && (saved === 'zh-CN' || saved === 'en-US')) {
+        i18n.locale = saved;
       }
     }
-    check();
-    const interval = setInterval(check, 10000);
-    return () => clearInterval(interval);
+  });
+
+  onDestroy(() => {
+    unsubscribe?.();
   });
 </script>
 
@@ -52,9 +71,36 @@
   
   <div class="topbar-right">
     <div class="live-sync">
-      <span class="sync-dot" class:pulse-dot={hubOk}></span>
+      <span class="sync-dot" class:pulse-dot={$hubConnected}></span>
       <span class="sync-label">LIVE SYNC</span>
     </div>
+    
+    <!-- Language Switcher -->
+    <div class="lang-switcher">
+      <button class="lang-btn" onclick={toggleLangMenu}>
+        {getLocaleLabel(i18n.locale)}
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      {#if showLangMenu}
+        <div class="lang-menu">
+          <button 
+            class="lang-option" 
+            class:active={i18n.locale === 'zh-CN'}
+            onclick={() => setLocale('zh-CN')}
+          >
+            中文
+          </button>
+          <button 
+            class="lang-option" 
+            class:active={i18n.locale === 'en-US'}
+            onclick={() => setLocale('en-US')}
+          >
+            English
+          </button>
+        </div>
+      {/if}
+    </div>
+    
     <div class="avatar">
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
     </div>
@@ -142,6 +188,67 @@
     letter-spacing: 1px;
   }
 
+  .lang-switcher {
+    position: relative;
+  }
+
+  .lang-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--slate-100);
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius-md);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    color: var(--slate-600);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  .lang-btn:hover {
+    background: var(--slate-200);
+    border-color: var(--slate-300);
+  }
+
+  .lang-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    background: white;
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    min-width: 100px;
+  }
+
+  .lang-option {
+    display: block;
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: none;
+    border: none;
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    color: var(--slate-600);
+    text-align: left;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  .lang-option:hover {
+    background: var(--slate-50);
+  }
+
+  .lang-option.active {
+    background: var(--indigo-50);
+    color: var(--indigo-600);
+    font-weight: 500;
+  }
+
   .avatar {
     width: 32px;
     height: 32px;
@@ -152,15 +259,6 @@
     border: 1px solid var(--slate-200);
     border-radius: 50%;
     color: var(--slate-500);
-  }
-
-  @keyframes pulse {
-    0%, 100% {
-      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
-    }
-    50% {
-      box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
-    }
   }
 
   .pulse-dot {

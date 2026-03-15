@@ -309,7 +309,7 @@
           <span class="step-label">{label}</span>
         </button>
         {#if i < pageLabels.length - 1}
-          <div class="step-line" class:completed={currentPage > i}></div>
+          <div class="step-line" class:completed-before={i < currentPage}></div>
         {/if}
       {/each}
     </div>
@@ -345,6 +345,11 @@
       {/if}
 
       {#if providerStep}
+        {#if validationError === "Add at least one provider"}
+          <div class="provider-validation-error visible">{validationError}</div>
+        {:else}
+          <div class="provider-validation-error">Add at least one provider</div>
+        {/if}
         <ProviderList
           providers={providerStep.options || []}
           value={answers["_providers"] || "[]"}
@@ -414,15 +419,15 @@
         onclick={handleNext}
         disabled={validating || !!instanceNameError}
       >
-        {validating ? "Validating..." : "Next"}
+        {validating ? "Validating..." : "Next →"}
       </button>
     {:else}
       <button
-        class="primary-btn"
+        class="primary-btn install-btn"
         onclick={submit}
         disabled={installing || !!instanceNameError}
       >
-        {installing ? "Installing..." : "Install"}
+        {installing ? "Installing..." : "INSTALL →"}
       </button>
     {/if}
   </div>
@@ -430,93 +435,121 @@
 
 <style>
   .wizard {
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    overflow: hidden;
-    backdrop-filter: blur(4px);
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 32px 40px;
+    background: white;
+    border: 1px solid var(--slate-200);
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);
   }
 
   .wizard-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+    padding: 0 0 24px 0;
+    border-bottom: 1px solid var(--slate-200);
+    margin-bottom: 24px;
   }
 
   .wizard-header h2 {
-    font-size: 1.25rem;
+    font-family: var(--font-mono);
+    font-size: 12px;
     font-weight: 700;
-    color: var(--accent);
+    color: var(--slate-700);
     text-transform: uppercase;
     letter-spacing: 2px;
-    text-shadow: var(--text-glow);
-    margin-bottom: 1rem;
+    margin: 0 0 20px 0;
   }
 
   .step-indicator {
     display: flex;
     align-items: center;
     gap: 0;
+    width: 100%;
   }
 
   .step-dot {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 8px;
     background: none;
     border: none;
-    color: var(--fg-dim);
     cursor: pointer;
-    padding: 0.25rem 0;
+    padding: 0;
     transition: all 0.2s ease;
   }
 
   .step-dot:disabled { cursor: default; }
 
-  .step-dot.active .step-num,
-  .step-dot.completed .step-num {
-    background: color-mix(in srgb, var(--accent) 30%, transparent);
-    border-color: var(--accent);
-    color: var(--accent);
-    box-shadow: 0 0 8px var(--border-glow);
-    text-shadow: var(--text-glow);
-  }
-
-  .step-dot.active .step-label { color: var(--accent); text-shadow: var(--text-glow); }
-  .step-dot.completed .step-label { color: var(--fg); }
-
   .step-num {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
-    border: 1px solid var(--border);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.75rem;
+    font-size: 12px;
     font-weight: 700;
     font-family: var(--font-mono);
     transition: all 0.2s ease;
   }
 
-  .step-label {
-    font-size: 0.75rem;
+  .step-dot.active .step-num {
+    background: #4f46e5;
+    color: white;
     font-weight: 700;
+  }
+
+  .step-dot.completed .step-num {
+    background: #eef2ff;
+    color: #4f46e5;
+    border: 1px solid #c7d2fe;
+  }
+
+  .step-dot:not(.active):not(.completed) .step-num {
+    background: white;
+    color: #94a3b8;
+    border: 1px solid #e2e8f0;
+  }
+
+  .step-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 1.5px;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    margin-left: 8px;
     transition: all 0.2s ease;
+  }
+
+  .step-dot.active .step-label {
+    color: #4f46e5;
+    font-weight: 600;
+  }
+
+  .step-dot.completed .step-label {
+    color: #4f46e5;
+  }
+
+  .step-dot:not(.active):not(.completed) .step-label {
+    color: #94a3b8;
   }
 
   .step-line {
     flex: 1;
     height: 1px;
-    background: var(--border);
-    margin: 0 0.75rem;
+    margin: 0 16px;
     transition: all 0.2s ease;
   }
-  .step-line.completed { background: var(--accent); box-shadow: 0 0 4px var(--border-glow); }
 
-  .wizard-body { padding: 1.75rem 1.5rem; }
+  .step-line.completed-before {
+    background: #c7d2fe;
+  }
+
+  .step-line:not(.completed-before) {
+    background: #e2e8f0;
+  }
+
+  .wizard-body { padding: 0 0 24px 0; }
 
   .name-step { margin-bottom: 2rem; }
 
@@ -594,6 +627,29 @@
     font-family: var(--font-mono);
   }
 
+  .provider-validation-error {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    color: #dc2626;
+    background: #fff5f5;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    display: none;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .provider-validation-error.visible {
+    display: flex;
+  }
+
+  .provider-validation-error::before {
+    content: '⚠';
+    color: #dc2626;
+  }
+
   .advanced-toggle {
     display: flex;
     align-items: center;
@@ -662,65 +718,66 @@
   }
 
   .wizard-footer {
-    padding: 1.25rem 1.5rem;
-    border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-top: 1px solid var(--slate-200);
+    padding: 16px 0 0 0;
+    margin-top: 24px;
     display: flex;
     align-items: center;
-    background: color-mix(in srgb, var(--bg-surface) 50%, transparent);
+    justify-content: space-between;
   }
 
   .footer-spacer { flex: 1; }
 
   .primary-btn {
-    background: color-mix(in srgb, var(--accent) 20%, transparent);
-    color: var(--accent);
-    border: 1px solid var(--accent);
-    border-radius: 2px;
-    padding: 0.75rem 2rem;
-    font-size: 0.875rem;
-    font-weight: 700;
+    background: #4f46e5;
+    color: white;
+    border: 1px solid #4f46e5;
+    border-radius: 8px;
+    padding: 10px 28px;
+    font-size: 14px;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    text-shadow: var(--text-glow);
-    box-shadow: inset 0 0 10px color-mix(in srgb, var(--accent) 30%, transparent);
+    font-family: var(--font-mono);
+    letter-spacing: 1.5px;
+  }
+
+  .primary-btn.install-btn {
+    background: #059669;
+    border-color: #059669;
   }
 
   .primary-btn:hover:not(:disabled) {
-    background: var(--bg-hover);
-    border-color: var(--accent);
-    box-shadow:
-      0 0 15px var(--border-glow),
-      inset 0 0 15px color-mix(in srgb, var(--accent) 40%, transparent);
-    text-shadow: 0 0 10px var(--accent);
+    filter: brightness(1.1);
   }
 
   .primary-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-    box-shadow: none;
-    text-shadow: none;
   }
 
   .secondary-btn {
-    background: color-mix(in srgb, var(--bg-surface) 50%, transparent);
-    color: var(--fg-dim);
-    border: 1px solid var(--border);
-    border-radius: 2px;
-    padding: 0.75rem 1.5rem;
-    font-size: 0.875rem;
-    font-weight: 700;
+    background: white;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 24px;
+    font-size: 11px;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
-    text-transform: uppercase;
-    letter-spacing: 2px;
+    font-family: var(--font-mono);
+    letter-spacing: 1.5px;
   }
 
   .secondary-btn:hover:not(:disabled) {
-    background: var(--bg-hover);
-    border-color: var(--accent);
-    color: var(--fg);
+    border-color: #c7d2fe;
+    color: #4f46e5;
   }
 
   .secondary-btn:disabled {

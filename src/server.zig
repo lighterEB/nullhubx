@@ -39,6 +39,10 @@ pub const Server = struct {
     manager: *manager_mod.Manager,
     mutex: *std.Thread.Mutex,
     start_time: i64,
+    
+    // Thread management
+    active_threads: std.atomic.Value(usize) = std.atomic.Value(usize).init(0),
+    max_threads: usize = 64, // Limit concurrent connections
 
     pub fn init(allocator: std.mem.Allocator, host: []const u8, port: u16, manager: *manager_mod.Manager, mutex: *std.Thread.Mutex) !Server {
         var paths = try paths_mod.Paths.init(allocator, null);
@@ -332,20 +336,80 @@ pub const Server = struct {
                 std.debug.print("accept error: {}\n", .{err});
                 continue;
             };
-            defer conn.stream.close();
 
-            var arena = std.heap.ArenaAllocator.init(self.allocator);
-            defer arena.deinit();
+            // Check thread limit to prevent resource exhaustion
+            const active = self.active_threads.load(.monotonic);
+            if (active >= self.max_threads) {
+                // Too many concurrent connections, close this one
+                conn.stream.close();
+                std.debug.print("connection rejected: max threads ({d}) reached\n", .{self.max_threads});
+                continue;
+            }
 
-            self.handleConnection(conn, arena.allocator()) catch |err| {
-                std.debug.print("request error: {}\n", .{err});
+            // Spawn thread to handle connection
+            const thread_ctx = self.allocator.create(ConnectionContext) catch {
+                conn.stream.close();
+                continue;
             };
+            thread_ctx.* = .{
+                .server = self,
+                .conn = conn,
+            };
+
+            const thread = std.Thread.spawn(.{}, handleConnectionThread, .{thread_ctx}) catch |err| {
+                self.allocator.destroy(thread_ctx);
+                conn.stream.close();
+                std.debug.print("thread spawn error: {}\n", .{err});
+                continue;
+            };
+            thread.detach();
         }
+    }
+
+    /// Context for connection handler thread
+    const ConnectionContext = struct {
+        server: *Server,
+        conn: std.net.Server.Connection,
+    };
+
+    /// Thread entry point for handling a connection
+    fn handleConnectionThread(ctx: *ConnectionContext) void {
+        const self = ctx.server;
+        _ = self.active_threads.fetchAdd(1, .monotonic);
+        defer {
+            _ = self.active_threads.fetchSub(1, .monotonic);
+            ctx.conn.stream.close();
+            self.allocator.destroy(ctx);
+        }
+
+        // Set socket receive timeout to prevent blocking on slow/stuck clients
+        setSocketTimeout(ctx.conn.stream.handle, 10) catch {};
+
+        var arena = std.heap.ArenaAllocator.init(self.allocator);
+        defer arena.deinit();
+
+        // Handle connection silently - client disconnections are normal
+        self.handleConnection(ctx.conn, arena.allocator()) catch {};
+    }
+
+    /// Set SO_RCVTIMEO on a socket to prevent blocking reads
+    fn setSocketTimeout(sockfd: std.posix.socket_t, seconds: u32) !void {
+        const builtin = @import("builtin");
+        if (builtin.os.tag == .windows) return; // Windows uses different timeout API
+
+        const timeval = std.posix.timeval{
+            .sec = @intCast(seconds),
+            .usec = 0,
+        };
+        try std.posix.setsockopt(sockfd, std.posix.SOL.SOCKET, std.posix.SO.RCVTIMEO, std.mem.asBytes(&timeval));
     }
 
     fn handleConnection(self: *Server, conn: std.net.Server.Connection, alloc: std.mem.Allocator) !void {
         var req_buf: [max_request_size]u8 = undefined;
-        const n = conn.stream.read(&req_buf) catch return;
+        const n = conn.stream.read(&req_buf) catch |err| switch (err) {
+            error.BrokenPipe, error.ConnectionResetByPeer, error.ConnectionTimedOut, error.WouldBlock => return, // Client disconnected or timeout
+            else => return err,
+        };
         if (n == 0) return;
         const raw = req_buf[0..n];
 
@@ -359,54 +423,54 @@ pub const Server = struct {
         if (std.mem.eql(u8, method, "GET") or std.mem.eql(u8, method, "HEAD")) {
             if (try self.redirectLocationForAliasHost(alloc, raw, target)) |location| {
                 defer alloc.free(location);
-                try sendRedirect(conn.stream, location, raw, self.host, self.port);
+                sendRedirect(conn.stream, location, raw, self.host, self.port) catch {};
                 return;
             }
         }
 
         if (!requestOriginAllowed(raw, target, self.host, self.port)) {
-            try sendResponse(conn.stream, .{
+            sendResponse(conn.stream, .{
                 .status = "403 Forbidden",
                 .content_type = "application/json",
                 .body = "{\"error\":\"forbidden origin\"}",
-            }, raw, self.host, self.port);
+            }, raw, self.host, self.port) catch {};
             return;
         }
 
         // Read remaining body if Content-Length indicates more data
-        const body = readBody(raw, n, conn.stream, alloc) catch return;
+        const body = readBody(raw, n, conn.stream, alloc) catch null;
 
         // Handle OPTIONS preflight
         if (std.mem.eql(u8, method, "OPTIONS")) {
-            try sendResponse(conn.stream, .{
+            sendResponse(conn.stream, .{
                 .status = "204 No Content",
                 .content_type = "text/plain",
                 .body = "",
-            }, raw, self.host, self.port);
+            }, raw, self.host, self.port) catch {};
             return;
         }
 
         // Auth check for protected API paths
         if (self.auth_token != null and !auth.isPublicPath(target)) {
             if (!auth.checkAuth(raw, self.auth_token)) {
-                try sendResponse(conn.stream, .{
+                sendResponse(conn.stream, .{
                     .status = "401 Unauthorized",
                     .content_type = "application/json",
                     .body = "{\"error\":\"unauthorized\"}",
-                }, raw, self.host, self.port);
+                }, raw, self.host, self.port) catch {};
                 return;
             }
         }
 
         // Route dispatch (lock mutex so supervisor thread doesn't race)
         const response = if (routeWithoutServerMutex(target))
-            self.route(alloc, method, target, body)
+            self.route(alloc, method, target, body orelse "")
         else blk: {
             self.mutex.lock();
             defer self.mutex.unlock();
-            break :blk self.route(alloc, method, target, body);
+            break :blk self.route(alloc, method, target, body orelse "");
         };
-        try sendResponse(conn.stream, response, raw, self.host, self.port);
+        sendResponse(conn.stream, response, raw, self.host, self.port) catch {};
     }
 
     fn redirectLocationForAliasHost(self: *const Server, allocator: std.mem.Allocator, raw: []const u8, target: []const u8) !?[]u8 {
@@ -1042,16 +1106,31 @@ fn readBody(raw: []const u8, n: usize, stream: std.net.Stream, alloc: std.mem.Al
             if (body_received >= content_length) {
                 return raw[body_start .. body_start + content_length];
             }
-            // Need to read more data from the stream
+            // Need to read more data from the stream with timeout
             const total_size = body_start + content_length;
             if (total_size > max_request_size) return error.RequestTooLarge;
             const full_buf = try alloc.alloc(u8, total_size);
             @memcpy(full_buf[0..n], raw);
             var total_read = n;
+            
+            // Timeout after ~5 seconds of waiting for body
+            const start_time = std.time.milliTimestamp();
+            const timeout_ms: i64 = 5000;
+            
             while (total_read < total_size) {
+                const elapsed = std.time.milliTimestamp() - start_time;
+                if (elapsed > timeout_ms) {
+                    alloc.free(full_buf);
+                    return error.Timeout;
+                }
                 const extra = stream.read(full_buf[total_read..total_size]) catch break;
-                if (extra == 0) break;
+                if (extra == 0) break; // Connection closed
                 total_read += extra;
+            }
+            
+            // Return whatever we got if it's at least the expected size
+            if (total_read >= body_start + content_length) {
+                return full_buf[body_start .. body_start + content_length];
             }
             return full_buf[body_start..total_read];
         }
@@ -1070,9 +1149,16 @@ fn sendResponse(stream: std.net.Stream, response: Response, raw_request: []const
     try appendCorsHeaders(writer, raw_request, bind_host, port);
     try writer.writeAll("Connection: close\r\n\r\n");
 
-    _ = try stream.write(header_stream.getWritten());
+    // Client may have disconnected - ignore BrokenPipe errors
+    _ = stream.write(header_stream.getWritten()) catch |err| switch (err) {
+        error.BrokenPipe => return, // Client disconnected, normal
+        else => return err,
+    };
     if (response.body.len > 0) {
-        _ = try stream.write(response.body);
+        _ = stream.write(response.body) catch |err| switch (err) {
+            error.BrokenPipe => return, // Client disconnected, normal
+            else => return err,
+        };
     }
 }
 
@@ -1087,7 +1173,11 @@ fn sendRedirect(stream: std.net.Stream, location: []const u8, raw_request: []con
     try appendCorsHeaders(writer, raw_request, bind_host, port);
     try writer.writeAll("Connection: close\r\n\r\n");
 
-    _ = try stream.write(header_stream.getWritten());
+    // Client may have disconnected - ignore BrokenPipe errors
+    _ = stream.write(header_stream.getWritten()) catch |err| switch (err) {
+        error.BrokenPipe => return, // Client disconnected, normal
+        else => return err,
+    };
 }
 
 pub fn extractBody(raw: []const u8) []const u8 {

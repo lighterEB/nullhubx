@@ -20,6 +20,7 @@ pub const ManagedInstance = struct {
     status: Status = .stopped,
     pid: ?std.process.Child.Id = null,
     child: ?std.process.Child = null,
+    child_reaped: bool = false, // true if isAliveEx() reaped the zombie
     port: u16 = 0,
     health_endpoint: []const u8 = "/health",
 
@@ -178,6 +179,13 @@ pub const Manager = struct {
         child: *std.process.Child,
         context: []const u8,
     ) void {
+        // isAliveEx() may have already reaped the zombie via waitpid(WNOHANG).
+        // If so, child.wait() would panic with "reached unreachable code".
+        if (inst.child_reaped) {
+            self.logSupervisor(inst.component, inst.name, "{s}: child already reaped by earlier check", .{context});
+            inst.child_reaped = false;
+            return;
+        }
         const term = child.wait() catch |err| {
             self.logSupervisor(inst.component, inst.name, "{s}: wait() failed: {s}", .{ context, @errorName(err) });
             return;
@@ -410,7 +418,11 @@ pub const Manager = struct {
     fn tickStarting(self: *Manager, inst: *ManagedInstance, now: i64) void {
         // Check if process is alive
         if (inst.pid) |pid| {
-            if (!process.isAlive(pid)) {
+            const alive_status = process.isAliveEx(pid);
+            if (alive_status.reaped) {
+                inst.child_reaped = true;
+            }
+            if (!alive_status.alive) {
                 self.logSupervisor(inst.component, inst.name, "startup failed: pid={d} is not alive", .{pidToU64(pid)});
                 if (inst.child) |*child| {
                     self.waitChildAndLog(inst, child, "startup: process exited before ready");
@@ -471,7 +483,11 @@ pub const Manager = struct {
     fn tickRunning(self: *Manager, inst: *ManagedInstance, now: i64) void {
         // Check if process is still alive
         if (inst.pid) |pid| {
-            if (!process.isAlive(pid)) {
+            const alive_status = process.isAliveEx(pid);
+            if (alive_status.reaped) {
+                inst.child_reaped = true;
+            }
+            if (!alive_status.alive) {
                 self.logSupervisor(
                     inst.component,
                     inst.name,

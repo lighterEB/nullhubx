@@ -1,28 +1,33 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { api } from "$lib/api/client";
+  import { onMount, onDestroy } from "svelte";
+  import { subscribeStatus, runningCount, hubVersion, statusError } from "$lib/statusStore";
 
-  let status = $state<any>(null);
+  let unsubscribe: (() => void) | null = null;
+  let error = $derived($statusError !== null);
 
-  onMount(async () => {
-    try {
-      status = await api.getStatus();
-    } catch {
-      // ignore
-    }
+  onMount(() => {
+    unsubscribe = subscribeStatus();
+  });
+
+  onDestroy(() => {
+    unsubscribe?.();
   });
 </script>
 
 <footer class="statusbar">
   <div class="statusbar-left">
-    <span class="status-item">NODE <span class="status-value">null-01</span></span>
+    <span class="status-item">NULLHUBX <span class="status-value">v{$hubVersion}</span></span>
     <span class="divider">|</span>
-    <span class="status-item">REGION <span class="status-value">us-west-2</span></span>
-    <span class="divider">|</span>
-    <span class="status-item">STACK <span class="status-value">v0.4.2-beta</span></span>
+    <span class="status-item">INSTANCES <span class="status-value">{$runningCount} running</span></span>
   </div>
   <div class="statusbar-right">
-    <span class="status-nominal">SYS NOMINAL</span>
+    {#if error}
+      <span class="status-error">CONNECTION ERROR</span>
+    {:else if $runningCount > 0}
+      <span class="status-nominal">SYS OPERATIONAL</span>
+    {:else}
+      <span class="status-idle">SYS IDLE</span>
+    {/if}
   </div>
 </footer>
 
@@ -76,6 +81,22 @@
     font-size: 9px;
     font-weight: 600;
     color: var(--emerald-600);
+    letter-spacing: 1px;
+  }
+
+  .status-idle {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--amber-600);
+    letter-spacing: 1px;
+  }
+
+  .status-error {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--red-500);
     letter-spacing: 1px;
   }
 </style>

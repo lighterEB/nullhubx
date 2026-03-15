@@ -476,6 +476,7 @@
   .provider-row {
     background: var(--bg-surface);
     border: 1px solid var(--border);
+    border-left: 4px solid var(--indigo-500);
     border-radius: 2px;
     padding: 1rem;
     margin-bottom: 0.75rem;
@@ -485,6 +486,7 @@
 
   .provider-row:hover {
     border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+    border-left-color: var(--indigo-600);
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
   }
 
@@ -611,16 +613,17 @@
 
   .model-dropdown {
     position: absolute;
-    top: calc(100% + 0.25rem);
+    top: 100%;
     left: 0;
-    right: 0;
-    max-height: 280px;
+    width: 100%;
+    z-index: 100;
+    max-height: 200px;
     overflow-y: auto;
-    border: 1px solid var(--accent-dim);
-    border-radius: 2px;
-    background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
-    z-index: 20;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
   }
 
   .model-option {

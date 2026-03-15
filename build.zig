@@ -33,9 +33,10 @@ pub fn build(b: *std.Build) void {
     const app_version = b.option([]const u8, "version", "Version string embedded in the binary") orelse "dev";
     const embed_ui = b.option(bool, "embed-ui", "Embed the Svelte UI into the binary") orelse true;
     const build_ui = b.option(bool, "build-ui", "Build the UI before embedding it") orelse embed_ui;
+    const package_manager = b.option([]const u8, "package-manager", "Package manager to use (npm, bun, or auto)") orelse "auto";
 
     if (embed_ui) {
-        if (build_ui) ensureUiBuildReady(b);
+        if (build_ui) ensureUiBuildReady(b, package_manager);
         ensureUiBuildExists();
     }
 
@@ -92,11 +93,51 @@ fn createUiAssetsModule(b: *std.Build, embed_ui: bool) *std.Build.Module {
     return b.createModule(.{ .root_source_file = b.path(GeneratedUiAssetsPath) });
 }
 
-fn ensureUiBuildReady(b: *std.Build) void {
+fn ensureUiBuildReady(b: *std.Build, package_manager: []const u8) void {
+    const pm = detectPackageManager(b.allocator, package_manager);
+    const is_bun = std.mem.eql(u8, pm, "bun");
+
     if (!pathExists("ui/node_modules")) {
-        runCommandOrPanic(b.allocator, &.{ npmCommand(), "--prefix", "ui", "ci", "--no-audit", "--no-fund" });
+        if (is_bun) {
+            runCommandOrPanic(b.allocator, &.{ "sh", "-c", "cd ui && bun install" });
+        } else {
+            runCommandOrPanic(b.allocator, &.{ "sh", "-c", "cd ui && npm install" });
+        }
     }
-    runCommandOrPanic(b.allocator, &.{ npmCommand(), "--prefix", "ui", "run", "build" });
+
+    if (is_bun) {
+        runCommandOrPanic(b.allocator, &.{ "sh", "-c", "cd ui && bun run build" });
+    } else {
+        runCommandOrPanic(b.allocator, &.{ "sh", "-c", "cd ui && npm run build" });
+    }
+}
+
+fn detectPackageManager(allocator: std.mem.Allocator, preference: []const u8) []const u8 {
+    // If user explicitly specified npm or bun, use that
+    if (std.mem.eql(u8, preference, "npm")) {
+        if (commandExists(allocator, "npm")) return "npm";
+        std.debug.panic("npm was requested but not found in PATH", .{});
+    }
+    if (std.mem.eql(u8, preference, "bun")) {
+        if (commandExists(allocator, "bun")) return "bun";
+        std.debug.panic("bun was requested but not found in PATH", .{});
+    }
+
+    // Auto-detect: prefer bun, fallback to npm
+    if (commandExists(allocator, "bun")) return "bun";
+    if (commandExists(allocator, "npm")) return "npm";
+
+    std.debug.panic("No package manager found. Please install bun or npm.", .{});
+}
+
+fn commandExists(allocator: std.mem.Allocator, cmd: []const u8) bool {
+    const result = std.process.Child.run(.{
+        .allocator = allocator,
+        .argv = &.{ "sh", "-c", "command -v $1", "_", cmd },
+    }) catch return false;
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+    return result.term.Exited == 0;
 }
 
 fn ensureUiBuildExists() void {
@@ -109,6 +150,7 @@ fn runCommandOrPanic(allocator: std.mem.Allocator, argv: []const []const u8) voi
     const result = std.process.Child.run(.{
         .allocator = allocator,
         .argv = argv,
+        .cwd = ".",
     }) catch |err| std.debug.panic("failed to run {s}: {s}", .{ argv[0], @errorName(err) });
     defer allocator.free(result.stdout);
     defer allocator.free(result.stderr);
@@ -122,10 +164,6 @@ fn runCommandOrPanic(allocator: std.mem.Allocator, argv: []const []const u8) voi
         },
         else => std.debug.panic("command did not exit cleanly: {s}", .{argv[0]}),
     }
-}
-
-fn npmCommand() []const u8 {
-    return if (builtin.os.tag == .windows) "npm.cmd" else "npm";
 }
 
 fn pathExists(path: []const u8) bool {

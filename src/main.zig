@@ -126,9 +126,7 @@ pub fn main() !void {
             std.process.exit(1);
         },
         .uninstall => |opts| {
-            std.debug.print("uninstall {s}/{s}", .{ opts.instance.component, opts.instance.name });
-            if (opts.remove_data) std.debug.print(" --remove-data", .{});
-            std.debug.print(" (not yet implemented)\n", .{});
+            try handleUninstall(allocator, opts);
         },
         .add_source => |opts| std.debug.print("add-source {s} (not yet implemented)\n", .{opts.repo}),
         .help => cli.printUsage(),
@@ -146,6 +144,50 @@ fn handleServiceCommand(allocator: std.mem.Allocator, command: cli.ServiceComman
             try printStdout("Service uninstalled.\n");
         },
         .status => try service.printStatus(allocator),
+    }
+}
+
+fn handleUninstall(allocator: std.mem.Allocator, opts: cli.UninstallOptions) !void {
+    const state_mod = @import("core/state.zig");
+    const instances_api = @import("api/instances.zig");
+
+    var paths = try paths_mod.Paths.init(allocator, null);
+    defer paths.deinit(allocator);
+
+    const state_path = try paths.state(allocator);
+    defer allocator.free(state_path);
+
+    var state = try state_mod.State.load(allocator, state_path);
+    defer state.deinit();
+
+    var manager = manager_mod.Manager.init(allocator, paths);
+    defer manager.deinit();
+
+    const component = opts.instance.component;
+    const name = opts.instance.name;
+
+    // Check if instance exists
+    if (state.getInstance(component, name) == null) {
+        std.debug.print("Instance {s}/{s} not found.\n", .{ component, name });
+        std.process.exit(1);
+    }
+
+    std.debug.print("Uninstalling {s}/{s}...\n", .{ component, name });
+
+    const resp = instances_api.handleDelete(allocator, &state, &manager, paths, component, name);
+    // Note: resp.body is a static string, don't free it
+
+    if (std.mem.eql(u8, resp.status, "200 OK")) {
+        std.debug.print("Instance {s}/{s} uninstalled successfully.\n", .{ component, name });
+    } else if (std.mem.eql(u8, resp.status, "404 Not Found")) {
+        std.debug.print("Instance {s}/{s} not found.\n", .{ component, name });
+        std.process.exit(1);
+    } else {
+        std.debug.print("Failed to uninstall: {s}\n", .{resp.status});
+        if (resp.body.len > 0) {
+            std.debug.print("{s}\n", .{resp.body});
+        }
+        std.process.exit(1);
     }
 }
 

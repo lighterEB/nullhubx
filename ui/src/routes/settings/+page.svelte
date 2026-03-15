@@ -47,7 +47,6 @@
     } catch (e) {
       console.error(e);
     }
-
     await refreshServiceStatus();
   });
 
@@ -77,13 +76,8 @@
         setMessage(data?.message || "Failed to load service status", "error");
       }
     } catch (e) {
-      applyServiceStatus({
-        status: "error",
-        message: (e as Error).message || "Failed to load service status",
-      });
-      if (showErrorMessage) {
-        setMessage(`Error: ${(e as Error).message}`, "error");
-      }
+      applyServiceStatus({ status: "error", message: (e as Error).message || "Failed to load service status" });
+      if (showErrorMessage) setMessage(`Error: ${(e as Error).message}`, "error");
     } finally {
       serviceLoading = false;
       serviceAction = null;
@@ -101,7 +95,6 @@
         setMessage(data?.message || "Failed to update service", "error");
         return;
       }
-
       await refreshServiceStatus(false);
       setMessage(data?.message || (enabling ? "Service enabled" : "Service disabled"));
     } catch (e) {
@@ -126,386 +119,451 @@
   }
 </script>
 
-<div class="settings-page">
-  <h1>Settings</h1>
+<svelte:head>
+  <title>Settings - NullHubX</title>
+</svelte:head>
 
-  <div class="settings-section">
-    <h2>Server</h2>
-    <div class="field">
-      <label for="settings-port">Port</label>
-      <input id="settings-port" type="number" bind:value={settings.port} />
+<div class="page">
+  <header class="page-header">
+    <div class="header-left">
+      <div class="breadcrumb">
+        <span class="breadcrumb-item">System</span>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-item active">Settings</span>
+      </div>
+      <h1>SYSTEM <span class="highlight">SETTINGS</span></h1>
+      <p class="subtitle">Configure NullHubX server and service preferences</p>
     </div>
-    <div class="field">
-      <label for="settings-host">Host</label>
-      <input id="settings-host" type="text" bind:value={settings.host} />
-    </div>
-  </div>
+  </header>
 
-  <div class="settings-section">
-    <h2>Security</h2>
-    <div class="field">
-      <label for="settings-auth-token">Auth Token</label>
-      <input
-        id="settings-auth-token"
-        type="password"
-        bind:value={settings.auth_token}
-        placeholder="Leave empty to disable"
-      />
-      <p class="hint">Set a token to enable remote access authentication</p>
-    </div>
-  </div>
+  <hr class="divider" />
 
-  <div class="settings-section">
-    <h2>Updates</h2>
-    <div class="field">
+  {#if message}
+    <div class="message" class:error={messageTone === "error"}>
+      {#if messageTone === "success"}
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      {:else}
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      {/if}
+      <span>{message}</span>
+    </div>
+  {/if}
+
+  <div class="settings-grid">
+    <section class="settings-section">
+      <h2>Server</h2>
+      <div class="field">
+        <label for="settings-port">Port</label>
+        <input id="settings-port" type="number" bind:value={settings.port} />
+        <p class="hint">The port NullHubX listens on</p>
+      </div>
+      <div class="field">
+        <label for="settings-host">Host</label>
+        <input id="settings-host" type="text" bind:value={settings.host} />
+        <p class="hint">Bind address (use 0.0.0.0 for all interfaces)</p>
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <h2>Security</h2>
+      <div class="field">
+        <label for="settings-auth-token">Auth Token</label>
+        <input id="settings-auth-token" type="password" bind:value={settings.auth_token} placeholder="Leave empty to disable" />
+        <p class="hint">Set a token to enable remote access authentication</p>
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <h2>Updates</h2>
       <label class="toggle-field">
         <input type="checkbox" bind:checked={settings.auto_update_check} />
-        <span>Auto-check for updates</span>
+        <span class="toggle-slider"></span>
+        <span class="toggle-label">Auto-check for updates</span>
       </label>
-    </div>
-  </div>
+    </section>
 
-  <div class="settings-section">
-    <h2>Service</h2>
-    <p class="hint">
-      Register NullHubX as a system service for automatic startup
-    </p>
-    <div class="service-panel">
-      <div class="service-status-grid">
-        <div class="service-status-row">
-          <span class="service-status-label">Autostart</span>
-          <span class="service-pill" class:active={service.registered} class:inactive={!service.registered}>
+    <section class="settings-section">
+      <h2>Service</h2>
+      <p class="section-hint">Register NullHubX as a system service for automatic startup</p>
+      
+      <div class="service-panel">
+        <div class="service-row">
+          <span class="service-label">Autostart</span>
+          <span class="service-badge" class:active={service.registered}>
             {service.registered ? "Enabled" : "Disabled"}
           </span>
         </div>
-        <div class="service-status-row">
-          <span class="service-status-label">Runtime</span>
-          <span class="service-pill" class:active={service.running} class:inactive={!service.running}>
+        <div class="service-row">
+          <span class="service-label">Runtime</span>
+          <span class="service-badge" class:active={service.running}>
             {service.running ? "Running" : "Stopped"}
           </span>
         </div>
         {#if service.service_type}
           <div class="service-detail">
-            <span class="service-status-label">Service Type</span>
+            <span class="service-label">Service Type</span>
             <code>{service.service_type}</code>
           </div>
         {/if}
         {#if service.unit_path}
           <div class="service-detail">
-            <span class="service-status-label">Unit Path</span>
+            <span class="service-label">Unit Path</span>
             <code>{service.unit_path}</code>
           </div>
         {/if}
+        <div class="service-actions">
+          <button class="btn-primary" onclick={toggleService} disabled={serviceLoading}>
+            {serviceButtonLabel}
+          </button>
+          <button class="btn-secondary" onclick={() => refreshServiceStatus()} disabled={serviceLoading}>
+            Refresh
+          </button>
+        </div>
       </div>
-      <div class="service-actions">
-        <button class="btn" disabled={serviceLoading} onclick={toggleService}>
-          {serviceButtonLabel}
-        </button>
-        <button class="btn secondary-btn" disabled={serviceLoading} onclick={() => refreshServiceStatus()}>
-          Refresh Status
-        </button>
-      </div>
+    </section>
+
+    <div class="actions-bar">
+      <button class="btn-save" onclick={save} disabled={saving}>
+        {saving ? "Saving..." : "Save Settings"}
+      </button>
     </div>
-  </div>
-
-  {#if message}
-    <div class="message" class:message-error={messageTone === "error"}>{message}</div>
-  {/if}
-
-  <div class="actions">
-    <button class="primary-btn" onclick={save} disabled={saving}>
-      {saving ? "Saving..." : "Save Settings"}
-    </button>
   </div>
 </div>
 
 <style>
-  .settings-page {
-    max-width: 640px;
+  .page {
+    padding: var(--spacing-4xl) var(--spacing-5xl);
+    max-width: 800px;
     margin: 0 auto;
-    padding: 2rem;
   }
 
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--spacing-xl);
+  }
+
+  .header-left {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--slate-400);
+    letter-spacing: 1px;
+  }
+
+  .breadcrumb-sep { color: var(--slate-300); }
+  .breadcrumb-item.active { color: var(--slate-600); }
+
   h1 {
-    font-size: 1.75rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-3xl);
     font-weight: 700;
-    margin-bottom: 2rem;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    color: var(--accent);
-    text-shadow: var(--text-glow);
+    color: var(--slate-900);
+    letter-spacing: 3px;
+  }
+
+  .highlight { color: var(--indigo-600); }
+
+  .subtitle {
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    color: var(--slate-500);
+    margin-top: var(--spacing-xs);
+  }
+
+  .divider {
+    border: none;
+    height: 1px;
+    background: var(--slate-200);
+    margin: var(--spacing-xl) 0;
+  }
+
+  .message {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: var(--radius-md);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--emerald-600);
+    margin-bottom: var(--spacing-xl);
+  }
+
+  .message.error {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+  }
+
+  .settings-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
   }
 
   .settings-section {
-    padding-bottom: 1.5rem;
-    margin-bottom: 1.5rem;
-    border-bottom: 1px dashed color-mix(in srgb, var(--border) 50%, transparent);
+    background: white;
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    box-shadow: var(--shadow-sm);
   }
 
-  .settings-section:last-of-type {
-    border-bottom: none;
-  }
-
-  h2 {
-    font-size: 1.125rem;
+  .settings-section h2 {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
     font-weight: 700;
-    margin-bottom: 1rem;
-    color: var(--accent-dim);
+    color: var(--slate-700);
     text-transform: uppercase;
     letter-spacing: 1px;
-    text-shadow: 0 0 2px var(--accent-dim);
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--slate-100);
+  }
+
+  .section-hint {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    color: var(--slate-500);
+    margin-bottom: var(--spacing-md);
   }
 
   .field {
-    margin-bottom: 1.25rem;
+    margin-bottom: var(--spacing-md);
   }
 
   .field label {
     display: block;
-    font-size: 0.8125rem;
-    font-weight: 700;
-    color: var(--fg-dim);
-    margin-bottom: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    color: var(--slate-600);
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
+    margin-bottom: var(--spacing-sm);
   }
 
   .field input[type="text"],
   .field input[type="number"],
   .field input[type="password"] {
     width: 100%;
-    padding: 0.625rem 0.875rem;
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: 2px;
-    color: var(--fg);
-    font-size: 0.875rem;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--slate-50);
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius-md);
+    color: var(--slate-900);
     font-family: var(--font-mono);
+    font-size: var(--text-sm);
     outline: none;
-    transition: all 0.2s ease;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: all var(--transition-fast);
   }
 
-  .field input[type="text"]:focus,
-  .field input[type="number"]:focus,
-  .field input[type="password"]:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 8px var(--border-glow);
+  .field input:focus {
+    border-color: var(--indigo-500);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
   }
 
-  .field input::placeholder {
-    color: color-mix(in srgb, var(--fg-dim) 50%, transparent);
+  .field input::placeholder { color: var(--slate-400); }
+
+  .hint {
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    color: var(--slate-400);
+    margin-top: var(--spacing-xs);
   }
 
   .toggle-field {
-    display: flex !important;
+    display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: var(--spacing-md);
     cursor: pointer;
-    font-size: 0.875rem;
-    color: var(--fg) !important;
-    text-transform: uppercase;
-    letter-spacing: 1px;
   }
 
-  .toggle-field input[type="checkbox"] {
-    width: 1.25rem;
-    height: 1.25rem;
-    accent-color: var(--accent);
-    cursor: pointer;
-    filter: drop-shadow(0 0 4px var(--accent-dim));
+  .toggle-field input { display: none; }
+
+  .toggle-slider {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    background: var(--slate-200);
+    border-radius: 12px;
+    transition: all var(--transition-fast);
   }
 
-  .hint {
-    font-size: 0.8125rem;
-    color: var(--fg-dim);
-    margin-top: 0.5rem;
-    line-height: 1.5;
-    font-family: var(--font-mono);
+  .toggle-slider::before {
+    content: "";
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    left: 3px;
+    top: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: all var(--transition-fast);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .toggle-field input:checked + .toggle-slider {
+    background: var(--indigo-600);
+  }
+
+  .toggle-field input:checked + .toggle-slider::before {
+    transform: translateX(20px);
+  }
+
+  .toggle-label {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    color: var(--slate-700);
   }
 
   .service-panel {
-    display: grid;
-    gap: 1rem;
-    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: var(--slate-50);
+    border-radius: var(--radius-md);
   }
 
-  .service-status-grid {
-    display: grid;
-    gap: 0.75rem;
-    padding: 1rem;
-    border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-    border-radius: var(--radius);
-    background: color-mix(in srgb, var(--bg-surface) 80%, transparent);
+  .service-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
 
-  .service-status-row,
+  .service-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--slate-500);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .service-badge {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--slate-200);
+    color: var(--slate-500);
+    border-radius: var(--radius-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .service-badge.active {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--emerald-600);
+  }
+
   .service-detail {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-  }
-
-  .service-status-label {
-    font-size: 0.75rem;
-    color: var(--fg-dim);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-weight: 700;
-  }
-
-  .service-pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 5.5rem;
-    padding: 0.25rem 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-weight: 700;
-    background: color-mix(in srgb, var(--bg-surface) 75%, transparent);
-  }
-
-  .service-pill.active {
-    color: var(--success);
-    border-color: color-mix(in srgb, var(--success) 65%, transparent);
-    box-shadow: 0 0 8px color-mix(in srgb, var(--success) 25%, transparent);
-  }
-
-  .service-pill.inactive {
-    color: var(--fg-dim);
-    border-color: color-mix(in srgb, var(--border) 80%, transparent);
-  }
-
-  .service-detail {
-    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--spacing-xs);
   }
 
   .service-detail code {
-    max-width: 28rem;
-    white-space: normal;
-    word-break: break-all;
-    text-align: right;
     font-family: var(--font-mono);
-    font-size: 0.8125rem;
-    color: var(--fg);
+    font-size: var(--text-xs);
+    color: var(--slate-700);
+    word-break: break-all;
   }
 
   .service-actions {
     display: flex;
-    gap: 0.75rem;
-    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
   }
 
-  .btn {
-    padding: 0.5rem 1.25rem;
-    background: var(--bg-surface);
-    color: var(--accent);
-    border: 1px solid var(--accent-dim);
-    border-radius: 2px;
-    font-size: 0.875rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+  .btn-primary {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    background: var(--indigo-600);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
-    margin-top: 0.75rem;
-    text-shadow: var(--text-glow);
+    transition: all var(--transition-fast);
   }
 
-  .secondary-btn {
-    color: var(--fg-dim);
-    border-color: color-mix(in srgb, var(--border) 80%, transparent);
+  .btn-primary:hover:not(:disabled) {
+    background: var(--indigo-700);
   }
 
-  .btn:hover {
-    background: var(--bg-hover);
-    border-color: var(--accent);
-    box-shadow: 0 0 10px var(--border-glow);
-    text-shadow: 0 0 8px var(--accent);
-  }
-
-  .btn:disabled {
+  .btn-primary:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-    box-shadow: none;
-    text-shadow: none;
   }
 
-  .message {
-    padding: 0.875rem 1.25rem;
-    background: color-mix(in srgb, var(--success) 10%, transparent);
-    border: 1px solid var(--success);
-    border-radius: 2px;
-    font-size: 0.875rem;
-    font-weight: bold;
-    color: var(--success);
-    margin-bottom: 1.5rem;
-    box-shadow: 0 0 10px color-mix(in srgb, var(--success) 30%, transparent);
-    text-shadow: 0 0 5px var(--success);
+  .btn-secondary {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    background: white;
+    color: var(--slate-600);
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius-md);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
   }
 
-  .message.message-error {
-    background: color-mix(in srgb, var(--error) 10%, transparent);
-    border-color: var(--error);
-    color: var(--error);
-    box-shadow: 0 0 10px color-mix(in srgb, var(--error) 30%, transparent);
-    text-shadow: 0 0 5px var(--error);
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--slate-50);
+    border-color: var(--slate-300);
   }
 
-  .actions {
-    padding-top: 1rem;
-    border-top: 1px solid var(--border);
+  .btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .actions-bar {
     display: flex;
     justify-content: flex-end;
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--slate-200);
+    margin-top: var(--spacing-lg);
   }
 
-  .primary-btn {
-    padding: 0.75rem 2rem;
-    background: color-mix(in srgb, var(--accent) 20%, transparent);
-    color: var(--accent);
-    border: 1px solid var(--accent);
-    border-radius: 2px;
-    font-size: 0.875rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 2px;
+  .btn-save {
+    padding: var(--spacing-md) var(--spacing-xl);
+    background: var(--indigo-600);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    letter-spacing: 1px;
     cursor: pointer;
-    transition: all 0.2s ease;
-    text-shadow: var(--text-glow);
-    box-shadow: inset 0 0 10px
-      color-mix(in srgb, var(--accent) 30%, transparent);
+    transition: all var(--transition-fast);
   }
 
-  .primary-btn:hover:not(:disabled) {
-    background: var(--bg-hover);
-    border-color: var(--accent);
-    box-shadow:
-      0 0 15px var(--border-glow),
-      inset 0 0 15px color-mix(in srgb, var(--accent) 40%, transparent);
-    text-shadow: 0 0 10px var(--accent);
+  .btn-save:hover:not(:disabled) {
+    background: var(--indigo-700);
+    box-shadow: var(--shadow-indigo);
+    transform: translateY(-1px);
   }
 
-  .primary-btn:disabled {
+  .btn-save:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-    box-shadow: none;
-    text-shadow: none;
-  }
-
-  @media (max-width: 640px) {
-    .service-status-row,
-    .service-detail {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    .service-detail code {
-      text-align: left;
-    }
   }
 </style>

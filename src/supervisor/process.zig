@@ -175,30 +175,47 @@ fn flushBufferedToLog(log_file: *std.fs.File, reader: *std.Io.Reader) bool {
     return true;
 }
 
+/// Result of checking if a process is alive.
+/// `reaped` is true if we reaped a zombie process via waitpid(WNOHANG).
+pub const AliveStatus = struct {
+    alive: bool,
+    reaped: bool,
+};
+
+/// Extended version of isAlive that returns whether the process was reaped.
+/// This is needed because waitpid(WNOHANG) may reap a zombie, making subsequent
+/// child.wait() calls panic with "reached unreachable code".
+pub fn isAliveEx(pid: std.process.Child.Id) AliveStatus {
+    if (comptime builtin.os.tag == .windows) {
+        windows.WaitForSingleObjectEx(pid, 0, false) catch |err| switch (err) {
+            error.WaitTimeOut => return .{ .alive = true, .reaped = false },
+            else => return .{ .alive = false, .reaped = false },
+        };
+        return .{ .alive = false, .reaped = false };
+    }
+    // Try to reap zombie — WNOHANG returns immediately.
+    // If waitpid returns the pid, the process has exited (zombie reaped).
+    const wait_result = std.posix.waitpid(pid, std.c.W.NOHANG);
+    if (wait_result.pid == pid) return .{ .alive = false, .reaped = true }; // reaped zombie or exited child
+
+    if (std.posix.kill(pid, 0)) {
+        return .{ .alive = true, .reaped = false };
+    } else |_| {
+        return .{ .alive = false, .reaped = false };
+    }
+}
+
 /// Check whether a process with the given PID is still alive.
 ///
 /// On POSIX systems, first tries a non-blocking waitpid to reap zombies,
 /// then sends signal 0. A zombie process has exited but not been waited on —
 /// `kill(pid, 0)` succeeds for zombies, giving a false positive. By calling
 /// `waitpid(WNOHANG)` first, we reap any zombie and correctly report it dead.
+///
+/// NOTE: This function may reap zombie processes. If you need to know whether
+/// a process was reaped, use isAliveEx() instead.
 pub fn isAlive(pid: std.process.Child.Id) bool {
-    if (comptime builtin.os.tag == .windows) {
-        windows.WaitForSingleObjectEx(pid, 0, false) catch |err| switch (err) {
-            error.WaitTimeOut => return true,
-            else => return false,
-        };
-        return false;
-    }
-    // Try to reap zombie — WNOHANG returns immediately.
-    // If waitpid returns the pid, the process has exited (zombie reaped).
-    const wait_result = std.posix.waitpid(pid, std.c.W.NOHANG);
-    if (wait_result.pid == pid) return false; // reaped zombie or exited child
-
-    if (std.posix.kill(pid, 0)) {
-        return true;
-    } else |_| {
-        return false;
-    }
+    return isAliveEx(pid).alive;
 }
 
 /// Send SIGTERM to a process, requesting graceful termination.
