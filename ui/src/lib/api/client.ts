@@ -14,7 +14,7 @@ function withQuery(path: string, params: Record<string, string | number | boolea
 
 export { encodePathSegment } from '$lib/orchestration/routes';
 
-export type LogSource = 'instance' | 'nullhub';
+export type LogSource = 'instance' | 'nullhubx';
 type InstanceStartOptions = {
   launch_mode?: string;
   verbose?: boolean;

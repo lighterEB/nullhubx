@@ -33,7 +33,7 @@ pub fn run(allocator: std.mem.Allocator, opts: cli.StatusOptions) !void {
     var bw = std.fs.File.stdout().writer(&stdout_buf);
     const w = &bw.interface;
 
-    try w.print("nullhub Status\n", .{});
+    try w.print("nullhubx Status\n", .{});
     try w.print("Version: {s}\n", .{version.string});
 
     if (service_mod.queryStatus(allocator) catch null) |status| {

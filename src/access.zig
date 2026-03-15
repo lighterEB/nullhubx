@@ -2,8 +2,8 @@ const std = @import("std");
 
 pub const default_port: u16 = 19800;
 pub const default_bind_host = "127.0.0.1";
-pub const public_alias_host = "nullhub.local";
-pub const canonical_local_host = "nullhub.localhost";
+pub const public_alias_host = "nullhubx.local";
+pub const canonical_local_host = "nullhubx.localhost";
 pub const fallback_local_host = "127.0.0.1";
 
 pub const Options = struct {
@@ -101,16 +101,16 @@ fn buildUrl(allocator: std.mem.Allocator, host: []const u8, port: u16) ![]const 
     return std.fmt.allocPrint(allocator, "http://{s}:{d}", .{ host, port });
 }
 
-test "buildAccessUrls uses nullhub local chain for loopback binds" {
+test "buildAccessUrls uses nullhubx local chain for loopback binds" {
     var urls = try buildAccessUrls(std.testing.allocator, "127.0.0.1", default_port);
     defer urls.deinit(std.testing.allocator);
 
     try std.testing.expect(urls.local_alias_chain);
     try std.testing.expect(!urls.public_alias_active);
     try std.testing.expectEqualStrings("none", urls.public_alias_provider);
-    try std.testing.expectEqualStrings("http://nullhub.local:19800", urls.public_alias_url.?);
-    try std.testing.expectEqualStrings("http://nullhub.localhost:19800", urls.browser_open_url);
-    try std.testing.expectEqualStrings("http://nullhub.localhost:19800", urls.canonical_url);
+    try std.testing.expectEqualStrings("http://nullhubx.local:19800", urls.public_alias_url.?);
+    try std.testing.expectEqualStrings("http://nullhubx.localhost:19800", urls.browser_open_url);
+    try std.testing.expectEqualStrings("http://nullhubx.localhost:19800", urls.canonical_url);
     try std.testing.expectEqualStrings("http://127.0.0.1:19800", urls.fallback_url);
     try std.testing.expectEqualStrings("http://127.0.0.1:19800", urls.direct_url);
 }
@@ -134,6 +134,6 @@ test "buildAccessUrls prefers public alias when it is active" {
 
     try std.testing.expect(urls.public_alias_active);
     try std.testing.expectEqualStrings("dns-sd", urls.public_alias_provider);
-    try std.testing.expectEqualStrings("http://nullhub.localhost:19800", urls.browser_open_url);
-    try std.testing.expectEqualStrings("http://nullhub.local:19800", urls.public_alias_url.?);
+    try std.testing.expectEqualStrings("http://nullhubx.localhost:19800", urls.browser_open_url);
+    try std.testing.expectEqualStrings("http://nullhubx.local:19800", urls.public_alias_url.?);
 }

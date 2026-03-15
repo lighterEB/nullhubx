@@ -69,7 +69,7 @@
 
   function bootstrapAutostartKey(instance: string, marker: string): string {
     const suffix = marker.trim().length > 0 ? marker.trim() : "default";
-    return `nullhub:bootstrap-autostart:${instance}:${suffix}`;
+    return `nullhubx:bootstrap-autostart:${instance}:${suffix}`;
   }
 
   function shouldAutoStartBootstrap(

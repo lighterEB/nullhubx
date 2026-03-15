@@ -1,11 +1,11 @@
-# NullHub
+# NullHubX
 
 The simplest way to install, configure, and manage
 [NullClaw](https://github.com/nullclaw/nullclaw).
 
 Management hub for the nullclaw ecosystem.
 
-`NullHub` is a single Zig binary with an embedded Svelte web UI for installing,
+`NullHubX` is a single Zig binary with an embedded Svelte web UI for installing,
 configuring, monitoring, and updating ecosystem components (NullClaw, NullBoiler,
 NullTickets).
 
@@ -20,28 +20,28 @@ NullTickets).
 - **One-click updates** -- download, migrate config, rollback on failure
 - **Multi-instance** -- run multiple instances of the same component side by side
 - **Web UI + CLI** -- browser dashboard for humans, CLI for automation
-- **Orchestration UI** -- workflow editor, poll-based run monitoring, checkpoint forking, encoded workflow/run/store links, and key-value store browser (proxied to NullTickets through NullHub)
+- **Orchestration UI** -- workflow editor, poll-based run monitoring, checkpoint forking, encoded workflow/run/store links, and key-value store browser (proxied to NullTickets through NullHubX)
 
 ## Quick Start
 
 ```bash
 zig build
-./zig-out/bin/nullhub
+./zig-out/bin/nullhubx
 ```
 
-Opens browser to [http://nullhub.localhost:19800](http://nullhub.localhost:19800).
+Opens browser to [http://nullhubx.localhost:19800](http://nullhubx.localhost:19800).
 The resulting binary includes the built web UI; it no longer depends on a
 runtime `ui/build` directory.
 
 Local access chain:
 
-- `http://nullhub.local:19800`
-- `http://nullhub.localhost:19800`
+- `http://nullhubx.local:19800`
+- `http://nullhubx.localhost:19800`
 - `http://127.0.0.1:19800`
 
-`nullhub` tries to publish `nullhub.local` through `dns-sd`/Bonjour or
+`nullhubx` tries to publish `nullhubx.local` through `dns-sd`/Bonjour or
 `avahi-publish` when those tools are available, and otherwise falls back to
-`nullhub.localhost` and finally `127.0.0.1`.
+`nullhubx.localhost` and finally `127.0.0.1`.
 
 ### Runtime Prerequisites
 
@@ -53,37 +53,37 @@ Local access chain:
 - `npm` is required for `zig build` and `zig build test` because the Svelte UI is
   built and embedded into the binary during the Zig build.
 
-When these tools are missing, `nullhub` will try to install them automatically
+When these tools are missing, `nullhubx` will try to install them automatically
 via available system package managers (`apt`, `dnf`, `yum`, `pacman`, `zypper`,
 `apk`, `brew`, `winget`, `choco`).
 
 ## CLI Usage
 
 ```
-nullhub                          # Start server + open browser
-nullhub serve [--port N]         # Start server without browser
-nullhub version | -v | --version # Print version
+nullhubx                          # Start server + open browser
+nullhubx serve [--port N]         # Start server without browser
+nullhubx version | -v | --version # Print version
 
-nullhub install <component>      # Terminal wizard
-nullhub uninstall <c>/<n>        # Remove instance
+nullhubx install <component>      # Terminal wizard
+nullhubx uninstall <c>/<n>        # Remove instance
 
-nullhub start <c>/<n>            # Start instance
-nullhub stop <c>/<n>             # Stop instance
-nullhub restart <c>/<n>          # Restart instance
-nullhub start-all / stop-all     # Bulk start/stop
+nullhubx start <c>/<n>            # Start instance
+nullhubx stop <c>/<n>             # Stop instance
+nullhubx restart <c>/<n>          # Restart instance
+nullhubx start-all / stop-all     # Bulk start/stop
 
-nullhub status                   # Table of all instances
-nullhub status <c>/<n>           # Single instance detail
-nullhub logs <c>/<n> [-f]        # Tail logs (-f for follow)
+nullhubx status                   # Table of all instances
+nullhubx status <c>/<n>           # Single instance detail
+nullhubx logs <c>/<n> [-f]        # Tail logs (-f for follow)
 
-nullhub check-updates            # Check for new versions
-nullhub update <c>/<n>           # Update single instance
-nullhub update-all               # Update everything
+nullhubx check-updates            # Check for new versions
+nullhubx update <c>/<n>           # Update single instance
+nullhubx update-all               # Update everything
 
-nullhub config <c>/<n> [--edit]  # View/edit config
-nullhub service install          # Register/start OS service (systemd/launchd)
-nullhub service uninstall        # Remove OS service
-nullhub service status           # Show OS service status
+nullhubx config <c>/<n> [--edit]  # View/edit config
+nullhubx service install          # Register/start OS service (systemd/launchd)
+nullhubx service uninstall        # Remove OS service
+nullhubx service status           # Show OS service status
 ```
 
 Instance addressing uses `{component}/{instance-name}` everywhere.
@@ -97,11 +97,11 @@ Two modes: server (HTTP + supervisor threads) or CLI (direct calls, stdout, exit
 binary. Component UI modules (chat, monitor) loaded dynamically via Svelte 5
 `mount()`.
 
-**Manifest-driven** -- each component publishes `nullhub-manifest.json` that
+**Manifest-driven** -- each component publishes `nullhubx-manifest.json` that
 describes installation, configuration, launch, health checks, wizard steps, and
-UI modules. NullHub is a generic engine that interprets manifests.
+UI modules. NullHubX is a generic engine that interprets manifests.
 
-**Storage** -- all state lives under `~/.nullhub/` (config, instances, binaries,
+**Storage** -- all state lives under `~/.nullhubx/` (config, instances, binaries,
 logs, cached manifests).
 
 **Orchestration proxy** -- requests to `/api/orchestration/*` are reverse-proxied

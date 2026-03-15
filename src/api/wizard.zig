@@ -623,7 +623,7 @@ pub fn handleValidateProviders(
 
     // Create temp directory for probes
     const timestamp = @abs(std.time.milliTimestamp());
-    const tmp_dir = std.fmt.allocPrint(allocator, "/tmp/nullhub-wizard-validate-{d}", .{timestamp}) catch return null;
+    const tmp_dir = std.fmt.allocPrint(allocator, "/tmp/nullhubx-wizard-validate-{d}", .{timestamp}) catch return null;
     defer {
         std.fs.deleteTreeAbsolute(tmp_dir) catch {};
         allocator.free(tmp_dir);
@@ -823,7 +823,7 @@ pub fn handleValidateChannels(
     defer allocator.free(bin_path);
 
     const timestamp = @abs(std.time.milliTimestamp());
-    const tmp_dir = std.fmt.allocPrint(allocator, "/tmp/nullhub-wizard-validate-ch-{d}", .{timestamp}) catch return null;
+    const tmp_dir = std.fmt.allocPrint(allocator, "/tmp/nullhubx-wizard-validate-ch-{d}", .{timestamp}) catch return null;
     defer {
         std.fs.deleteTreeAbsolute(tmp_dir) catch {};
         allocator.free(tmp_dir);
@@ -1063,7 +1063,7 @@ test "compareVersionTags compares numeric version segments" {
 
 test "findInstalledComponentBinary finds binary in bin directory" {
     const allocator = std.testing.allocator;
-    const tmp_root = "/tmp/nullhub-test-find-installed-binary";
+    const tmp_root = "/tmp/nullhubx-test-find-installed-binary";
     std.fs.deleteTreeAbsolute(tmp_root) catch {};
     defer std.fs.deleteTreeAbsolute(tmp_root) catch {};
 
@@ -1088,9 +1088,9 @@ test "findInstalledComponentBinary finds binary in bin directory" {
 
 test "handleGetWizard returns null for unknown component" {
     const allocator = std.testing.allocator;
-    const paths = paths_mod.Paths.init(allocator, "/tmp/nullhub-test-wizard-get") catch @panic("Paths.init");
+    const paths = paths_mod.Paths.init(allocator, "/tmp/nullhubx-test-wizard-get") catch @panic("Paths.init");
     defer paths.deinit(allocator);
-    var state = state_mod.State.init(allocator, "/tmp/nullhub-test-wizard-get/state.json");
+    var state = state_mod.State.init(allocator, "/tmp/nullhubx-test-wizard-get/state.json");
     defer state.deinit();
     const result = handleGetWizard(allocator, "nonexistent", paths, &state);
     try std.testing.expect(result == null);
@@ -1098,9 +1098,9 @@ test "handleGetWizard returns null for unknown component" {
 
 test "handleGetWizard returns null when no binary found" {
     const allocator = std.testing.allocator;
-    const paths = paths_mod.Paths.init(allocator, "/tmp/nullhub-test-wizard-nobin") catch @panic("Paths.init");
+    const paths = paths_mod.Paths.init(allocator, "/tmp/nullhubx-test-wizard-nobin") catch @panic("Paths.init");
     defer paths.deinit(allocator);
-    var state = state_mod.State.init(allocator, "/tmp/nullhub-test-wizard-nobin/state.json");
+    var state = state_mod.State.init(allocator, "/tmp/nullhubx-test-wizard-nobin/state.json");
     defer state.deinit();
     // nullclaw is a known component but there's no binary in test dirs
     const result = handleGetWizard(allocator, "nullclaw", paths, &state);
@@ -1109,7 +1109,7 @@ test "handleGetWizard returns null when no binary found" {
 
 test "prepareWizardBody injects tracker settings for nullboiler" {
     const allocator = std.testing.allocator;
-    var paths = paths_mod.Paths.init(allocator, "/tmp/nullhub-test-wizard-prepare") catch @panic("Paths.init");
+    var paths = paths_mod.Paths.init(allocator, "/tmp/nullhubx-test-wizard-prepare") catch @panic("Paths.init");
     defer paths.deinit(allocator);
 
     std.fs.deleteTreeAbsolute(paths.root) catch {};
@@ -1150,9 +1150,9 @@ test "prepareWizardBody injects tracker settings for nullboiler" {
 
 test "handlePostWizard returns null for unknown component" {
     const allocator = std.testing.allocator;
-    var paths = paths_mod.Paths.init(allocator, "/tmp/nullhub-test-wizard-post2") catch @panic("Paths.init");
+    var paths = paths_mod.Paths.init(allocator, "/tmp/nullhubx-test-wizard-post2") catch @panic("Paths.init");
     defer paths.deinit(allocator);
-    var state = state_mod.State.init(allocator, "/tmp/nullhub-test-wizard-post2/state.json");
+    var state = state_mod.State.init(allocator, "/tmp/nullhubx-test-wizard-post2/state.json");
     defer state.deinit();
     var mgr = manager_mod.Manager.init(allocator, paths);
     defer mgr.deinit();
@@ -1164,9 +1164,9 @@ test "handlePostWizard returns null for unknown component" {
 
 test "handlePostWizard returns error for known component without binary" {
     const allocator = std.testing.allocator;
-    var paths = paths_mod.Paths.init(allocator, "/tmp/nullhub-test-wizard-post3") catch @panic("Paths.init");
+    var paths = paths_mod.Paths.init(allocator, "/tmp/nullhubx-test-wizard-post3") catch @panic("Paths.init");
     defer paths.deinit(allocator);
-    var state = state_mod.State.init(allocator, "/tmp/nullhub-test-wizard-post3/state.json");
+    var state = state_mod.State.init(allocator, "/tmp/nullhubx-test-wizard-post3/state.json");
     defer state.deinit();
     var mgr = manager_mod.Manager.init(allocator, paths);
     defer mgr.deinit();

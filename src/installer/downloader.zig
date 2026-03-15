@@ -106,7 +106,7 @@ test "computeSha256 returns correct hash for known content" {
     const allocator = std.testing.allocator;
 
     // Write a temp file with known content.
-    const tmp_dir = "/tmp/test-nullhub-downloader-sha256";
+    const tmp_dir = "/tmp/test-nullhubx-downloader-sha256";
     std.fs.deleteTreeAbsolute(tmp_dir) catch {};
     try std.fs.makeDirAbsolute(tmp_dir);
     defer std.fs.deleteTreeAbsolute(tmp_dir) catch {};
@@ -130,7 +130,7 @@ test "computeSha256 returns correct hash for known content" {
 test "download performs atomic rename and sets executable bit" {
     const allocator = std.testing.allocator;
 
-    const tmp_dir = "/tmp/test-nullhub-downloader-rename";
+    const tmp_dir = "/tmp/test-nullhubx-downloader-rename";
     std.fs.deleteTreeAbsolute(tmp_dir) catch {};
     try std.fs.makeDirAbsolute(tmp_dir);
     defer std.fs.deleteTreeAbsolute(tmp_dir) catch {};
@@ -183,7 +183,7 @@ test "download performs atomic rename and sets executable bit" {
 test "downloadWithSha256 detects checksum mismatch" {
     const allocator = std.testing.allocator;
 
-    const tmp_dir = "/tmp/test-nullhub-downloader-mismatch";
+    const tmp_dir = "/tmp/test-nullhubx-downloader-mismatch";
     std.fs.deleteTreeAbsolute(tmp_dir) catch {};
     try std.fs.makeDirAbsolute(tmp_dir);
     defer std.fs.deleteTreeAbsolute(tmp_dir) catch {};
@@ -215,7 +215,7 @@ test "downloadWithSha256 detects checksum mismatch" {
 test "downloadWithSha256 succeeds with correct hash" {
     const allocator = std.testing.allocator;
 
-    const tmp_dir = "/tmp/test-nullhub-downloader-sha-ok";
+    const tmp_dir = "/tmp/test-nullhubx-downloader-sha-ok";
     std.fs.deleteTreeAbsolute(tmp_dir) catch {};
     try std.fs.makeDirAbsolute(tmp_dir);
     defer std.fs.deleteTreeAbsolute(tmp_dir) catch {};

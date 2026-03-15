@@ -12,13 +12,13 @@ PORT=19800  # Use high port to avoid conflicts
 BASE="http://127.0.0.1:$PORT"
 
 # Build
-echo "Building nullhub..."
+echo "Building nullhubx..."
 zig build
-EXPECTED_VERSION=$(./zig-out/bin/nullhub --version 2>&1 | awk '{print $2}' | sed 's/^v//')
+EXPECTED_VERSION=$(./zig-out/bin/nullhubx --version 2>&1 | awk '{print $2}' | sed 's/^v//')
 
 # Start server in background
-echo "Starting nullhub on port $PORT..."
-./zig-out/bin/nullhub serve --port $PORT &
+echo "Starting nullhubx on port $PORT..."
+./zig-out/bin/nullhubx serve --port $PORT &
 SERVER_PID=$!
 
 # Cleanup on exit

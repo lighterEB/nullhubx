@@ -82,7 +82,7 @@ pub const Publisher = struct {
 
         const result = process_mod.spawn(self.allocator, .{
             .binary = binary,
-            .argv = &.{ "-P", "nullhub", "_http._tcp", "local", port_str, access.public_alias_host, access.fallback_local_host, "path=/" },
+            .argv = &.{ "-P", "nullhubx", "_http._tcp", "local", port_str, access.public_alias_host, access.fallback_local_host, "path=/" },
             .stdout_path = log_path,
             .stderr_path = log_path,
         }) catch return false;
@@ -109,7 +109,7 @@ pub const Publisher = struct {
 
         const service_child = process_mod.spawn(self.allocator, .{
             .binary = "avahi-publish",
-            .argv = &.{ "-s", "nullhub", "_http._tcp", port_str, "path=/" },
+            .argv = &.{ "-s", "nullhubx", "_http._tcp", port_str, "path=/" },
             .stdout_path = log_path,
             .stderr_path = log_path,
         }) catch {

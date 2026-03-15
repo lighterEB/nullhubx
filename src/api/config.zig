@@ -178,7 +178,7 @@ test "isConfigPath detects config suffix" {
 
 test "handleGet returns 404 when no config file exists" {
     const allocator = std.testing.allocator;
-    const tmp_root = "/tmp/nullhub-test-config-api-get";
+    const tmp_root = "/tmp/nullhubx-test-config-api-get";
     std.fs.deleteTreeAbsolute(tmp_root) catch {};
     defer std.fs.deleteTreeAbsolute(tmp_root) catch {};
 
@@ -192,7 +192,7 @@ test "handleGet returns 404 when no config file exists" {
 
 test "handlePut writes config file" {
     const allocator = std.testing.allocator;
-    const tmp_root = "/tmp/nullhub-test-config-api-put";
+    const tmp_root = "/tmp/nullhubx-test-config-api-put";
     std.fs.deleteTreeAbsolute(tmp_root) catch {};
     defer std.fs.deleteTreeAbsolute(tmp_root) catch {};
 
@@ -217,7 +217,7 @@ test "handlePut writes config file" {
 
 test "handleGet reads written config" {
     const allocator = std.testing.allocator;
-    const tmp_root = "/tmp/nullhub-test-config-api-roundtrip";
+    const tmp_root = "/tmp/nullhubx-test-config-api-roundtrip";
     std.fs.deleteTreeAbsolute(tmp_root) catch {};
     defer std.fs.deleteTreeAbsolute(tmp_root) catch {};
 
@@ -236,7 +236,7 @@ test "handleGet reads written config" {
 
 test "handlePatch writes config (same as PUT for now)" {
     const allocator = std.testing.allocator;
-    const tmp_root = "/tmp/nullhub-test-config-api-patch";
+    const tmp_root = "/tmp/nullhubx-test-config-api-patch";
     std.fs.deleteTreeAbsolute(tmp_root) catch {};
     defer std.fs.deleteTreeAbsolute(tmp_root) catch {};
 

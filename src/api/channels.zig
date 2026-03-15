@@ -344,7 +344,7 @@ fn probeChannel(
 ) ProbeResult {
     // Create temp dir for minimal config
     const timestamp = @abs(std.time.milliTimestamp());
-    const tmp_dir = std.fmt.allocPrint(allocator, "/tmp/nullhub-channel-validate-{d}", .{timestamp}) catch
+    const tmp_dir = std.fmt.allocPrint(allocator, "/tmp/nullhubx-channel-validate-{d}", .{timestamp}) catch
         return .{ .live_ok = false, .reason = "tmp_dir_failed" };
     defer {
         std.fs.deleteTreeAbsolute(tmp_dir) catch {};
@@ -537,7 +537,7 @@ test "hasRevealParam detects reveal query param" {
 
 test "handleList returns empty array for no channels" {
     const allocator = std.testing.allocator;
-    const path = "/tmp/nullhub-channel-test-list.json";
+    const path = "/tmp/nullhubx-channel-test-list.json";
     var s = state_mod.State.init(allocator, path);
     defer s.deinit();
 
@@ -548,7 +548,7 @@ test "handleList returns empty array for no channels" {
 
 test "handleList masks secrets in config" {
     const allocator = std.testing.allocator;
-    const path = "/tmp/nullhub-channel-test-mask.json";
+    const path = "/tmp/nullhubx-channel-test-mask.json";
     var s = state_mod.State.init(allocator, path);
     defer s.deinit();
 
@@ -569,7 +569,7 @@ test "handleList masks secrets in config" {
 
 test "handleList reveals secrets when requested" {
     const allocator = std.testing.allocator;
-    const path = "/tmp/nullhub-channel-test-reveal.json";
+    const path = "/tmp/nullhubx-channel-test-reveal.json";
     var s = state_mod.State.init(allocator, path);
     defer s.deinit();
 
@@ -587,7 +587,7 @@ test "handleList reveals secrets when requested" {
 
 test "handleDelete removes channel" {
     const allocator = std.testing.allocator;
-    const tmp = "/tmp/nullhub-channel-test-delete";
+    const tmp = "/tmp/nullhubx-channel-test-delete";
     std.fs.deleteTreeAbsolute(tmp) catch {};
     std.fs.makeDirAbsolute(tmp) catch {};
     defer std.fs.deleteTreeAbsolute(tmp) catch {};
@@ -608,7 +608,7 @@ test "handleDelete removes channel" {
 
 test "handleDelete returns error for unknown id" {
     const allocator = std.testing.allocator;
-    const path = "/tmp/nullhub-channel-test-del-unknown.json";
+    const path = "/tmp/nullhubx-channel-test-del-unknown.json";
     var s = state_mod.State.init(allocator, path);
     defer s.deinit();
 
@@ -619,11 +619,11 @@ test "handleDelete returns error for unknown id" {
 
 test "handleCreate rejects non-object config" {
     const allocator = std.testing.allocator;
-    const path = "/tmp/nullhub-channel-test-create-invalid.json";
+    const path = "/tmp/nullhubx-channel-test-create-invalid.json";
     var s = state_mod.State.init(allocator, path);
     defer s.deinit();
 
-    var paths = try paths_mod.Paths.init(allocator, "/tmp/nullhub-channel-test-create-invalid-root");
+    var paths = try paths_mod.Paths.init(allocator, "/tmp/nullhubx-channel-test-create-invalid-root");
     defer paths.deinit(allocator);
 
     const json = try handleCreate(
@@ -638,7 +638,7 @@ test "handleCreate rejects non-object config" {
 
 test "handleUpdate rejects non-object config" {
     const allocator = std.testing.allocator;
-    const tmp = "/tmp/nullhub-channel-test-update-invalid";
+    const tmp = "/tmp/nullhubx-channel-test-update-invalid";
     std.fs.deleteTreeAbsolute(tmp) catch {};
     try std.fs.makeDirAbsolute(tmp);
     defer std.fs.deleteTreeAbsolute(tmp) catch {};
@@ -670,7 +670,7 @@ test "handleUpdate rejects non-object config" {
 
 test "writeChannelConfig escapes channel type and account" {
     const allocator = std.testing.allocator;
-    const tmp = "/tmp/nullhub-channel-test-config-escape";
+    const tmp = "/tmp/nullhubx-channel-test-config-escape";
     std.fs.deleteTreeAbsolute(tmp) catch {};
     try std.fs.makeDirAbsolute(tmp);
     defer std.fs.deleteTreeAbsolute(tmp) catch {};

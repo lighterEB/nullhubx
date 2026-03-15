@@ -1,15 +1,15 @@
 ---
 name: nullhub-admin
 version: 0.1.0
-description: Teach managed nullclaw agents to discover NullHub routes first and then use nullhub api for instance, provider, component, and orchestration tasks.
+description: Teach managed nullclaw agents to discover NullHubX routes first and then use nullhub api for instance, provider, component, and orchestration tasks.
 always: true
 requires_bins:
   - nullhub
 ---
 
-# NullHub Admin
+# NullHubX Admin
 
-Use this skill whenever the task involves `nullhub`, NullHub-managed instances, providers, components, or orchestration routes.
+Use this skill whenever the task involves `nullhub`, NullHubX-managed instances, providers, components, or orchestration routes.
 
 Workflow:
 
@@ -21,7 +21,7 @@ Workflow:
 
 Rules:
 
-- Prefer `nullhub api` over deleting files directly when NullHub owns the cleanup.
+- Prefer `nullhub api` over deleting files directly when NullHubX owns the cleanup.
 - If a route or payload is unclear, inspect `nullhub routes --json` again instead of guessing or asking the user for syntax.
 - Use `--pretty` for user-facing inspection output.
 - Use `--body` or `--body-file` for JSON request bodies.

@@ -27,8 +27,8 @@ pub const ServiceStatus = struct {
     }
 };
 
-const SERVICE_LABEL = "com.nullhub.server";
-const SERVICE_NAME = "nullhub.service";
+const SERVICE_LABEL = "com.nullhubx.server";
+const SERVICE_NAME = "nullhubx.service";
 
 pub fn install(allocator: std.mem.Allocator) !void {
     switch (builtin.os.tag) {
@@ -97,13 +97,13 @@ fn installMacos(allocator: std.mem.Allocator) !void {
     const home = try getHomeDir(allocator);
     defer allocator.free(home);
 
-    const logs_dir = try std.fs.path.join(allocator, &.{ home, ".nullhub", "logs" });
+    const logs_dir = try std.fs.path.join(allocator, &.{ home, ".nullhubx", "logs" });
     defer allocator.free(logs_dir);
     try std.fs.cwd().makePath(logs_dir);
 
-    const stdout_log = try std.fs.path.join(allocator, &.{ logs_dir, "nullhub.stdout.log" });
+    const stdout_log = try std.fs.path.join(allocator, &.{ logs_dir, "nullhubx.stdout.log" });
     defer allocator.free(stdout_log);
-    const stderr_log = try std.fs.path.join(allocator, &.{ logs_dir, "nullhub.stderr.log" });
+    const stderr_log = try std.fs.path.join(allocator, &.{ logs_dir, "nullhubx.stderr.log" });
     defer allocator.free(stderr_log);
     const escaped_exe = try xmlEscapeOwned(allocator, service_exe_path);
     defer allocator.free(escaped_exe);
@@ -188,7 +188,7 @@ fn installLinux(allocator: std.mem.Allocator) !void {
 
     const content = try std.fmt.allocPrint(allocator,
         \\[Unit]
-        \\Description=nullhub management server
+        \\Description=nullhubx management server
         \\After=network.target
         \\
         \\[Service]
@@ -268,20 +268,20 @@ fn resolveServiceExecutablePath(allocator: std.mem.Allocator) ![]u8 {
 }
 
 fn preferredHomebrewShimPath(allocator: std.mem.Allocator, exe_path: []const u8) !?[]u8 {
-    if (!std.mem.endsWith(u8, exe_path, "/bin/nullhub")) return null;
+    if (!std.mem.endsWith(u8, exe_path, "/bin/nullhubx")) return null;
 
-    const cellar_marker = "/Cellar/nullhub/";
+    const cellar_marker = "/Cellar/nullhubx/";
     const cellar_index = std.mem.indexOf(u8, exe_path, cellar_marker) orelse return null;
     if (cellar_index == 0) return null;
 
-    const candidate = try std.fmt.allocPrint(allocator, "{s}/bin/nullhub", .{exe_path[0..cellar_index]});
+    const candidate = try std.fmt.allocPrint(allocator, "{s}/bin/nullhubx", .{exe_path[0..cellar_index]});
     return candidate;
 }
 
 fn macosServiceFile(allocator: std.mem.Allocator) ![]u8 {
     const home = try getHomeDir(allocator);
     defer allocator.free(home);
-    return std.fs.path.join(allocator, &.{ home, "Library", "LaunchAgents", "com.nullhub.server.plist" });
+    return std.fs.path.join(allocator, &.{ home, "Library", "LaunchAgents", "com.nullhubx.server.plist" });
 }
 
 fn linuxServiceFile(allocator: std.mem.Allocator) ![]u8 {
@@ -393,17 +393,17 @@ fn isSystemdUnavailableDetail(detail: []const u8) bool {
 }
 
 test "preferredHomebrewShimPath resolves Apple Silicon Cellar install" {
-    const shim = (try preferredHomebrewShimPath(std.testing.allocator, "/opt/homebrew/Cellar/nullhub/2026.3.7/bin/nullhub")).?;
+    const shim = (try preferredHomebrewShimPath(std.testing.allocator, "/opt/homebrew/Cellar/nullhubx/2026.3.7/bin/nullhubx")).?;
     defer std.testing.allocator.free(shim);
-    try std.testing.expectEqualStrings("/opt/homebrew/bin/nullhub", shim);
+    try std.testing.expectEqualStrings("/opt/homebrew/bin/nullhubx", shim);
 }
 
 test "preferredHomebrewShimPath resolves Linux Homebrew Cellar install" {
-    const shim = (try preferredHomebrewShimPath(std.testing.allocator, "/home/linuxbrew/.linuxbrew/Cellar/nullhub/2026.3.7/bin/nullhub")).?;
+    const shim = (try preferredHomebrewShimPath(std.testing.allocator, "/home/linuxbrew/.linuxbrew/Cellar/nullhubx/2026.3.7/bin/nullhubx")).?;
     defer std.testing.allocator.free(shim);
-    try std.testing.expectEqualStrings("/home/linuxbrew/.linuxbrew/bin/nullhub", shim);
+    try std.testing.expectEqualStrings("/home/linuxbrew/.linuxbrew/bin/nullhubx", shim);
 }
 
 test "preferredHomebrewShimPath ignores non-Cellar paths" {
-    try std.testing.expect((try preferredHomebrewShimPath(std.testing.allocator, "/usr/local/bin/nullhub")) == null);
+    try std.testing.expect((try preferredHomebrewShimPath(std.testing.allocator, "/usr/local/bin/nullhubx")) == null);
 }

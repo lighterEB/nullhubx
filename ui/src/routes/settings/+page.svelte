@@ -168,7 +168,7 @@
   <div class="settings-section">
     <h2>Service</h2>
     <p class="hint">
-      Register NullHub as a system service for automatic startup
+      Register NullHubX as a system service for automatic startup
     </p>
     <div class="service-panel">
       <div class="service-status-grid">

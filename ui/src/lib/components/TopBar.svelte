@@ -11,8 +11,8 @@
 
   onMount(() => {
     if (browser) {
-      const savedTheme = localStorage.getItem("nullhub-theme");
-      const savedEffects = localStorage.getItem("nullhub-effects");
+      const savedTheme = localStorage.getItem("nullhubx-theme");
+      const savedEffects = localStorage.getItem("nullhubx-effects");
       if (savedTheme) currentTheme = savedTheme;
       if (savedEffects === "true") effectsEnabled = true;
       initialized = true;
@@ -33,8 +33,8 @@
 
   $effect(() => {
     if (browser && initialized) {
-      localStorage.setItem("nullhub-theme", currentTheme);
-      localStorage.setItem("nullhub-effects", effectsEnabled.toString());
+      localStorage.setItem("nullhubx-theme", currentTheme);
+      localStorage.setItem("nullhubx-effects", effectsEnabled.toString());
 
       const body = document.body;
       const root = document.documentElement;

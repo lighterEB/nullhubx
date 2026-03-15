@@ -56,7 +56,7 @@ fn buildListJson(allocator: std.mem.Allocator, s: *state_mod.State) ![]const u8 
         // Count managed instances from state
         const instance_count = countInstancesFromState(s, comp.name);
 
-        // standalone = has dot-dir config but not yet imported into nullhub
+        // standalone = has dot-dir config but not yet imported into nullhubx
         const has_dot_dir = hasStandaloneInstall(allocator, comp.name);
         const standalone = has_dot_dir and instance_count == 0;
         const installed = has_dot_dir or instance_count > 0;
@@ -178,7 +178,7 @@ test "deriveDisplayName capitalizes first letter" {
 
 test "handleList returns valid JSON with all 3 known components" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-components.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-components.json");
     defer s.deinit();
 
     const json = try handleList(allocator, &s);

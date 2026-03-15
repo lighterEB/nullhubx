@@ -262,7 +262,7 @@ fn probeProvider(
 ) wizard_api.ProviderProbeResult {
     // Create temp dir for minimal config
     const timestamp = @abs(std.time.milliTimestamp());
-    const tmp_dir = std.fmt.allocPrint(allocator, "/tmp/nullhub-provider-validate-{d}", .{timestamp}) catch
+    const tmp_dir = std.fmt.allocPrint(allocator, "/tmp/nullhubx-provider-validate-{d}", .{timestamp}) catch
         return .{ .live_ok = false, .reason = "tmp_dir_failed" };
     defer {
         std.fs.deleteTreeAbsolute(tmp_dir) catch {};
@@ -383,7 +383,7 @@ test "hasRevealParam detects reveal query param" {
 
 test "handleList returns empty array for no providers" {
     const allocator = std.testing.allocator;
-    const path = "/tmp/nullhub-provider-test-list.json";
+    const path = "/tmp/nullhubx-provider-test-list.json";
     var s = state_mod.State.init(allocator, path);
     defer s.deinit();
 
@@ -394,7 +394,7 @@ test "handleList returns empty array for no providers" {
 
 test "handleList masks api_key by default" {
     const allocator = std.testing.allocator;
-    const path = "/tmp/nullhub-provider-test-mask.json";
+    const path = "/tmp/nullhubx-provider-test-mask.json";
     var s = state_mod.State.init(allocator, path);
     defer s.deinit();
 
@@ -409,7 +409,7 @@ test "handleList masks api_key by default" {
 
 test "handleList reveals api_key when requested" {
     const allocator = std.testing.allocator;
-    const path = "/tmp/nullhub-provider-test-reveal.json";
+    const path = "/tmp/nullhubx-provider-test-reveal.json";
     var s = state_mod.State.init(allocator, path);
     defer s.deinit();
 
@@ -422,7 +422,7 @@ test "handleList reveals api_key when requested" {
 
 test "findProviderProbeComponent prefers installed nullclaw" {
     const allocator = std.testing.allocator;
-    const path = "/tmp/nullhub-provider-test-probe-component.json";
+    const path = "/tmp/nullhubx-provider-test-probe-component.json";
     var s = state_mod.State.init(allocator, path);
     defer s.deinit();
 
@@ -435,7 +435,7 @@ test "findProviderProbeComponent prefers installed nullclaw" {
 
 test "findProviderProbeComponent returns null without nullclaw instances" {
     const allocator = std.testing.allocator;
-    const path = "/tmp/nullhub-provider-test-probe-component-empty.json";
+    const path = "/tmp/nullhubx-provider-test-probe-component-empty.json";
     var s = state_mod.State.init(allocator, path);
     defer s.deinit();
 
@@ -446,7 +446,7 @@ test "findProviderProbeComponent returns null without nullclaw instances" {
 
 test "handleDelete removes provider" {
     const allocator = std.testing.allocator;
-    const tmp = "/tmp/nullhub-provider-test-delete";
+    const tmp = "/tmp/nullhubx-provider-test-delete";
     std.fs.deleteTreeAbsolute(tmp) catch {};
     std.fs.makeDirAbsolute(tmp) catch {};
     defer std.fs.deleteTreeAbsolute(tmp) catch {};
@@ -467,7 +467,7 @@ test "handleDelete removes provider" {
 
 test "handleDelete returns error for unknown id" {
     const allocator = std.testing.allocator;
-    const path = "/tmp/nullhub-provider-test-del-unknown.json";
+    const path = "/tmp/nullhubx-provider-test-del-unknown.json";
     var s = state_mod.State.init(allocator, path);
     defer s.deinit();
 

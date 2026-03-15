@@ -38,7 +38,7 @@ const component_param = ParamSpec{
     .name = "component",
     .location = "path",
     .required = true,
-    .description = "Component name such as nullclaw, nullhub, nullboiler, or nulltickets.",
+    .description = "Component name such as nullclaw, nullhubx, nullboiler, or nulltickets.",
 };
 
 const instance_name_param = ParamSpec{
@@ -108,7 +108,7 @@ const log_source_query = ParamSpec{
     .name = "source",
     .location = "query",
     .required = false,
-    .description = "Log source selector: instance or nullhub.",
+    .description = "Log source selector: instance or nullhubx.",
 };
 
 const history_limit_query = ParamSpec{
@@ -197,64 +197,64 @@ const skills_query_params = [_]ParamSpec{ skill_name_query, skill_catalog_query 
 
 const route_examples_status = [_]ExampleSpec{
     .{
-        .command = "nullhub api GET /api/status --pretty",
+        .command = "nullhubx api GET /api/status --pretty",
         .description = "Inspect hub health, uptime, and instance summary.",
     },
 };
 
 const route_examples_instances = [_]ExampleSpec{
     .{
-        .command = "nullhub api GET /api/instances --pretty",
+        .command = "nullhubx api GET /api/instances --pretty",
         .description = "List all managed instances.",
     },
 };
 
 const route_examples_delete_instance = [_]ExampleSpec{
     .{
-        .command = "nullhub api DELETE /api/instances/nullclaw/instance-2",
-        .description = "Delete a managed nullclaw instance and let nullhub clean related state.",
+        .command = "nullhubx api DELETE /api/instances/nullclaw/instance-2",
+        .description = "Delete a managed nullclaw instance and let nullhubx clean related state.",
     },
 };
 
 const route_examples_provider_validate = [_]ExampleSpec{
     .{
-        .command = "nullhub api POST /api/providers/2/validate",
+        .command = "nullhubx api POST /api/providers/2/validate",
         .description = "Run a live provider credential probe.",
     },
 };
 
 const route_examples_skill_catalog = [_]ExampleSpec{
     .{
-        .command = "nullhub api GET '/api/instances/nullclaw/instance-1/skills?catalog=1' --pretty",
+        .command = "nullhubx api GET '/api/instances/nullclaw/instance-1/skills?catalog=1' --pretty",
         .description = "Inspect the recommended skill catalog for a managed nullclaw instance.",
     },
 };
 
 const route_examples_skill_install = [_]ExampleSpec{
     .{
-        .command = "nullhub api POST /api/instances/nullclaw/instance-1/skills --body '{\"bundled\":\"nullhub-admin\"}'",
-        .description = "Install the bundled nullhub-admin skill into a managed nullclaw workspace.",
+        .command = "nullhubx api POST /api/instances/nullclaw/instance-1/skills --body '{\"bundled\":\"nullhubx-admin\"}'",
+        .description = "Install the bundled nullhubx-admin skill into a managed nullclaw workspace.",
     },
     .{
-        .command = "nullhub api POST /api/instances/nullclaw/instance-1/skills --body '{\"clawhub_slug\":\"my-skill\"}'",
+        .command = "nullhubx api POST /api/instances/nullclaw/instance-1/skills --body '{\"clawhub_slug\":\"my-skill\"}'",
         .description = "Install a skill from ClawHub when the host has the clawhub CLI available.",
     },
 };
 
 const route_examples_skill_remove = [_]ExampleSpec{
     .{
-        .command = "nullhub api DELETE '/api/instances/nullclaw/instance-1/skills?name=nullhub-admin'",
+        .command = "nullhubx api DELETE '/api/instances/nullclaw/instance-1/skills?name=nullhubx-admin'",
         .description = "Remove a workspace-installed skill from a managed nullclaw instance.",
     },
 };
 
 const route_examples_meta = [_]ExampleSpec{
     .{
-        .command = "nullhub routes --json",
+        .command = "nullhubx routes --json",
         .description = "Inspect the machine-readable route catalog locally without a running server.",
     },
     .{
-        .command = "nullhub api GET /api/meta/routes --pretty",
+        .command = "nullhubx api GET /api/meta/routes --pretty",
         .description = "Fetch the same route catalog over HTTP.",
     },
 };
@@ -284,7 +284,7 @@ const routes = [_]RouteSpec{
         .method = "GET",
         .path_template = "/api/meta/routes",
         .category = "meta",
-        .summary = "Machine-readable catalog of stable nullhub HTTP routes.",
+        .summary = "Machine-readable catalog of stable nullhubx HTTP routes.",
         .auth_mode = "optional_bearer",
         .response = "JSON document with route ids, methods, paths, parameters, and examples.",
         .examples = route_examples_meta[0..],
@@ -343,7 +343,7 @@ const routes = [_]RouteSpec{
         .category = "settings",
         .summary = "Read hub settings and published access URLs.",
         .auth_mode = "optional_bearer",
-        .response = "Current nullhub settings document.",
+        .response = "Current nullhubx settings document.",
     },
     .{
         .id = "settings.put",
@@ -360,7 +360,7 @@ const routes = [_]RouteSpec{
         .method = "POST",
         .path_template = "/api/service/install",
         .category = "settings",
-        .summary = "Install nullhub as an OS service.",
+        .summary = "Install nullhubx as an OS service.",
         .auth_mode = "optional_bearer",
         .response = "Platform-specific install result.",
     },
@@ -369,7 +369,7 @@ const routes = [_]RouteSpec{
         .method = "POST",
         .path_template = "/api/service/uninstall",
         .category = "settings",
-        .summary = "Remove the OS service installation for nullhub.",
+        .summary = "Remove the OS service installation for nullhubx.",
         .auth_mode = "optional_bearer",
         .destructive = true,
         .response = "Service uninstall result.",
@@ -646,7 +646,7 @@ const routes = [_]RouteSpec{
         .method = "DELETE",
         .path_template = "/api/instances/{component}/{name}",
         .category = "instances",
-        .summary = "Delete an instance and let nullhub clean its managed files.",
+        .summary = "Delete an instance and let nullhubx clean its managed files.",
         .auth_mode = "optional_bearer",
         .path_params = common_instance_params[0..],
         .destructive = true,
@@ -812,7 +812,7 @@ const routes = [_]RouteSpec{
         .method = "POST",
         .path_template = "/api/instances/{component}/import",
         .category = "instances",
-        .summary = "Import a standalone installation into nullhub management.",
+        .summary = "Import a standalone installation into nullhubx management.",
         .auth_mode = "optional_bearer",
         .path_params = component_only_params[0..],
         .response = "Imported instance payload.",
@@ -822,7 +822,7 @@ const routes = [_]RouteSpec{
         .method = "GET",
         .path_template = "/api/instances/{component}/{name}/config",
         .category = "instances",
-        .summary = "Read the raw instance config.json managed by nullhub.",
+        .summary = "Read the raw instance config.json managed by nullhubx.",
         .auth_mode = "optional_bearer",
         .path_params = common_instance_params[0..],
         .response = "Raw instance config JSON.",
@@ -832,7 +832,7 @@ const routes = [_]RouteSpec{
         .method = "PUT",
         .path_template = "/api/instances/{component}/{name}/config",
         .category = "instances",
-        .summary = "Replace the raw instance config.json managed by nullhub.",
+        .summary = "Replace the raw instance config.json managed by nullhubx.",
         .auth_mode = "optional_bearer",
         .path_params = common_instance_params[0..],
         .body = "Complete config.json replacement body.",
@@ -854,7 +854,7 @@ const routes = [_]RouteSpec{
         .method = "GET",
         .path_template = "/api/instances/{component}/{name}/logs",
         .category = "instances",
-        .summary = "Read the log tail for an instance or its nullhub supervisor log.",
+        .summary = "Read the log tail for an instance or its nullhubx supervisor log.",
         .auth_mode = "optional_bearer",
         .path_params = common_instance_params[0..],
         .query_params = logs_query_params[0..],
@@ -865,7 +865,7 @@ const routes = [_]RouteSpec{
         .method = "DELETE",
         .path_template = "/api/instances/{component}/{name}/logs",
         .category = "instances",
-        .summary = "Clear stored log files for an instance or its nullhub supervisor log.",
+        .summary = "Clear stored log files for an instance or its nullhubx supervisor log.",
         .auth_mode = "optional_bearer",
         .path_params = common_instance_params[0..],
         .query_params = logs_query_params[0..],
@@ -928,7 +928,7 @@ pub fn textAlloc(allocator: std.mem.Allocator) ![]u8 {
     errdefer buf.deinit();
 
     const writer = buf.writer();
-    try writer.print("nullhub routes ({d})\n", .{routes.len});
+    try writer.print("nullhubx routes ({d})\n", .{routes.len});
 
     var current_category: ?[]const u8 = null;
     for (allRoutes()) |route| {

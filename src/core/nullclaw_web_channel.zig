@@ -256,7 +256,7 @@ fn writeAbsolute(path: []const u8, content: []const u8) !void {
 
 test "ensureNullclawWebChannelConfig injects web channel when missing" {
     const allocator = std.testing.allocator;
-    const root = "/tmp/nullhub-test-web-channel-missing";
+    const root = "/tmp/nullhubx-test-web-channel-missing";
     std.fs.deleteTreeAbsolute(root) catch {};
     defer std.fs.deleteTreeAbsolute(root) catch {};
 
@@ -264,7 +264,7 @@ test "ensureNullclawWebChannelConfig injects web channel when missing" {
     defer paths.deinit();
     try paths.ensureDirs();
 
-    var state = state_mod.State.init(allocator, "/tmp/nullhub-test-web-channel-missing/state.json");
+    var state = state_mod.State.init(allocator, "/tmp/nullhubx-test-web-channel-missing/state.json");
     defer state.deinit();
 
     try state.addInstance("nullclaw", "instance-1", .{
@@ -305,7 +305,7 @@ test "ensureNullclawWebChannelConfig injects web channel when missing" {
 
 test "ensureNullclawWebChannelConfig picks next free port among instances" {
     const allocator = std.testing.allocator;
-    const root = "/tmp/nullhub-test-web-channel-port-pick";
+    const root = "/tmp/nullhubx-test-web-channel-port-pick";
     std.fs.deleteTreeAbsolute(root) catch {};
     defer std.fs.deleteTreeAbsolute(root) catch {};
 
@@ -313,7 +313,7 @@ test "ensureNullclawWebChannelConfig picks next free port among instances" {
     defer paths.deinit();
     try paths.ensureDirs();
 
-    var state = state_mod.State.init(allocator, "/tmp/nullhub-test-web-channel-port-pick/state.json");
+    var state = state_mod.State.init(allocator, "/tmp/nullhubx-test-web-channel-port-pick/state.json");
     defer state.deinit();
 
     try state.addInstance("nullclaw", "default", .{

@@ -471,7 +471,7 @@ fn resolvePathFromConfig(allocator: std.mem.Allocator, config_path: []const u8, 
     return std.fs.path.resolve(allocator, &.{ config_dir, value });
 }
 
-fn isNullHubManagedWorkflow(
+fn isNullHubXManagedWorkflow(
     allocator: std.mem.Allocator,
     workflow_path: []const u8,
 ) bool {
@@ -1738,7 +1738,7 @@ pub fn handleProviderHealth(allocator: std.mem.Allocator, s: *state_mod.State, m
 }
 
 /// GET /api/instances/{component}/{name}/usage?window=24h|7d|30d|all
-/// Uses a persistent nullhub cache (hourly + daily buckets) rebuilt from token ledger.
+/// Uses a persistent nullhubx cache (hourly + daily buckets) rebuilt from token ledger.
 pub fn handleUsage(allocator: std.mem.Allocator, s: *state_mod.State, paths: paths_mod.Paths, component: []const u8, name: []const u8, target: []const u8) ApiResponse {
     _ = s.getInstance(component, name) orelse return notFound();
 
@@ -2117,7 +2117,7 @@ fn handleSkillsInstall(
             error.FileNotFound => return jsonCliConflict(
                 allocator,
                 "clawhub_not_available",
-                "clawhub CLI is not installed on the nullhub host",
+                "clawhub CLI is not installed on the nullhubx host",
                 null,
                 null,
             ),
@@ -2355,7 +2355,7 @@ fn hideInstanceDirForDelete(allocator: std.mem.Allocator, inst_dir: []const u8) 
 }
 
 /// POST /api/instances/{component}/import — import a standalone installation.
-/// Copies config and data from ~/.{component}/ into the nullhub instance directory.
+/// Copies config and data from ~/.{component}/ into the nullhubx instance directory.
 /// The binary will be downloaded via the normal install flow on first start.
 pub fn handleImport(allocator: std.mem.Allocator, s: *state_mod.State, paths: paths_mod.Paths, component: []const u8) ApiResponse {
     const home = std.process.getEnvVarOwned(allocator, "HOME") catch blk: {
@@ -2384,7 +2384,7 @@ pub fn handleImport(allocator: std.mem.Allocator, s: *state_mod.State, paths: pa
     };
 
     // 3. Symlink the entire standalone dir as the instance dir
-    //    ~/.nullclaw → ~/.nullhub/instances/nullclaw/default
+    //    ~/.nullclaw → ~/.nullhubx/instances/nullclaw/default
     //    This preserves all data in place (config, auth, workspace, state, logs)
     std.fs.deleteFileAbsolute(inst_dir) catch {};
     std.fs.deleteTreeAbsolute(inst_dir) catch {};
@@ -2768,7 +2768,7 @@ fn ensureTrackerWorkflowFile(
         if (!std.mem.eql(u8, file_name, integration_mod.managed_workflow_file_name)) {
             const previous_path = try std.fs.path.join(allocator, &.{ workflows_dir, file_name });
             defer allocator.free(previous_path);
-            if (isNullHubManagedWorkflow(allocator, previous_path)) {
+            if (isNullHubXManagedWorkflow(allocator, previous_path)) {
                 std.fs.deleteFileAbsolute(previous_path) catch {};
             }
         }
@@ -2899,7 +2899,7 @@ const TestManagerCtx = struct {
     paths: paths_mod.Paths,
 
     fn init(allocator: std.mem.Allocator) TestManagerCtx {
-        const p = paths_mod.Paths.init(allocator, "/tmp/nullhub-test-instances-api") catch @panic("Paths.init failed");
+        const p = paths_mod.Paths.init(allocator, "/tmp/nullhubx-test-instances-api") catch @panic("Paths.init failed");
         return .{
             .paths = p,
             .manager = manager_mod.Manager.init(allocator, p),
@@ -3092,7 +3092,7 @@ test "parsePath: component only (no name) returns null" {
 
 test "handleList returns valid JSON structure" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3134,7 +3134,7 @@ test "handleList returns valid JSON structure" {
 
 test "handleGet returns 404 for missing instance" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3146,7 +3146,7 @@ test "handleGet returns 404 for missing instance" {
 
 test "handleGet returns instance detail JSON" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3180,7 +3180,7 @@ test "handleGet returns instance detail JSON" {
 
 test "handleStart returns 404 for missing instance" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3191,14 +3191,14 @@ test "handleStart returns 404 for missing instance" {
 
 test "handleStart returns 500 when binary does not exist" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
 
     try s.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0" });
 
-    // Binary doesn't exist at /tmp/nullhub-test-instances-api/bin/nullclaw-1.0.0
+    // Binary doesn't exist at /tmp/nullhubx-test-instances-api/bin/nullclaw-1.0.0
     // so startInstance will fail and handler returns 500.
     const resp = handleStart(allocator, &s, &mctx.manager, mctx.paths, "nullclaw", "my-agent", "");
     try std.testing.expectEqualStrings("500 Internal Server Error", resp.status);
@@ -3206,7 +3206,7 @@ test "handleStart returns 500 when binary does not exist" {
 
 test "handleStop returns 200 for existing instance" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3220,7 +3220,7 @@ test "handleStop returns 200 for existing instance" {
 
 test "handleRestart returns 500 when binary does not exist" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3234,7 +3234,7 @@ test "handleRestart returns 500 when binary does not exist" {
 
 test "handleDelete removes instance" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3251,7 +3251,7 @@ test "handleDelete removes instance" {
 
 test "handleDelete removes instance directory from active path" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api-delete-path.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api-delete-path.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3277,7 +3277,7 @@ test "handleDelete removes instance directory from active path" {
 
 test "handleDelete restores instance when state save fails" {
     const allocator = std.testing.allocator;
-    const bad_state_root = "/tmp/nullhub-test-instances-api-delete-rollback";
+    const bad_state_root = "/tmp/nullhubx-test-instances-api-delete-rollback";
     std.fs.deleteTreeAbsolute(bad_state_root) catch {};
     defer std.fs.deleteTreeAbsolute(bad_state_root) catch {};
 
@@ -3306,7 +3306,7 @@ test "handleDelete restores instance when state save fails" {
 
 test "handleDelete returns 404 for missing instance" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3317,7 +3317,7 @@ test "handleDelete returns 404 for missing instance" {
 
 test "handlePatch updates auto_start" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
 
     try s.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0", .auto_start = false });
@@ -3331,7 +3331,7 @@ test "handlePatch updates auto_start" {
 
 test "handlePatch returns 404 for missing instance" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
 
     const resp = handlePatch(&s, "nope", "nope", "{\"auto_start\":true}");
@@ -3340,7 +3340,7 @@ test "handlePatch returns 404 for missing instance" {
 
 test "handlePatch returns 400 for invalid JSON" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
 
     try s.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0" });
@@ -3351,7 +3351,7 @@ test "handlePatch returns 400 for invalid JSON" {
 
 test "handlePatch updates launch_mode" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
 
     try s.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0" });
@@ -3365,7 +3365,7 @@ test "handlePatch updates launch_mode" {
 
 test "handlePatch updates verbose startup flag" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
 
     try s.addInstance("nullclaw", "my-agent", .{ .version = "1.0.0" });
@@ -3379,7 +3379,7 @@ test "handlePatch updates verbose startup flag" {
 
 test "handleGet includes launch_mode in JSON" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3395,7 +3395,7 @@ test "handleGet includes launch_mode in JSON" {
 
 test "handleGet includes verbose in JSON" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3411,7 +3411,7 @@ test "handleGet includes verbose in JSON" {
 
 test "dispatch routes GET /api/instances" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3427,7 +3427,7 @@ test "dispatch routes GET /api/instances" {
 
 test "dispatch routes POST start action" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3441,7 +3441,7 @@ test "dispatch routes POST start action" {
 
 test "dispatch routes GET provider-health action" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3455,7 +3455,7 @@ test "dispatch routes GET provider-health action" {
 
 test "handleOnboarding reports pending bootstrap for fresh nullclaw workspace" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3486,7 +3486,7 @@ test "handleOnboarding reports pending bootstrap for fresh nullclaw workspace" {
 
 test "handleOnboarding reports pending bootstrap from workspace state without disk bootstrap file" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3522,7 +3522,7 @@ test "handleOnboarding reports pending bootstrap from workspace state without di
 
 test "handleOnboarding falls back to CLI bootstrap memory for legacy sqlite workspace" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3565,7 +3565,7 @@ test "handleOnboarding falls back to CLI bootstrap memory for legacy sqlite work
 
 test "handleOnboarding stays idle when legacy sqlite bootstrap memory is absent" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3604,7 +3604,7 @@ test "handleOnboarding stays idle when legacy sqlite bootstrap memory is absent"
 
 test "dispatch routes GET onboarding action" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3637,7 +3637,7 @@ test "dispatch routes GET onboarding action" {
 
 test "dispatch routes GET integration action for linked nullboiler" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3680,7 +3680,7 @@ test "dispatch routes GET integration action for linked nullboiler" {
 
 test "dispatch routes POST integration action for nullboiler" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3742,7 +3742,7 @@ test "dispatch routes POST integration action for nullboiler" {
 
 test "dispatch integration relink preserves advanced tracker config and custom workflows" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3862,7 +3862,7 @@ test "dispatch integration relink preserves advanced tracker config and custom w
 
 test "dispatch provider-health rejects POST" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3875,7 +3875,7 @@ test "dispatch provider-health rejects POST" {
 
 test "handleUsage aggregates provider/model rows" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3918,7 +3918,7 @@ test "handleUsage aggregates provider/model rows" {
 
 test "handleUsage refreshes cache immediately when ledger changes" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3969,7 +3969,7 @@ test "handleUsage refreshes cache immediately when ledger changes" {
 
 test "dispatch routes GET usage action" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -3984,7 +3984,7 @@ test "dispatch routes GET usage action" {
 
 test "handleHistory returns CLI JSON and passes instance home" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -4027,7 +4027,7 @@ test "handleHistory returns CLI JSON and passes instance home" {
 
 test "handleMemory wraps legacy CLI failures as JSON errors" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -4053,7 +4053,7 @@ test "handleMemory wraps legacy CLI failures as JSON errors" {
 
 test "dispatch routes GET skills action" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -4082,7 +4082,7 @@ test "dispatch routes GET skills action" {
 
 test "dispatch routes GET skills catalog" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -4092,13 +4092,13 @@ test "dispatch routes GET skills catalog" {
     const resp = dispatch(allocator, &s, &mctx.manager, &mctx.mutex, mctx.paths, "GET", "/api/instances/nullclaw/my-agent/skills?catalog=1", "").?;
     defer allocator.free(resp.body);
     try std.testing.expectEqualStrings("200 OK", resp.status);
-    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"name\":\"nullhub-admin\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"name\":\"nullhubx-admin\"") != null);
     try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"install_kind\":\"bundled\"") != null);
 }
 
 test "dispatch routes POST bundled skill install" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -4117,31 +4117,31 @@ test "dispatch routes POST bundled skill install" {
         mctx.paths,
         "POST",
         "/api/instances/nullclaw/my-agent/skills",
-        "{\"bundled\":\"nullhub-admin\"}",
+        "{\"bundled\":\"nullhubx-admin\"}",
     ).?;
     defer allocator.free(resp.body);
     try std.testing.expectEqualStrings("200 OK", resp.status);
-    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"bundled\":\"nullhub-admin\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"bundled\":\"nullhubx-admin\"") != null);
     try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"restart_required\":true") != null);
 
     const inst_dir = try mctx.paths.instanceDir(allocator, "nullclaw", "my-agent");
     defer allocator.free(inst_dir);
-    const skill_path = try std.fs.path.join(allocator, &.{ inst_dir, "workspace", "skills", "nullhub-admin", "SKILL.md" });
+    const skill_path = try std.fs.path.join(allocator, &.{ inst_dir, "workspace", "skills", "nullhubx-admin", "SKILL.md" });
     defer allocator.free(skill_path);
     const installed = std.fs.readFileAbsolute(allocator, skill_path, 64 * 1024) catch @panic("missing skill");
     defer allocator.free(installed);
-    try std.testing.expect(std.mem.indexOf(u8, installed, "nullhub api <METHOD> <PATH>") != null);
+    try std.testing.expect(std.mem.indexOf(u8, installed, "nullhubx api <METHOD> <PATH>") != null);
 
     const config_path = try mctx.paths.instanceConfig(allocator, "nullclaw", "my-agent");
     defer allocator.free(config_path);
     const config = try std.fs.readFileAbsolute(allocator, config_path, 64 * 1024);
     defer allocator.free(config);
-    try std.testing.expect(std.mem.indexOf(u8, config, "\"nullhub *\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, config, "\"nullhubx *\"") != null);
 }
 
 test "dispatch routes DELETE skills action" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -4152,8 +4152,8 @@ test "dispatch routes DELETE skills action" {
     try s.addInstance("nullclaw", "my-agent", .{ .version = "1.0.3" });
     const script =
         \\#!/bin/sh
-        \\if [ "$1" = "skills" ] && [ "$2" = "remove" ] && [ "$3" = "nullhub-admin" ]; then
-        \\  printf '%s\n' 'Removed skill: nullhub-admin'
+        \\if [ "$1" = "skills" ] && [ "$2" = "remove" ] && [ "$3" = "nullhubx-admin" ]; then
+        \\  printf '%s\n' 'Removed skill: nullhubx-admin'
         \\  exit 0
         \\fi
         \\echo "unexpected args" >&2
@@ -4162,7 +4162,7 @@ test "dispatch routes DELETE skills action" {
     ;
     try writeTestBinary(allocator, mctx.paths, "nullclaw", "1.0.3", script);
 
-    const resp = dispatch(allocator, &s, &mctx.manager, &mctx.mutex, mctx.paths, "DELETE", "/api/instances/nullclaw/my-agent/skills?name=nullhub-admin", "").?;
+    const resp = dispatch(allocator, &s, &mctx.manager, &mctx.mutex, mctx.paths, "DELETE", "/api/instances/nullclaw/my-agent/skills?name=nullhubx-admin", "").?;
     defer allocator.free(resp.body);
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"status\":\"removed\"") != null);
@@ -4170,7 +4170,7 @@ test "dispatch routes DELETE skills action" {
 
 test "dispatch routes POST source install returns conflict on CLI failure" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);
@@ -4204,7 +4204,7 @@ test "dispatch routes POST source install returns conflict on CLI failure" {
 
 test "dispatch returns null for non-matching path" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-instances-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-instances-api.json");
     defer s.deinit();
     var mctx = TestManagerCtx.init(allocator);
     defer mctx.deinit(allocator);

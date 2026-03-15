@@ -34,8 +34,8 @@
 </script>
 
 <nav class="sidebar">
-  <a href="/" class="logo" aria-label="Go to NullHub home">
-    <h2>NullHub</h2>
+  <a href="/" class="logo" aria-label="Go to NullHubX home">
+    <h2>NullHubX</h2>
   </a>
 
   <div class="nav-section">

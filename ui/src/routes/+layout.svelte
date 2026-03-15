@@ -3,7 +3,7 @@
   import { onMount } from 'svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import TopBar from '$lib/components/TopBar.svelte';
-  import { redirectToPreferredOrigin } from '$lib/nullhubAccess';
+  import { redirectToPreferredOrigin } from '$lib/nullhubxAccess';
 
   let { children } = $props();
 

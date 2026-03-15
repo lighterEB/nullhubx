@@ -1,6 +1,6 @@
 # Releasing
 
-NullHub uses [CalVer](https://calver.org/) with the format `YYYY.M.D` (e.g., `v2026.3.12`).
+NullHubX uses [CalVer](https://calver.org/) with the format `YYYY.M.D` (e.g., `v2026.3.12`).
 
 Pushing a tag matching `v*` to `main` triggers the [Release workflow](.github/workflows/release.yml), which builds binaries for all supported platforms and publishes a GitHub Release.
 

@@ -1,5 +1,5 @@
-const PUBLIC_ALIAS_HOST = "nullhub.local";
-const CANONICAL_LOCAL_HOST = "nullhub.localhost";
+const PUBLIC_ALIAS_HOST = "nullhubx.local";
+const CANONICAL_LOCAL_HOST = "nullhubx.localhost";
 const FALLBACK_LOCAL_HOST = "127.0.0.1";
 const LOOPBACK_HOSTS = new Set([
   PUBLIC_ALIAS_HOST,
@@ -8,7 +8,7 @@ const LOOPBACK_HOSTS = new Set([
   "localhost",
 ]);
 
-export function buildNullHubAccessUrls(port: string | number, protocol = "http:") {
+export function buildNullHubXAccessUrls(port: string | number, protocol = "http:") {
   const portValue = `${port || 19800}`;
   const prefix = `${protocol}//`;
   return {
@@ -24,7 +24,7 @@ export function buildNullHubAccessUrls(port: string | number, protocol = "http:"
 export async function redirectToPreferredOrigin(location: Location): Promise<void> {
   if (!LOOPBACK_HOSTS.has(location.hostname)) return;
 
-  const urls = buildNullHubAccessUrls(resolvePort(location), location.protocol);
+  const urls = buildNullHubXAccessUrls(resolvePort(location), location.protocol);
   const currentOrigin = location.origin;
   const candidates = [urls.browserOpenUrl, urls.fallbackUrl];
 

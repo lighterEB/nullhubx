@@ -5,12 +5,12 @@ const helpers = @import("helpers.zig");
 const ApiResponse = helpers.ApiResponse;
 const appendEscaped = helpers.appendEscaped;
 
-const SUPERVISOR_PREFIX = "[nullhub/supervisor]";
+const SUPERVISOR_PREFIX = "[nullhubx/supervisor]";
 const MAX_LOG_BYTES = 16 * 1024 * 1024;
 
 pub const LogSource = enum {
     instance,
-    nullhub,
+    nullhubx,
 };
 
 // ─── Query parameter parsing ─────────────────────────────────────────────────
@@ -24,8 +24,8 @@ pub fn parseLines(target: []const u8) usize {
 
 pub fn parseSource(target: []const u8) LogSource {
     const val = queryValue(target, "source") orelse return .instance;
-    if (std.mem.eql(u8, val, "nullhub") or std.mem.eql(u8, val, "supervisor")) {
-        return .nullhub;
+    if (std.mem.eql(u8, val, "nullhubx") or std.mem.eql(u8, val, "supervisor")) {
+        return .nullhubx;
     }
     return .instance;
 }
@@ -134,16 +134,16 @@ fn readSourceContents(
 
     return switch (source) {
         .instance => filterLegacyStdout(allocator, stdout_contents, .instance),
-        .nullhub => blk: {
-            const legacy_nullhub = try filterLegacyStdout(allocator, stdout_contents, .nullhub);
-            defer allocator.free(legacy_nullhub);
+        .nullhubx => blk: {
+            const legacy_nullhubx = try filterLegacyStdout(allocator, stdout_contents, .nullhubx);
+            defer allocator.free(legacy_nullhubx);
 
-            const nullhub_log_path = std.fs.path.join(allocator, &.{ logs_dir, "nullhub.log" }) catch return error.PathBuildFailed;
-            defer allocator.free(nullhub_log_path);
-            const nullhub_contents = try readFileOrEmpty(allocator, nullhub_log_path);
-            defer allocator.free(nullhub_contents);
+            const nullhubx_log_path = std.fs.path.join(allocator, &.{ logs_dir, "nullhubx.log" }) catch return error.PathBuildFailed;
+            defer allocator.free(nullhubx_log_path);
+            const nullhubx_contents = try readFileOrEmpty(allocator, nullhubx_log_path);
+            defer allocator.free(nullhubx_contents);
 
-            break :blk joinContents(allocator, &.{ legacy_nullhub, nullhub_contents });
+            break :blk joinContents(allocator, &.{ legacy_nullhubx, nullhubx_contents });
         },
     };
 }
@@ -167,7 +167,7 @@ fn filterLegacyStdout(allocator: std.mem.Allocator, contents: []const u8, source
         const is_supervisor_line = std.mem.startsWith(u8, line, SUPERVISOR_PREFIX);
         const keep = switch (source) {
             .instance => !is_supervisor_line,
-            .nullhub => is_supervisor_line,
+            .nullhubx => is_supervisor_line,
         };
         if (!keep) continue;
 
@@ -209,7 +209,7 @@ fn writeFileBestEffort(path: []const u8, contents: []const u8) void {
     } else |_| {}
 }
 
-/// GET /api/instances/{c}/{n}/logs?lines=N&source=instance|nullhub — read last N lines from the selected log source.
+/// GET /api/instances/{c}/{n}/logs?lines=N&source=instance|nullhubx — read last N lines from the selected log source.
 pub fn handleGet(
     allocator: std.mem.Allocator,
     p: paths_mod.Paths,
@@ -257,7 +257,7 @@ fn buildLinesJson(buf: *std.array_list.Managed(u8), contents: []const u8, max_li
     try buf.appendSlice("]}");
 }
 
-/// DELETE /api/instances/{c}/{n}/logs?source=instance|nullhub — clear the selected log source.
+/// DELETE /api/instances/{c}/{n}/logs?source=instance|nullhubx — clear the selected log source.
 pub fn handleDelete(
     allocator: std.mem.Allocator,
     p: paths_mod.Paths,
@@ -288,15 +288,15 @@ pub fn handleDelete(
 
     switch (source) {
         .instance => {
-            const preserved_nullhub = filterLegacyStdout(allocator, stdout_contents, .nullhub) catch return .{
+            const preserved_nullhubx = filterLegacyStdout(allocator, stdout_contents, .nullhubx) catch return .{
                 .status = "500 Internal Server Error",
                 .content_type = "application/json",
                 .body = "{\"error\":\"internal error\"}",
             };
-            defer allocator.free(preserved_nullhub);
-            writeFileBestEffort(stdout_log_path, preserved_nullhub);
+            defer allocator.free(preserved_nullhubx);
+            writeFileBestEffort(stdout_log_path, preserved_nullhubx);
         },
-        .nullhub => {
+        .nullhubx => {
             const preserved_instance = filterLegacyStdout(allocator, stdout_contents, .instance) catch return .{
                 .status = "500 Internal Server Error",
                 .content_type = "application/json",
@@ -305,13 +305,13 @@ pub fn handleDelete(
             defer allocator.free(preserved_instance);
             writeFileBestEffort(stdout_log_path, preserved_instance);
 
-            const nullhub_log_path = std.fs.path.join(allocator, &.{ logs_dir, "nullhub.log" }) catch return .{
+            const nullhubx_log_path = std.fs.path.join(allocator, &.{ logs_dir, "nullhubx.log" }) catch return .{
                 .status = "500 Internal Server Error",
                 .content_type = "application/json",
                 .body = "{\"error\":\"internal error\"}",
             };
-            defer allocator.free(nullhub_log_path);
-            writeFileBestEffort(nullhub_log_path, "");
+            defer allocator.free(nullhubx_log_path);
+            writeFileBestEffort(nullhubx_log_path, "");
         },
     }
 
@@ -419,14 +419,14 @@ test "parseSource defaults to instance" {
     try std.testing.expectEqual(LogSource.instance, parseSource("/api/instances/x/y/logs"));
 }
 
-test "parseSource reads nullhub source" {
-    try std.testing.expectEqual(LogSource.nullhub, parseSource("/api/instances/x/y/logs?source=nullhub"));
-    try std.testing.expectEqual(LogSource.nullhub, parseSource("/api/instances/x/y/logs?source=supervisor"));
+test "parseSource reads nullhubx source" {
+    try std.testing.expectEqual(LogSource.nullhubx, parseSource("/api/instances/x/y/logs?source=nullhubx"));
+    try std.testing.expectEqual(LogSource.nullhubx, parseSource("/api/instances/x/y/logs?source=supervisor"));
 }
 
 test "handleGet returns empty lines when no log file" {
     const allocator = std.testing.allocator;
-    const tmp_root = "/tmp/nullhub-test-logs-api-empty";
+    const tmp_root = "/tmp/nullhubx-test-logs-api-empty";
     std.fs.deleteTreeAbsolute(tmp_root) catch {};
     defer std.fs.deleteTreeAbsolute(tmp_root) catch {};
 
@@ -441,7 +441,7 @@ test "handleGet returns empty lines when no log file" {
 
 test "handleGet reads actual log content" {
     const allocator = std.testing.allocator;
-    const tmp_root = "/tmp/nullhub-test-logs-api-read";
+    const tmp_root = "/tmp/nullhubx-test-logs-api-read";
     std.fs.deleteTreeAbsolute(tmp_root) catch {};
     defer std.fs.deleteTreeAbsolute(tmp_root) catch {};
 
@@ -487,7 +487,7 @@ test "handleGet reads actual log content" {
 
 test "handleGet tails last N lines" {
     const allocator = std.testing.allocator;
-    const tmp_root = "/tmp/nullhub-test-logs-api-tail";
+    const tmp_root = "/tmp/nullhubx-test-logs-api-tail";
     std.fs.deleteTreeAbsolute(tmp_root) catch {};
     defer std.fs.deleteTreeAbsolute(tmp_root) catch {};
 
@@ -525,7 +525,7 @@ test "handleGet tails last N lines" {
 
 test "handleStream returns SSE snapshot" {
     const allocator = std.testing.allocator;
-    const tmp_root = "/tmp/nullhub-test-logs-api-stream";
+    const tmp_root = "/tmp/nullhubx-test-logs-api-stream";
     std.fs.deleteTreeAbsolute(tmp_root) catch {};
     defer std.fs.deleteTreeAbsolute(tmp_root) catch {};
 
@@ -554,9 +554,9 @@ test "handleStream returns SSE snapshot" {
     try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"line-a\"") != null);
 }
 
-test "handleGet separates legacy stdout and nullhub logs by source" {
+test "handleGet separates legacy stdout and nullhubx logs by source" {
     const allocator = std.testing.allocator;
-    const tmp_root = "/tmp/nullhub-test-logs-api-sources";
+    const tmp_root = "/tmp/nullhubx-test-logs-api-sources";
     std.fs.deleteTreeAbsolute(tmp_root) catch {};
     defer std.fs.deleteTreeAbsolute(tmp_root) catch {};
 
@@ -569,18 +569,18 @@ test "handleGet separates legacy stdout and nullhub logs by source" {
 
     const stdout_log_path = try std.fs.path.join(allocator, &.{ logs_dir, "stdout.log" });
     defer allocator.free(stdout_log_path);
-    const nullhub_log_path = try std.fs.path.join(allocator, &.{ logs_dir, "nullhub.log" });
-    defer allocator.free(nullhub_log_path);
+    const nullhubx_log_path = try std.fs.path.join(allocator, &.{ logs_dir, "nullhubx.log" });
+    defer allocator.free(nullhubx_log_path);
 
     {
         const file = try std.fs.createFileAbsolute(stdout_log_path, .{});
         defer file.close();
-        try file.writeAll("app line 1\n[nullhub/supervisor][1] old diag\napp line 2\n");
+        try file.writeAll("app line 1\n[nullhubx/supervisor][1] old diag\napp line 2\n");
     }
     {
-        const file = try std.fs.createFileAbsolute(nullhub_log_path, .{});
+        const file = try std.fs.createFileAbsolute(nullhubx_log_path, .{});
         defer file.close();
-        try file.writeAll("[nullhub/supervisor][2] new diag\n");
+        try file.writeAll("[nullhubx/supervisor][2] new diag\n");
     }
 
     const instance_resp = handleGet(allocator, p, "nullclaw", "my-agent", 100, .instance);
@@ -596,23 +596,23 @@ test "handleGet separates legacy stdout and nullhub logs by source" {
     try std.testing.expectEqualStrings("app line 1", instance_parsed.value.lines[0]);
     try std.testing.expectEqualStrings("app line 2", instance_parsed.value.lines[1]);
 
-    const nullhub_resp = handleGet(allocator, p, "nullclaw", "my-agent", 100, .nullhub);
-    defer allocator.free(nullhub_resp.body);
-    const nullhub_parsed = try std.json.parseFromSlice(
+    const nullhubx_resp = handleGet(allocator, p, "nullclaw", "my-agent", 100, .nullhubx);
+    defer allocator.free(nullhubx_resp.body);
+    const nullhubx_parsed = try std.json.parseFromSlice(
         struct { lines: [][]const u8 },
         allocator,
-        nullhub_resp.body,
+        nullhubx_resp.body,
         .{ .allocate = .alloc_always },
     );
-    defer nullhub_parsed.deinit();
-    try std.testing.expectEqual(@as(usize, 2), nullhub_parsed.value.lines.len);
-    try std.testing.expectEqualStrings("[nullhub/supervisor][1] old diag", nullhub_parsed.value.lines[0]);
-    try std.testing.expectEqualStrings("[nullhub/supervisor][2] new diag", nullhub_parsed.value.lines[1]);
+    defer nullhubx_parsed.deinit();
+    try std.testing.expectEqual(@as(usize, 2), nullhubx_parsed.value.lines.len);
+    try std.testing.expectEqualStrings("[nullhubx/supervisor][1] old diag", nullhubx_parsed.value.lines[0]);
+    try std.testing.expectEqualStrings("[nullhubx/supervisor][2] new diag", nullhubx_parsed.value.lines[1]);
 }
 
 test "handleDelete clears selected source while preserving the other" {
     const allocator = std.testing.allocator;
-    const tmp_root = "/tmp/nullhub-test-logs-api-clear-source";
+    const tmp_root = "/tmp/nullhubx-test-logs-api-clear-source";
     std.fs.deleteTreeAbsolute(tmp_root) catch {};
     defer std.fs.deleteTreeAbsolute(tmp_root) catch {};
 
@@ -625,22 +625,22 @@ test "handleDelete clears selected source while preserving the other" {
 
     const stdout_log_path = try std.fs.path.join(allocator, &.{ logs_dir, "stdout.log" });
     defer allocator.free(stdout_log_path);
-    const nullhub_log_path = try std.fs.path.join(allocator, &.{ logs_dir, "nullhub.log" });
-    defer allocator.free(nullhub_log_path);
+    const nullhubx_log_path = try std.fs.path.join(allocator, &.{ logs_dir, "nullhubx.log" });
+    defer allocator.free(nullhubx_log_path);
 
     {
         const file = try std.fs.createFileAbsolute(stdout_log_path, .{});
         defer file.close();
-        try file.writeAll("app line\n[nullhub/supervisor][1] legacy diag\n");
+        try file.writeAll("app line\n[nullhubx/supervisor][1] legacy diag\n");
     }
     {
-        const file = try std.fs.createFileAbsolute(nullhub_log_path, .{});
+        const file = try std.fs.createFileAbsolute(nullhubx_log_path, .{});
         defer file.close();
-        try file.writeAll("[nullhub/supervisor][2] dedicated diag\n");
+        try file.writeAll("[nullhubx/supervisor][2] dedicated diag\n");
     }
 
-    const clear_nullhub = handleDelete(allocator, p, "nullclaw", "my-agent", .nullhub);
-    try std.testing.expectEqualStrings("200 OK", clear_nullhub.status);
+    const clear_nullhubx = handleDelete(allocator, p, "nullclaw", "my-agent", .nullhubx);
+    try std.testing.expectEqualStrings("200 OK", clear_nullhubx.status);
 
     {
         const file = try std.fs.openFileAbsolute(stdout_log_path, .{});
@@ -650,7 +650,7 @@ test "handleDelete clears selected source while preserving the other" {
         try std.testing.expectEqualStrings("app line\n", contents);
     }
     {
-        const file = try std.fs.openFileAbsolute(nullhub_log_path, .{});
+        const file = try std.fs.openFileAbsolute(nullhubx_log_path, .{});
         defer file.close();
         const contents = try file.readToEndAlloc(allocator, 1024);
         defer allocator.free(contents);

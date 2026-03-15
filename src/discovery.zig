@@ -140,7 +140,7 @@ test "findConnections: empty state returns empty list" {
     };
     const m = testManifest(&specs);
 
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-discovery-test.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-discovery-test.json");
     defer s.deinit();
 
     const connections = try findConnections(allocator, m, &s);
@@ -157,7 +157,7 @@ test "findConnections: matching instance returns connection" {
     };
     const m = testManifest(&specs);
 
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-discovery-test.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-discovery-test.json");
     defer s.deinit();
 
     try s.addInstance("nullboiler", "default", .{ .version = "1.0.0" });
@@ -179,7 +179,7 @@ test "findConnections: no matching component returns empty" {
     };
     const m = testManifest(&specs);
 
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-discovery-test.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-discovery-test.json");
     defer s.deinit();
 
     // Add an instance of a different component.

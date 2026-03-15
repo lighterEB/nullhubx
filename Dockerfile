@@ -40,23 +40,23 @@ RUN --mount=type=cache,target=/root/.cache/zig \
 # -- Stage 3: Runtime Base ----------------------------------------------------
 FROM alpine:3.23 AS release-base
 
-LABEL org.opencontainers.image.source=https://github.com/nullclaw/nullhub
+LABEL org.opencontainers.image.source=https://github.com/lighterEB/nullhubx
 
 RUN apk add --no-cache ca-certificates curl tzdata
 
-RUN mkdir -p /opt/nullhub/ui /nullhub-data && chown -R 65534:65534 /nullhub-data
+RUN mkdir -p /opt/nullhubx/ui /nullhubx-data && chown -R 65534:65534 /nullhubx-data
 
-COPY --from=builder /app/zig-out/bin/nullhub /usr/local/bin/nullhub
-COPY --from=ui-builder /ui/build /opt/nullhub/ui/build
+COPY --from=builder /app/zig-out/bin/nullhubx /usr/local/bin/nullhubx
+COPY --from=ui-builder /ui/build /opt/nullhubx/ui/build
 
-ENV HOME=/nullhub-data
-WORKDIR /opt/nullhub
+ENV HOME=/nullhubx-data
+WORKDIR /opt/nullhubx
 EXPOSE 19800
-ENTRYPOINT ["nullhub"]
+ENTRYPOINT ["nullhubx"]
 CMD ["serve", "--host", "0.0.0.0", "--port", "19800"]
 
 # Optional autonomous mode (explicit opt-in):
-#   docker build --target release-root -t nullhub:root .
+#   docker build --target release-root -t nullhubx:root .
 FROM release-base AS release-root
 USER 0:0
 

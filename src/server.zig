@@ -989,7 +989,7 @@ pub const Server = struct {
             return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
         }
 
-        // Serve UI module files from data directory (~/.nullhub/ui/{name}@{version}/...)
+        // Serve UI module files from data directory (~/.nullhubx/ui/{name}@{version}/...)
         if (!std.mem.startsWith(u8, target, "/api/") and std.mem.startsWith(u8, target, "/ui/")) {
             // Check if this looks like a module path: /ui/{name}@{version}/...
             if (target.len > 4) {
@@ -1230,8 +1230,8 @@ const TestContext = struct {
 
     fn init(allocator: std.mem.Allocator) TestContext {
         const state = allocator.create(state_mod.State) catch @panic("OOM");
-        state.* = state_mod.State.init(allocator, "/tmp/nullhub-test-server-state.json");
-        const paths = paths_mod.Paths.init(allocator, "/tmp/nullhub-test-server") catch @panic("Paths.init failed");
+        state.* = state_mod.State.init(allocator, "/tmp/nullhubx-test-server-state.json");
+        const paths = paths_mod.Paths.init(allocator, "/tmp/nullhubx-test-server") catch @panic("Paths.init failed");
         var ctx: TestContext = undefined;
         ctx.state = state;
         ctx.paths = paths;
@@ -1373,15 +1373,15 @@ test "extractHeader is case-insensitive" {
 }
 
 test "hostMatchesAliasHost matches bare host and host with port" {
-    try std.testing.expect(hostMatchesAliasHost("nullhub.local", "nullhub.local"));
-    try std.testing.expect(hostMatchesAliasHost("nullhub.local:19800", "nullhub.local"));
-    try std.testing.expect(!hostMatchesAliasHost("nullhub.localhost:19800", "nullhub.local"));
+    try std.testing.expect(hostMatchesAliasHost("nullhubx.local", "nullhubx.local"));
+    try std.testing.expect(hostMatchesAliasHost("nullhubx.local:19800", "nullhubx.local"));
+    try std.testing.expect(!hostMatchesAliasHost("nullhubx.localhost:19800", "nullhubx.local"));
 }
 
 test "isAllowedCorsOrigin allows local aliases for loopback binds" {
     try std.testing.expect(isAllowedCorsOrigin("http://127.0.0.1:19800", "127.0.0.1", 19800));
-    try std.testing.expect(isAllowedCorsOrigin("http://nullhub.localhost:19800", "127.0.0.1", 19800));
-    try std.testing.expect(isAllowedCorsOrigin("http://nullhub.local:19800", "127.0.0.1", 19800));
+    try std.testing.expect(isAllowedCorsOrigin("http://nullhubx.localhost:19800", "127.0.0.1", 19800));
+    try std.testing.expect(isAllowedCorsOrigin("http://nullhubx.local:19800", "127.0.0.1", 19800));
 }
 
 test "isAllowedCorsOrigin rejects foreign or mismatched origins" {
@@ -1399,7 +1399,7 @@ test "requestOriginAllowed rejects foreign API origins" {
     const local_raw =
         "GET /api/status HTTP/1.1\r\n" ++
         "Host: 127.0.0.1:19800\r\n" ++
-        "Origin: http://nullhub.localhost:19800\r\n\r\n";
+        "Origin: http://nullhubx.localhost:19800\r\n\r\n";
     try std.testing.expect(requestOriginAllowed(local_raw, "/api/status", "127.0.0.1", 19800));
 }
 
@@ -1526,7 +1526,7 @@ test "route GET /api/settings returns defaults" {
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"port\":19800") != null);
     try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"host\":\"127.0.0.1\"") != null);
-    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"browser_open_url\":\"http://nullhub.localhost:19800\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"browser_open_url\":\"http://nullhubx.localhost:19800\"") != null);
 }
 
 test "route PUT /api/settings returns ok" {

@@ -343,7 +343,7 @@ test "spawn with stdout_path captures stdout and stderr" {
     if (comptime builtin.os.tag == .windows) return error.SkipZigTest;
 
     const allocator = std.testing.allocator;
-    const log_path = "/tmp/nullhub-test-process-log.txt";
+    const log_path = "/tmp/nullhubx-test-process-log.txt";
     std.fs.deleteFileAbsolute(log_path) catch {};
     defer std.fs.deleteFileAbsolute(log_path) catch {};
 

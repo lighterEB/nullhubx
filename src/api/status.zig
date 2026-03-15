@@ -160,9 +160,9 @@ fn buildStatusJson(buf: *std.array_list.Managed(u8), s: *state_mod.State, manage
 
 test "handleStatus returns valid JSON with hub version" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-status-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-status-api.json");
     defer s.deinit();
-    var p = try paths_mod.Paths.init(allocator, "/tmp/nullhub-test-status-api");
+    var p = try paths_mod.Paths.init(allocator, "/tmp/nullhubx-test-status-api");
     defer p.deinit(allocator);
     var mgr = manager_mod.Manager.init(allocator, p);
     defer mgr.deinit();
@@ -205,14 +205,14 @@ test "handleStatus returns valid JSON with hub version" {
     try std.testing.expectEqual(@as(u64, 3600), parsed.value.hub.uptime_seconds);
     try std.testing.expect(!parsed.value.hub.access.public_alias_active);
     try std.testing.expectEqualStrings("none", parsed.value.hub.access.public_alias_provider);
-    try std.testing.expectEqualStrings("http://nullhub.localhost:19800", parsed.value.hub.access.browser_open_url);
+    try std.testing.expectEqualStrings("http://nullhubx.localhost:19800", parsed.value.hub.access.browser_open_url);
 }
 
 test "handleStatus includes instances" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-status-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-status-api.json");
     defer s.deinit();
-    var p = try paths_mod.Paths.init(allocator, "/tmp/nullhub-test-status-api");
+    var p = try paths_mod.Paths.init(allocator, "/tmp/nullhubx-test-status-api");
     defer p.deinit(allocator);
     var mgr = manager_mod.Manager.init(allocator, p);
     defer mgr.deinit();
@@ -257,9 +257,9 @@ test "handleStatus includes instances" {
 
 test "handleStatus includes launch_mode" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-status-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-status-api.json");
     defer s.deinit();
-    var p = try paths_mod.Paths.init(allocator, "/tmp/nullhub-test-status-api");
+    var p = try paths_mod.Paths.init(allocator, "/tmp/nullhubx-test-status-api");
     defer p.deinit(allocator);
     var mgr = manager_mod.Manager.init(allocator, p);
     defer mgr.deinit();
@@ -275,9 +275,9 @@ test "handleStatus includes launch_mode" {
 
 test "handleStatus includes verbose flag" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-status-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-status-api.json");
     defer s.deinit();
-    var p = try paths_mod.Paths.init(allocator, "/tmp/nullhub-test-status-api");
+    var p = try paths_mod.Paths.init(allocator, "/tmp/nullhubx-test-status-api");
     defer p.deinit(allocator);
     var mgr = manager_mod.Manager.init(allocator, p);
     defer mgr.deinit();
@@ -293,9 +293,9 @@ test "handleStatus includes verbose flag" {
 
 test "handleStatus with empty state returns empty instances" {
     const allocator = std.testing.allocator;
-    var s = state_mod.State.init(allocator, "/tmp/nullhub-test-status-api.json");
+    var s = state_mod.State.init(allocator, "/tmp/nullhubx-test-status-api.json");
     defer s.deinit();
-    var p = try paths_mod.Paths.init(allocator, "/tmp/nullhub-test-status-api");
+    var p = try paths_mod.Paths.init(allocator, "/tmp/nullhubx-test-status-api");
     defer p.deinit(allocator);
     var mgr = manager_mod.Manager.init(allocator, p);
     defer mgr.deinit();

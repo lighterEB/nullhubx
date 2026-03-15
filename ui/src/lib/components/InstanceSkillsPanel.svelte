@@ -149,7 +149,7 @@
         ? `Updated ${entry.name}.`
         : `Installed ${entry.name}.`;
       actionMessage = result?.restart_required
-        ? `${baseMessage} Restart this instance if it is already running to apply nullhub command access.`
+        ? `${baseMessage} Restart this instance if it is already running to apply nullhubx command access.`
         : baseMessage;
       await refreshAll();
     } catch (err) {
@@ -300,7 +300,7 @@
                 </div>
                 <div>
                   <span>Source</span>
-                  <strong>{entry.source || entry.clawhub_slug || "nullhub"}</strong>
+                  <strong>{entry.source || entry.clawhub_slug || "nullhubx"}</strong>
                 </div>
                 <div>
                   <span>Homepage</span>
@@ -332,7 +332,7 @@
         }}>
           <div>
             <h4>Install From ClawHub</h4>
-            <p>Paste a published ClawHub slug. NullHub will run <code>clawhub install</code> inside this instance workspace.</p>
+            <p>Paste a published ClawHub slug. NullHubX will run <code>clawhub install</code> inside this instance workspace.</p>
           </div>
           <input
             bind:value={clawhubSlug}

@@ -29,16 +29,16 @@ const clawhub_url = "https://clawhub.ai";
 const bundled_skills = [_]BundledSkill{
     .{
         .entry = .{
-            .name = "nullhub-admin",
+            .name = "nullhubx-admin",
             .version = "0.1.0",
-            .description = "Teach managed nullclaw agents to discover NullHub routes first and then use nullhub api for instance, provider, component, and orchestration tasks.",
+            .description = "Teach managed nullclaw agents to discover NullHubX routes first and then use nullhubx api for instance, provider, component, and orchestration tasks.",
             .recommended = true,
             .install_kind = "bundled",
             .homepage_url = clawhub_url,
             .always = true,
-            .required_allowed_commands = &.{"nullhub *"},
+            .required_allowed_commands = &.{"nullhubx *"},
         },
-        .instructions = @embedFile("bundled_skills/nullhub-admin/SKILL.md"),
+        .instructions = @embedFile("bundled_skills/nullhubx-admin/SKILL.md"),
     },
 };
 
@@ -252,7 +252,7 @@ fn parseAutonomyConfig(allocator: std.mem.Allocator, config_path: []const u8) !s
 test "catalogForComponent returns nullclaw recommendations" {
     const catalog = catalogForComponent("nullclaw");
     try std.testing.expect(catalog.len > 0);
-    try std.testing.expectEqualStrings("nullhub-admin", catalog[0].entry.name);
+    try std.testing.expectEqualStrings("nullhubx-admin", catalog[0].entry.name);
     try std.testing.expect(catalog[0].entry.recommended);
 }
 
@@ -264,18 +264,18 @@ test "installBundledSkill writes embedded skill to workspace" {
     const cwd_path = try tmp.dir.realpathAlloc(allocator, ".");
     defer allocator.free(cwd_path);
 
-    const disposition = try installBundledSkill(allocator, cwd_path, "nullhub-admin");
+    const disposition = try installBundledSkill(allocator, cwd_path, "nullhubx-admin");
     try std.testing.expectEqual(.installed, disposition);
 
-    const skill_path = try std.fs.path.join(allocator, &.{ cwd_path, "skills", "nullhub-admin", "SKILL.md" });
+    const skill_path = try std.fs.path.join(allocator, &.{ cwd_path, "skills", "nullhubx-admin", "SKILL.md" });
     defer allocator.free(skill_path);
 
     const content = try std.fs.readFileAbsolute(allocator, skill_path, 64 * 1024);
     defer allocator.free(content);
-    try std.testing.expect(std.mem.indexOf(u8, content, "nullhub routes --json") != null);
+    try std.testing.expect(std.mem.indexOf(u8, content, "nullhubx routes --json") != null);
 }
 
-test "syncBundledSkillRuntime preserves supervised level and adds nullhub command" {
+test "syncBundledSkillRuntime preserves supervised level and adds nullhubx command" {
     const allocator = std.testing.allocator;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
@@ -290,7 +290,7 @@ test "syncBundledSkillRuntime preserves supervised level and adds nullhub comman
     defer file.close();
     try file.writeAll("{\"autonomy\":{\"level\":\"supervised\",\"allowed_commands\":[\"git\"]}}\n");
 
-    try std.testing.expect(try syncBundledSkillRuntime(allocator, config_path, "nullhub-admin"));
+    try std.testing.expect(try syncBundledSkillRuntime(allocator, config_path, "nullhubx-admin"));
 
     var parsed = try parseAutonomyConfig(allocator, config_path);
     defer parsed.deinit();
@@ -298,7 +298,7 @@ test "syncBundledSkillRuntime preserves supervised level and adds nullhub comman
     try std.testing.expectEqualStrings("supervised", parsed.value.autonomy.level.?);
     try std.testing.expectEqual(@as(usize, 2), parsed.value.autonomy.allowed_commands.?.len);
     try std.testing.expectEqualStrings("git", parsed.value.autonomy.allowed_commands.?[0]);
-    try std.testing.expectEqualStrings("nullhub *", parsed.value.autonomy.allowed_commands.?[1]);
+    try std.testing.expectEqualStrings("nullhubx *", parsed.value.autonomy.allowed_commands.?[1]);
 }
 
 test "syncBundledSkillRuntime preserves full level without narrowing access" {
@@ -316,7 +316,7 @@ test "syncBundledSkillRuntime preserves full level without narrowing access" {
     defer file.close();
     try file.writeAll("{\"autonomy\":{\"level\":\"full\",\"allowed_commands\":[]}}\n");
 
-    try std.testing.expect(!(try syncBundledSkillRuntime(allocator, config_path, "nullhub-admin")));
+    try std.testing.expect(!(try syncBundledSkillRuntime(allocator, config_path, "nullhubx-admin")));
 
     var parsed = try parseAutonomyConfig(allocator, config_path);
     defer parsed.deinit();
@@ -345,13 +345,13 @@ test "installAlwaysBundledSkills installs skill and syncs runtime access" {
 
     try std.testing.expect(try installAlwaysBundledSkills(allocator, "nullclaw", workspace_dir, config_path));
 
-    const skill_path = try std.fs.path.join(allocator, &.{ workspace_dir, "skills", "nullhub-admin", "SKILL.md" });
+    const skill_path = try std.fs.path.join(allocator, &.{ workspace_dir, "skills", "nullhubx-admin", "SKILL.md" });
     defer allocator.free(skill_path);
     const skill_content = try std.fs.readFileAbsolute(allocator, skill_path, 64 * 1024);
     defer allocator.free(skill_content);
-    try std.testing.expect(std.mem.indexOf(u8, skill_content, "nullhub api <METHOD> <PATH>") != null);
+    try std.testing.expect(std.mem.indexOf(u8, skill_content, "nullhubx api <METHOD> <PATH>") != null);
 
     const rendered = try std.fs.readFileAbsolute(allocator, config_path, 64 * 1024);
     defer allocator.free(rendered);
-    try std.testing.expect(std.mem.indexOf(u8, rendered, "\"nullhub *\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, rendered, "\"nullhubx *\"") != null);
 }

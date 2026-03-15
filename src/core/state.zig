@@ -315,7 +315,7 @@ pub const State = struct {
     }
 
     /// Atomic save: serialize to JSON, write to `{path}.tmp`, rename over
-    /// the real path. If NullHub crashes mid-write the original is preserved.
+    /// the real path. If NullHubX crashes mid-write the original is preserved.
     pub fn save(self: *State) !void {
         // Build the JSON-friendly structure. We reference the strings we
         // already own — they live long enough for serialization.
@@ -765,14 +765,14 @@ pub const State = struct {
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 fn testPath(allocator: std.mem.Allocator, name: []const u8) ![]const u8 {
-    const tmp = "/tmp/nullhub-state-test";
+    const tmp = "/tmp/nullhubx-state-test";
     std.fs.deleteTreeAbsolute(tmp) catch {};
     try std.fs.makeDirAbsolute(tmp);
     return std.fmt.allocPrint(allocator, "{s}/{s}", .{ tmp, name });
 }
 
 fn cleanupTestDir() void {
-    std.fs.deleteTreeAbsolute("/tmp/nullhub-state-test") catch {};
+    std.fs.deleteTreeAbsolute("/tmp/nullhubx-state-test") catch {};
 }
 
 test "add instances, save, load, verify round-trip" {
@@ -873,7 +873,7 @@ test "update instance version, save, load, verify" {
 
 test "load non-existent file returns empty state" {
     const allocator = std.testing.allocator;
-    const path = "/tmp/nullhub-state-test-nonexistent/state.json";
+    const path = "/tmp/nullhubx-state-test-nonexistent/state.json";
 
     var s = try State.load(allocator, path);
     defer s.deinit();

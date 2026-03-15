@@ -53,7 +53,7 @@ pub fn build(b: *std.Build) void {
     exe_module.addImport("ui_assets", ui_assets_module);
 
     const exe = b.addExecutable(.{
-        .name = "nullhub",
+        .name = "nullhubx",
         .root_module = exe_module,
     });
     b.installArtifact(exe);
@@ -63,7 +63,7 @@ pub fn build(b: *std.Build) void {
     if (b.args) |args| {
         run_cmd.addArgs(args);
     }
-    const run_step = b.step("run", "Run nullhub");
+    const run_step = b.step("run", "Run nullhubx");
     run_step.dependOn(&run_cmd.step);
 
     const test_module = b.createModule(.{

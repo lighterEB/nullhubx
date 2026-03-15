@@ -119,10 +119,10 @@ pub const Manager = struct {
             else => return,
         };
 
-        const nullhub_log = std.fs.path.join(self.allocator, &.{ logs_dir, "nullhub.log" }) catch return;
-        defer self.allocator.free(nullhub_log);
+        const nullhubx_log = std.fs.path.join(self.allocator, &.{ logs_dir, "nullhubx.log" }) catch return;
+        defer self.allocator.free(nullhubx_log);
 
-        var file = std.fs.createFileAbsolute(nullhub_log, .{ .truncate = false }) catch return;
+        var file = std.fs.createFileAbsolute(nullhubx_log, .{ .truncate = false }) catch return;
         defer file.close();
         file.seekFromEnd(0) catch return;
 
@@ -131,7 +131,7 @@ pub const Manager = struct {
 
         const line = std.fmt.allocPrint(
             self.allocator,
-            "[nullhub/supervisor][{d}] {s}\n",
+            "[nullhubx/supervisor][{d}] {s}\n",
             .{ std.time.milliTimestamp(), msg },
         ) catch return;
         defer self.allocator.free(line);
@@ -639,7 +639,7 @@ pub const Manager = struct {
 
 test "Manager init and deinit (no leaks)" {
     const allocator = std.testing.allocator;
-    var p = try paths_mod.Paths.init(allocator, "/tmp/test-nullhub-mgr");
+    var p = try paths_mod.Paths.init(allocator, "/tmp/test-nullhubx-mgr");
     defer p.deinit(allocator);
 
     var mgr = Manager.init(allocator, p);
@@ -651,7 +651,7 @@ test "Manager deinit terminates tracked child processes" {
     if (comptime builtin.os.tag == .windows) return error.SkipZigTest;
 
     const allocator = std.testing.allocator;
-    var p = try paths_mod.Paths.init(allocator, "/tmp/test-nullhub-mgr-deinit-kill");
+    var p = try paths_mod.Paths.init(allocator, "/tmp/test-nullhubx-mgr-deinit-kill");
     defer p.deinit(allocator);
 
     var mgr = Manager.init(allocator, p);
@@ -677,7 +677,7 @@ test "Manager deinit terminates tracked child processes" {
 
 test "getStatus returns null for unknown instance" {
     const allocator = std.testing.allocator;
-    var p = try paths_mod.Paths.init(allocator, "/tmp/test-nullhub-mgr");
+    var p = try paths_mod.Paths.init(allocator, "/tmp/test-nullhubx-mgr");
     defer p.deinit(allocator);
 
     var mgr = Manager.init(allocator, p);
@@ -686,9 +686,9 @@ test "getStatus returns null for unknown instance" {
     try std.testing.expect(mgr.getStatus("foo", "bar") == null);
 }
 
-test "logSupervisor appends diagnostics to nullhub.log" {
+test "logSupervisor appends diagnostics to nullhubx.log" {
     const allocator = std.testing.allocator;
-    const tmp_root = "/tmp/test-nullhub-mgr-log-supervisor";
+    const tmp_root = "/tmp/test-nullhubx-mgr-log-supervisor";
     std.fs.deleteTreeAbsolute(tmp_root) catch {};
     defer std.fs.deleteTreeAbsolute(tmp_root) catch {};
 
@@ -703,7 +703,7 @@ test "logSupervisor appends diagnostics to nullhub.log" {
 
     const logs_dir = try p.instanceLogs(allocator, "nullclaw", "diag");
     defer allocator.free(logs_dir);
-    const log_path = try std.fs.path.join(allocator, &.{ logs_dir, "nullhub.log" });
+    const log_path = try std.fs.path.join(allocator, &.{ logs_dir, "nullhubx.log" });
     defer allocator.free(log_path);
 
     var file = try std.fs.openFileAbsolute(log_path, .{});
@@ -712,14 +712,14 @@ test "logSupervisor appends diagnostics to nullhub.log" {
     const contents = try file.readToEndAlloc(allocator, 16 * 1024);
     defer allocator.free(contents);
 
-    try std.testing.expect(std.mem.indexOf(u8, contents, "[nullhub/supervisor]") != null);
+    try std.testing.expect(std.mem.indexOf(u8, contents, "[nullhubx/supervisor]") != null);
     try std.testing.expect(std.mem.indexOf(u8, contents, "first diagnostic 1") != null);
     try std.testing.expect(std.mem.indexOf(u8, contents, "second diagnostic") != null);
 }
 
 test "status reporting for manually-added instance" {
     const allocator = std.testing.allocator;
-    var p = try paths_mod.Paths.init(allocator, "/tmp/test-nullhub-mgr");
+    var p = try paths_mod.Paths.init(allocator, "/tmp/test-nullhubx-mgr");
     defer p.deinit(allocator);
 
     var mgr = Manager.init(allocator, p);
@@ -754,7 +754,7 @@ test "status reporting for manually-added instance" {
 
 test "getAllStatuses returns correct list" {
     const allocator = std.testing.allocator;
-    var p = try paths_mod.Paths.init(allocator, "/tmp/test-nullhub-mgr");
+    var p = try paths_mod.Paths.init(allocator, "/tmp/test-nullhubx-mgr");
     defer p.deinit(allocator);
 
     var mgr = Manager.init(allocator, p);
@@ -802,7 +802,7 @@ test "getAllStatuses returns correct list" {
 
 test "tick: restarting with max_restarts exceeded transitions to failed" {
     const allocator = std.testing.allocator;
-    var p = try paths_mod.Paths.init(allocator, "/tmp/test-nullhub-mgr");
+    var p = try paths_mod.Paths.init(allocator, "/tmp/test-nullhubx-mgr");
     defer p.deinit(allocator);
 
     var mgr = Manager.init(allocator, p);
@@ -826,7 +826,7 @@ test "tick: restarting with max_restarts exceeded transitions to failed" {
 
 test "tick: restarting with restarts remaining transitions to failed (no binary)" {
     const allocator = std.testing.allocator;
-    var p = try paths_mod.Paths.init(allocator, "/tmp/test-nullhub-mgr");
+    var p = try paths_mod.Paths.init(allocator, "/tmp/test-nullhubx-mgr");
     defer p.deinit(allocator);
 
     var mgr = Manager.init(allocator, p);
@@ -852,7 +852,7 @@ test "tick: restarting with restarts remaining transitions to failed (no binary)
 
 test "tick: stopped and failed instances are not modified" {
     const allocator = std.testing.allocator;
-    var p = try paths_mod.Paths.init(allocator, "/tmp/test-nullhub-mgr");
+    var p = try paths_mod.Paths.init(allocator, "/tmp/test-nullhubx-mgr");
     defer p.deinit(allocator);
 
     var mgr = Manager.init(allocator, p);
@@ -885,7 +885,7 @@ test "tick: stopped and failed instances are not modified" {
 
 test "tick: starting instance without pid transitions to failed" {
     const allocator = std.testing.allocator;
-    var p = try paths_mod.Paths.init(allocator, "/tmp/test-nullhub-mgr");
+    var p = try paths_mod.Paths.init(allocator, "/tmp/test-nullhubx-mgr");
     defer p.deinit(allocator);
 
     var mgr = Manager.init(allocator, p);
@@ -912,7 +912,7 @@ test "tick: restarting with binary_path spawns new process" {
     if (comptime builtin.os.tag == .windows) return error.SkipZigTest;
 
     const allocator = std.testing.allocator;
-    var p = try paths_mod.Paths.init(allocator, "/tmp/test-nullhub-mgr");
+    var p = try paths_mod.Paths.init(allocator, "/tmp/test-nullhubx-mgr");
     defer p.deinit(allocator);
 
     var mgr = Manager.init(allocator, p);
@@ -948,7 +948,7 @@ test "tick: restarting with binary_path spawns new process" {
 
 test "tick: running instance with dead pid transitions to restarting" {
     const allocator = std.testing.allocator;
-    var p = try paths_mod.Paths.init(allocator, "/tmp/test-nullhub-mgr");
+    var p = try paths_mod.Paths.init(allocator, "/tmp/test-nullhubx-mgr");
     defer p.deinit(allocator);
 
     var mgr = Manager.init(allocator, p);

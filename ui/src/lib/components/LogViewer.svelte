@@ -11,9 +11,9 @@
 
   const sourceLabels: Record<LogSource, string> = {
     instance: "Instance",
-    nullhub: "NullHub",
+    nullhubx: "NullHubX",
   };
-  const logSources: LogSource[] = ["instance", "nullhub"];
+  const logSources: LogSource[] = ["instance", "nullhubx"];
 
   async function fetchLogs() {
     const requestedSource = source;

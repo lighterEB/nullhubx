@@ -15,7 +15,7 @@ pub const NullBoilerWorkflowConfig = struct {
     success_trigger: []const u8,
 };
 
-pub const managed_workflow_file_name = "nullhub-tracker-workflow.json";
+pub const managed_workflow_file_name = "nullhubx-tracker-workflow.json";
 pub const legacy_workflow_file_name = "tracker-workflow.json";
 
 pub const NullBoilerTrackerConfig = struct {

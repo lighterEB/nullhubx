@@ -367,9 +367,9 @@ fn parseAddSource(args: *std.process.ArgIterator) Command {
 
 pub fn printUsage() void {
     std.debug.print(
-        \\nullhub — management hub for the nullclaw ecosystem
+        \\nullhubx — management hub for the nullclaw ecosystem
         \\
-        \\Usage: nullhub [command]
+        \\Usage: nullhubx [command]
         \\
         \\Commands:
         \\  serve                     Start web UI server (default)
@@ -383,23 +383,23 @@ pub fn printUsage() void {
         \\  logs <component/name>     View instance logs
         \\  config <component/name>   View/edit instance config
         \\  wizard <component>        Run setup wizard
-        \\  routes [--json]           List known nullhub API routes
+        \\  routes [--json]           List known nullhubx API routes
         \\  check-updates             Check for updates
         \\  update <component/name>   Update an instance
         \\  update-all                Update all instances
-        \\  api <METHOD> <PATH>       Call any local nullhub HTTP API route
+        \\  api <METHOD> <PATH>       Call any local nullhubx HTTP API route
         \\  uninstall <component/name> Remove an instance
         \\  service <install|uninstall|status>  Manage OS service
         \\  add-source <repo-url>     Add custom component source
         \\  version, -v, --version    Show version
         \\
         \\API examples:
-        \\  nullhub routes --json
-        \\  nullhub api GET /api/instances
-        \\  nullhub api GET /api/meta/routes --pretty
-        \\  nullhub api DELETE /api/instances/nullclaw/demo
-        \\  nullhub api POST providers/2/validate
-        \\  nullhub api PATCH instances/nullclaw/demo --body '{{"auto_start":true}}'
+        \\  nullhubx routes --json
+        \\  nullhubx api GET /api/instances
+        \\  nullhubx api GET /api/meta/routes --pretty
+        \\  nullhubx api DELETE /api/instances/nullclaw/demo
+        \\  nullhubx api POST providers/2/validate
+        \\  nullhubx api PATCH instances/nullclaw/demo --body '{{"auto_start":true}}'
         \\
     , .{});
 }

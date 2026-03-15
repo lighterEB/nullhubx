@@ -97,7 +97,7 @@ pub fn buildFromSource(
     dest_path: []const u8,
 ) !void {
     // Create a temporary directory for the clone.
-    const tmp_dir = try std.fmt.allocPrint(allocator, "/tmp/nullhub-build-{d}", .{std.time.milliTimestamp()});
+    const tmp_dir = try std.fmt.allocPrint(allocator, "/tmp/nullhubx-build-{d}", .{std.time.milliTimestamp()});
     defer allocator.free(tmp_dir);
     defer std.fs.deleteTreeAbsolute(tmp_dir) catch {};
 
@@ -180,7 +180,7 @@ test "checkZigVersion returns false for 999.0" {
 
 test "cloneRepo with invalid URL returns error" {
     const allocator = std.testing.allocator;
-    const result = cloneRepo(allocator, "https://invalid.example.com/nonexistent/repo.git", "/tmp/nullhub-test-clone-invalid");
-    defer std.fs.deleteTreeAbsolute("/tmp/nullhub-test-clone-invalid") catch {};
+    const result = cloneRepo(allocator, "https://invalid.example.com/nonexistent/repo.git", "/tmp/nullhubx-test-clone-invalid");
+    defer std.fs.deleteTreeAbsolute("/tmp/nullhubx-test-clone-invalid") catch {};
     try std.testing.expectError(error.CloneFailed, result);
 }

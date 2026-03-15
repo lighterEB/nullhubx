@@ -27,7 +27,7 @@ pub fn main() !void {
     switch (command) {
         .version => try printVersionLine(),
         .serve => |opts| {
-            std.debug.print("nullhub v{s}\n", .{version.string});
+            std.debug.print("nullhubx v{s}\n", .{version.string});
 
             var paths = try paths_mod.Paths.init(allocator, null);
             defer paths.deinit(allocator);
@@ -70,7 +70,7 @@ pub fn main() !void {
                 error.InvalidMethod => std.debug.print("Invalid HTTP method: {s}\n", .{opts.method}),
                 error.InvalidTarget => std.debug.print("Invalid API target: {s}\n", .{opts.target}),
                 error.FileNotFound => std.debug.print("Body file not found.\n", .{}),
-                error.ConnectionRefused => std.debug.print("nullhub is not running on http://{s}:{d}\n", .{ opts.host, opts.port }),
+                error.ConnectionRefused => std.debug.print("nullhubx is not running on http://{s}:{d}\n", .{ opts.host, opts.port }),
                 error.RequestFailed => {},
                 else => std.debug.print("API request failed: {s}\n", .{@errorName(any_err)}),
             }
@@ -145,7 +145,7 @@ fn handleServiceCommand(allocator: std.mem.Allocator, command: cli.ServiceComman
 
 fn printVersionLine() !void {
     var line_buf: [128]u8 = undefined;
-    const line = try std.fmt.bufPrint(&line_buf, "nullhub v{s}\n", .{version.string});
+    const line = try std.fmt.bufPrint(&line_buf, "nullhubx v{s}\n", .{version.string});
     try printStdout(line);
 }
 

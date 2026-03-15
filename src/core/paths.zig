@@ -1,11 +1,11 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-/// Directory resolution for all paths under `~/.nullhub/`.
+/// Directory resolution for all paths under `~/.nullhubx/`.
 ///
 /// Layout:
 /// ```
-/// ~/.nullhub/
+/// ~/.nullhubx/
 /// ├── config.json
 /// ├── state.json
 /// ├── manifests/{component}@{version}.json
@@ -22,7 +22,7 @@ pub const Paths = struct {
     root: []const u8,
 
     /// Initialize a Paths struct. If `custom_root` is null, resolves from
-    /// the HOME environment variable (producing `$HOME/.nullhub`).
+    /// the HOME environment variable (producing `$HOME/.nullhubx`).
     /// The returned root string is owned by the allocator.
     pub fn init(allocator: std.mem.Allocator, custom_root: ?[]const u8) !Paths {
         if (custom_root) |cr| {
@@ -30,7 +30,7 @@ pub const Paths = struct {
         }
         const home = try getHomeDirOwned(allocator);
         defer allocator.free(home);
-        const root = try std.fs.path.join(allocator, &.{ home, ".nullhub" });
+        const root = try std.fs.path.join(allocator, &.{ home, ".nullhubx" });
         return .{ .root = root };
     }
 
@@ -166,59 +166,59 @@ fn makeAbsSubpath(base: []const u8, sub: []const u8) !void {
 
 test "paths resolve under custom root" {
     const allocator = std.testing.allocator;
-    var p = try Paths.init(allocator, "/tmp/test-nullhub");
+    var p = try Paths.init(allocator, "/tmp/test-nullhubx");
     defer p.deinit(allocator);
 
     const cfg = try p.config(allocator);
     defer allocator.free(cfg);
-    try std.testing.expectEqualStrings("/tmp/test-nullhub/config.json", cfg);
+    try std.testing.expectEqualStrings("/tmp/test-nullhubx/config.json", cfg);
 
     const st = try p.state(allocator);
     defer allocator.free(st);
-    try std.testing.expectEqualStrings("/tmp/test-nullhub/state.json", st);
+    try std.testing.expectEqualStrings("/tmp/test-nullhubx/state.json", st);
 
     const mf = try p.manifest(allocator, "nullclaw", "2026.3.1");
     defer allocator.free(mf);
-    try std.testing.expectEqualStrings("/tmp/test-nullhub/manifests/nullclaw@2026.3.1.json", mf);
+    try std.testing.expectEqualStrings("/tmp/test-nullhubx/manifests/nullclaw@2026.3.1.json", mf);
 
     const bin = try p.binary(allocator, "nullclaw", "2026.3.1");
     defer allocator.free(bin);
-    try std.testing.expectEqualStrings("/tmp/test-nullhub/bin/nullclaw-2026.3.1", bin);
+    try std.testing.expectEqualStrings("/tmp/test-nullhubx/bin/nullclaw-2026.3.1", bin);
 
     const inst_dir = try p.instanceDir(allocator, "nullclaw", "my-agent");
     defer allocator.free(inst_dir);
-    try std.testing.expectEqualStrings("/tmp/test-nullhub/instances/nullclaw/my-agent", inst_dir);
+    try std.testing.expectEqualStrings("/tmp/test-nullhubx/instances/nullclaw/my-agent", inst_dir);
 
     const inst = try p.instanceConfig(allocator, "nullclaw", "my-agent");
     defer allocator.free(inst);
-    try std.testing.expectEqualStrings("/tmp/test-nullhub/instances/nullclaw/my-agent/config.json", inst);
+    try std.testing.expectEqualStrings("/tmp/test-nullhubx/instances/nullclaw/my-agent/config.json", inst);
 
     const data = try p.instanceData(allocator, "nullclaw", "my-agent");
     defer allocator.free(data);
-    try std.testing.expectEqualStrings("/tmp/test-nullhub/instances/nullclaw/my-agent/data", data);
+    try std.testing.expectEqualStrings("/tmp/test-nullhubx/instances/nullclaw/my-agent/data", data);
 
     const logs = try p.instanceLogs(allocator, "nullclaw", "my-agent");
     defer allocator.free(logs);
-    try std.testing.expectEqualStrings("/tmp/test-nullhub/instances/nullclaw/my-agent/logs", logs);
+    try std.testing.expectEqualStrings("/tmp/test-nullhubx/instances/nullclaw/my-agent/logs", logs);
 
     const meta = try p.instanceMeta(allocator, "nullclaw", "my-agent");
     defer allocator.free(meta);
-    try std.testing.expectEqualStrings("/tmp/test-nullhub/instances/nullclaw/my-agent/instance.json", meta);
+    try std.testing.expectEqualStrings("/tmp/test-nullhubx/instances/nullclaw/my-agent/instance.json", meta);
 
     const ui = try p.uiModule(allocator, "nullclaw-chat-ui", "1.2.0");
     defer allocator.free(ui);
-    try std.testing.expectEqualStrings("/tmp/test-nullhub/ui/nullclaw-chat-ui@1.2.0", ui);
+    try std.testing.expectEqualStrings("/tmp/test-nullhubx/ui/nullclaw-chat-ui@1.2.0", ui);
 
     const dl = try p.cacheDownloads(allocator);
     defer allocator.free(dl);
-    try std.testing.expectEqualStrings("/tmp/test-nullhub/cache/downloads", dl);
+    try std.testing.expectEqualStrings("/tmp/test-nullhubx/cache/downloads", dl);
 }
 
 test "ensureDirs creates all subdirectories" {
     const allocator = std.testing.allocator;
 
     // Use a unique temp directory to avoid interference.
-    const tmp_root = "/tmp/test-nullhub-ensure-dirs";
+    const tmp_root = "/tmp/test-nullhubx-ensure-dirs";
 
     // Clean up from any previous run.
     std.fs.deleteTreeAbsolute(tmp_root) catch {};
@@ -230,12 +230,12 @@ test "ensureDirs creates all subdirectories" {
 
     // Verify every expected subdirectory exists.
     const expected = [_][]const u8{
-        "/tmp/test-nullhub-ensure-dirs/manifests",
-        "/tmp/test-nullhub-ensure-dirs/bin",
-        "/tmp/test-nullhub-ensure-dirs/instances",
-        "/tmp/test-nullhub-ensure-dirs/ui",
-        "/tmp/test-nullhub-ensure-dirs/cache/downloads",
-        "/tmp/test-nullhub-ensure-dirs/cache/usage",
+        "/tmp/test-nullhubx-ensure-dirs/manifests",
+        "/tmp/test-nullhubx-ensure-dirs/bin",
+        "/tmp/test-nullhubx-ensure-dirs/instances",
+        "/tmp/test-nullhubx-ensure-dirs/ui",
+        "/tmp/test-nullhubx-ensure-dirs/cache/downloads",
+        "/tmp/test-nullhubx-ensure-dirs/cache/usage",
     };
     for (expected) |dir| {
         var d = try std.fs.openDirAbsolute(dir, .{});
@@ -251,7 +251,7 @@ test "init without custom root reads HOME" {
 
     const home = getHomeDirOwned(allocator) catch return; // skip if no HOME/USERPROFILE
     defer allocator.free(home);
-    const expected_root = try std.fs.path.join(allocator, &.{ home, ".nullhub" });
+    const expected_root = try std.fs.path.join(allocator, &.{ home, ".nullhubx" });
     defer allocator.free(expected_root);
 
     var p = try Paths.init(allocator, null);

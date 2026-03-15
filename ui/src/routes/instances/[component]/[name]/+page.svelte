@@ -293,7 +293,7 @@
     ].join(" ");
 
     return [
-      'export NULLHUB_HOME="${NULLHUB_HOME:-$HOME/.nullhub}"',
+      'export NULLHUB_HOME="${NULLHUB_HOME:-$HOME/.nullhubx}"',
       `export ${homeEnv}="$NULLHUB_HOME/instances/${componentName}/${instanceName}"`,
       command,
     ].join("\n");
@@ -1102,7 +1102,7 @@
           <h3>Standalone Launch</h3>
           {#if component === "nullclaw" && standaloneBinaryPath}
             <p>
-              Run this instance without <code>nullhub</code>, reusing the same
+              Run this instance without <code>nullhubx</code>, reusing the same
               config, auth, data, and logs directory.
             </p>
             <div class="advanced-copy-row">
@@ -1138,7 +1138,7 @@
               </div>
             </div>
             <p class="advanced-note">
-              If your `nullhub` root is custom, export <code>NULLHUB_HOME</code>
+              If your `nullhubx` root is custom, export <code>NULLHUB_HOME</code>
               before running the command.
             </p>
           {:else}

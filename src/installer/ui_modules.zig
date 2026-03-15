@@ -144,7 +144,7 @@ test "buildBundleAssetUrl with different module" {
 test "extractTarGz creates dest_dir and extracts contents" {
     const allocator = std.testing.allocator;
 
-    const tmp_dir = "/tmp/test-nullhub-ui-extract";
+    const tmp_dir = "/tmp/test-nullhubx-ui-extract";
     std.fs.deleteTreeAbsolute(tmp_dir) catch {};
     try std.fs.makeDirAbsolute(tmp_dir);
     defer std.fs.deleteTreeAbsolute(tmp_dir) catch {};
@@ -191,7 +191,7 @@ test "extractTarGz creates dest_dir and extracts contents" {
 }
 
 test "isModuleInstalled returns true for existing directory" {
-    const tmp_dir = "/tmp/test-nullhub-ui-installed";
+    const tmp_dir = "/tmp/test-nullhubx-ui-installed";
     std.fs.deleteTreeAbsolute(tmp_dir) catch {};
     try std.fs.makeDirAbsolute(tmp_dir);
     defer std.fs.deleteTreeAbsolute(tmp_dir) catch {};
@@ -200,5 +200,5 @@ test "isModuleInstalled returns true for existing directory" {
 }
 
 test "isModuleInstalled returns false for non-existing directory" {
-    try std.testing.expect(!isModuleInstalled("/tmp/test-nullhub-ui-nonexistent-dir-xyz"));
+    try std.testing.expect(!isModuleInstalled("/tmp/test-nullhubx-ui-nonexistent-dir-xyz"));
 }
