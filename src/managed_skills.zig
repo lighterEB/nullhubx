@@ -143,6 +143,14 @@ fn syncAllowedCommands(
     const root = &parsed.value.object;
     const autonomy = try ensureObjectField(allocator, root, "autonomy");
 
+    if (autonomy.get("level")) |level_value| {
+        if (level_value == .string and
+            (std.mem.eql(u8, level_value.string, "full") or std.mem.eql(u8, level_value.string, "yolo")))
+        {
+            return false;
+        }
+    }
+
     if (autonomy.get("allowed_commands")) |existing_value| {
         if (existing_value == .array) {
             for (existing_value.array.items) |item| {
@@ -225,6 +233,22 @@ fn readOptionalFileAlloc(
     return try file.readToEndAlloc(allocator, max_bytes);
 }
 
+const ParsedAutonomyConfig = struct {
+    autonomy: struct {
+        level: ?[]const u8 = null,
+        allowed_commands: ?[]const []const u8 = null,
+    } = .{},
+};
+
+fn parseAutonomyConfig(allocator: std.mem.Allocator, config_path: []const u8) !std.json.Parsed(ParsedAutonomyConfig) {
+    const bytes = try std.fs.readFileAbsolute(allocator, config_path, 64 * 1024);
+    defer allocator.free(bytes);
+    return try std.json.parseFromSlice(ParsedAutonomyConfig, allocator, bytes, .{
+        .allocate = .alloc_always,
+        .ignore_unknown_fields = true,
+    });
+}
+
 test "catalogForComponent returns nullclaw recommendations" {
     const catalog = catalogForComponent("nullclaw");
     try std.testing.expect(catalog.len > 0);
@@ -251,7 +275,7 @@ test "installBundledSkill writes embedded skill to workspace" {
     try std.testing.expect(std.mem.indexOf(u8, content, "nullhub routes --json") != null);
 }
 
-test "syncBundledSkillRuntime adds nullhub command to allowed_commands" {
+test "syncBundledSkillRuntime preserves supervised level and adds nullhub command" {
     const allocator = std.testing.allocator;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
@@ -268,9 +292,37 @@ test "syncBundledSkillRuntime adds nullhub command to allowed_commands" {
 
     try std.testing.expect(try syncBundledSkillRuntime(allocator, config_path, "nullhub-admin"));
 
-    const rendered = try std.fs.readFileAbsolute(allocator, config_path, 64 * 1024);
-    defer allocator.free(rendered);
-    try std.testing.expect(std.mem.indexOf(u8, rendered, "\"nullhub *\"") != null);
+    var parsed = try parseAutonomyConfig(allocator, config_path);
+    defer parsed.deinit();
+
+    try std.testing.expectEqualStrings("supervised", parsed.value.autonomy.level.?);
+    try std.testing.expectEqual(@as(usize, 2), parsed.value.autonomy.allowed_commands.?.len);
+    try std.testing.expectEqualStrings("git", parsed.value.autonomy.allowed_commands.?[0]);
+    try std.testing.expectEqualStrings("nullhub *", parsed.value.autonomy.allowed_commands.?[1]);
+}
+
+test "syncBundledSkillRuntime preserves full level without narrowing access" {
+    const allocator = std.testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const cwd_path = try tmp.dir.realpathAlloc(allocator, ".");
+    defer allocator.free(cwd_path);
+
+    const config_path = try std.fs.path.join(allocator, &.{ cwd_path, "config.json" });
+    defer allocator.free(config_path);
+
+    const file = try std.fs.createFileAbsolute(config_path, .{ .truncate = true });
+    defer file.close();
+    try file.writeAll("{\"autonomy\":{\"level\":\"full\",\"allowed_commands\":[]}}\n");
+
+    try std.testing.expect(!(try syncBundledSkillRuntime(allocator, config_path, "nullhub-admin")));
+
+    var parsed = try parseAutonomyConfig(allocator, config_path);
+    defer parsed.deinit();
+
+    try std.testing.expectEqualStrings("full", parsed.value.autonomy.level.?);
+    try std.testing.expectEqual(@as(usize, 0), parsed.value.autonomy.allowed_commands.?.len);
 }
 
 test "installAlwaysBundledSkills installs skill and syncs runtime access" {
