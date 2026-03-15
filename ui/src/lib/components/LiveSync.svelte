@@ -8,7 +8,7 @@
 
 <div class="livesync" class:connected={connected}>
   <span class="livesync-dot"></span>
-  <span class="livesync-text">LIVE SYNC</span>
+  <span class="livesync-text">{connected ? "LIVE" : "OFFLINE"}</span>
 </div>
 
 <style>
@@ -17,15 +17,10 @@
     align-items: center;
     gap: var(--spacing-sm);
     padding: var(--spacing-xs) var(--spacing-md);
-    border-radius: var(--radius-lg);
-    background: rgba(34, 197, 94, 0.1);
-    border: 1px solid rgba(34, 197, 94, 0.2);
-    transition: all var(--transition-base) ease;
-  }
-
-  .livesync:not(.connected) {
-    background: rgba(239, 68, 68, 0.1);
-    border-color: rgba(239, 68, 68, 0.2);
+    border-radius: var(--radius-md);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    transition: all var(--transition-base);
   }
 
   .livesync-dot {
@@ -34,8 +29,7 @@
     height: 8px;
     border-radius: 50%;
     background: var(--status-error);
-    box-shadow: 0 0 8px var(--status-error);
-    transition: all var(--transition-base) ease;
+    transition: all var(--transition-base);
   }
 
   .livesync.connected .livesync-dot {
@@ -44,11 +38,11 @@
   }
 
   .livesync-text {
-    font-size: var(--font-size-sm);
+    font-size: var(--text-xs);
     font-weight: 600;
     color: var(--text-secondary);
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
   }
 
   .livesync.connected .livesync-text {
@@ -57,11 +51,11 @@
 
   @keyframes breathe {
     0%, 100% {
-      box-shadow: 0 0 5px var(--status-running), 0 0 10px var(--status-running);
-      opacity: 0.6;
+      box-shadow: 0 0 4px var(--status-running);
+      opacity: 0.7;
     }
     50% {
-      box-shadow: 0 0 15px var(--status-running), 0 0 30px var(--status-running);
+      box-shadow: 0 0 12px var(--status-running);
       opacity: 1;
     }
   }

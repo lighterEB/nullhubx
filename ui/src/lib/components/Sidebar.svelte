@@ -93,24 +93,21 @@
     width: 260px;
     min-width: 260px;
     height: 100vh;
-    background: var(--glass-bg);
-    border-right: 1px solid var(--glass-border);
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
     overflow-y: auto;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
     z-index: 20;
   }
 
   .logo {
     display: block;
     padding: var(--spacing-xl) var(--spacing-lg);
-    border-bottom: 1px solid var(--glass-border);
+    border-bottom: 1px solid var(--border);
     text-align: center;
     color: inherit;
-    transition: all var(--transition-base) ease;
-    position: relative;
+    transition: all var(--transition-base);
   }
 
   .logo:hover,
@@ -120,38 +117,23 @@
   }
 
   .logo h2 {
-    font-size: var(--font-size-xl);
+    font-size: var(--text-lg);
     font-weight: 700;
-    color: var(--color-accent);
+    color: var(--color-primary);
     letter-spacing: 2px;
     text-transform: uppercase;
-    position: relative;
-  }
-
-  /* Logo 发光效果 */
-  .logo h2::after {
-    content: '';
-    position: absolute;
-    bottom: -4px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 40px;
-    height: 2px;
-    background: var(--color-accent);
-    border-radius: 1px;
-    box-shadow: 0 0 10px var(--color-accent);
   }
 
   .nav-section {
     padding: var(--spacing-lg) 0;
-    border-bottom: 1px solid var(--glass-border);
+    border-bottom: 1px solid var(--border);
   }
 
   .nav-section h3 {
-    font-size: var(--font-size-sm);
+    font-size: var(--text-xs);
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 1.5px;
+    letter-spacing: 1px;
     color: var(--text-muted);
     padding: var(--spacing-sm) var(--spacing-lg);
   }
@@ -162,12 +144,10 @@
     gap: var(--spacing-sm);
     padding: var(--spacing-sm) var(--spacing-lg);
     color: var(--text-secondary);
-    font-size: var(--font-size-sm);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    transition: all var(--transition-base) ease;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    transition: all var(--transition-base);
     border-left: 3px solid transparent;
-    position: relative;
   }
 
   .nav-section a:hover {
@@ -178,19 +158,19 @@
   }
 
   .nav-section a.active {
-    background: rgba(99, 102, 241, 0.15);
+    background: var(--bg-active);
     color: var(--color-primary);
     border-left: 3px solid var(--color-primary);
     font-weight: 600;
   }
 
   .component-group {
-    margin-bottom: var(--spacing-sm);
+    margin-bottom: var(--spacing-xs);
   }
 
   .component-name {
     display: block;
-    font-size: var(--font-size-sm);
+    font-size: var(--text-xs);
     font-weight: 600;
     color: var(--text-muted);
     padding: var(--spacing-xs) var(--spacing-lg) 0;
@@ -200,7 +180,6 @@
 
   .component-group a {
     padding-left: calc(var(--spacing-lg) + var(--spacing-md));
-    font-size: var(--font-size-sm);
   }
 
   .status-dot {
@@ -208,30 +187,28 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--status-error);
-    box-shadow: 0 0 5px var(--status-error);
+    background: var(--status-stopped);
     flex-shrink: 0;
   }
 
   .status-dot.running {
     background: var(--status-running);
-    box-shadow: 0 0 8px var(--status-running);
+    box-shadow: 0 0 6px var(--status-running);
   }
 
   .nav-bottom {
     margin-top: auto;
     padding: var(--spacing-lg) 0;
-    border-top: 1px solid var(--glass-border);
+    border-top: 1px solid var(--border);
   }
 
   .nav-bottom a {
     display: block;
     padding: var(--spacing-sm) var(--spacing-lg);
     color: var(--text-secondary);
-    font-size: var(--font-size-sm);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    transition: all var(--transition-base) ease;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    transition: all var(--transition-base);
     border-left: 3px solid transparent;
   }
 
@@ -243,7 +220,7 @@
   }
 
   .nav-bottom a.active {
-    background: rgba(99, 102, 241, 0.15);
+    background: var(--bg-active);
     color: var(--color-primary);
     border-left: 3px solid var(--color-primary);
     font-weight: 600;

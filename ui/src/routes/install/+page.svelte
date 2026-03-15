@@ -17,9 +17,13 @@
   afterNavigate(loadComponents);
 </script>
 
-<div class="install-page">
-  <h1>Install Component</h1>
-  <p class="subtitle">Choose a component to install</p>
+<div class="page">
+  <div class="page-header">
+    <div class="header-content">
+      <h1>Install Component</h1>
+      <p class="subtitle">Choose a component to install or import</p>
+    </div>
+  </div>
 
   <div class="catalog-grid">
     {#each components as comp}
@@ -37,27 +41,30 @@
 </div>
 
 <style>
-  .install-page {
+  .page {
     max-width: 900px;
   }
-  h1 {
-    font-size: 1.75rem;
+
+  .page-header {
+    margin-bottom: var(--spacing-3xl);
+  }
+
+  .header-content h1 {
+    font-size: var(--text-2xl);
     font-weight: 700;
-    margin-bottom: 0.5rem;
-    color: var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    text-shadow: var(--text-glow);
+    color: var(--text-primary);
+    margin: 0;
   }
+
   .subtitle {
-    font-size: 0.875rem;
-    color: var(--fg-dim);
-    margin-bottom: 2rem;
-    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin: var(--spacing-sm) 0 0 0;
   }
+
   .catalog-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 1.5rem;
+    gap: var(--spacing-xl);
   }
 </style>

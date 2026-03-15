@@ -24,156 +24,145 @@
   onDestroy(() => clearInterval(interval));
 </script>
 
-<div class="dashboard">
-  <div class="header">
-    <h1>System Status</h1>
-    <a href="/install" class="install-btn">+ Install Component</a>
+<div class="page">
+  <div class="page-header">
+    <div class="header-content">
+      <h1>System Status</h1>
+      <p class="subtitle">Monitor and manage your instances</p>
+    </div>
+    <a href="/install" class="btn btn-primary">Install Component</a>
   </div>
 
   {#if error}
-    <div class="error-banner">ERR: {error}</div>
+    <div class="error-banner">
+      <strong>Error:</strong> {error}
+    </div>
   {/if}
 
   {#if status}
-    <div class="instance-grid">
-      {#each Object.entries(status.instances || {}) as [component, instances]}
-        {#each Object.entries(instances as Record<string, any>) as [name, info]}
-          <InstanceCard
-            {component}
-            {name}
-            version={info.version}
-            status={info.status || "stopped"}
-            autoStart={info.auto_start}
-            port={info.port || 0}
-            onAction={refresh}
-          />
+    {#if Object.keys(status.instances || {}).length > 0}
+      <div class="instance-grid">
+        {#each Object.entries(status.instances || {}) as [component, instances]}
+          {#each Object.entries(instances as Record<string, any>) as [name, info]}
+            <InstanceCard
+              {component}
+              {name}
+              version={info.version}
+              status={info.status || "stopped"}
+              autoStart={info.auto_start}
+              port={info.port || 0}
+              onAction={refresh}
+            />
+          {/each}
         {/each}
-      {/each}
-    </div>
-
-    {#if Object.keys(status.instances || {}).length === 0}
+      </div>
+    {:else}
       <div class="empty-state">
-        <p>> No instances installed yet.</p>
-        <a href="/install" class="btn">INITIALIZE FIRST COMPONENT</a>
+        <div class="empty-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"></rect><rect width="20" height="8" x="2" y="14" rx="2" ry="2"></rect><line x1="6" x2="6.01" y1="6" y2="6"></line><line x1="6" x2="6.01" y1="18" y2="18"></line></svg>
+        </div>
+        <h2>No instances yet</h2>
+        <p>Install your first component to get started</p>
+        <a href="/install" class="btn btn-primary">Browse Components</a>
       </div>
     {/if}
   {/if}
 </div>
 
 <style>
-  .dashboard {
-    padding: 2rem;
+  .page {
     max-width: 1200px;
-    margin: 0 auto;
   }
-  .header {
+
+  .page-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: 2rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--border);
+    margin-bottom: var(--spacing-3xl);
   }
-  h1 {
-    font-size: 1.75rem;
+
+  .header-content h1 {
+    font-size: var(--text-2xl);
     font-weight: 700;
-    text-shadow: var(--text-glow);
-    text-transform: uppercase;
-    letter-spacing: 2px;
+    color: var(--text-primary);
+    margin: 0;
   }
-  .install-btn {
-    padding: 0.5rem 1rem;
-    background: var(--bg-surface);
-    color: var(--accent);
-    border: 1px solid var(--accent-dim);
-    border-radius: var(--radius);
-    font-size: 0.875rem;
-    font-weight: bold;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    transition: all 0.2s ease;
-    text-shadow: var(--text-glow);
+
+  .subtitle {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin: var(--spacing-sm) 0 0 0;
   }
-  .install-btn:hover {
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-base);
     text-decoration: none;
-    background: var(--bg-hover);
-    border-color: var(--accent);
-    box-shadow: 0 0 10px var(--border-glow);
-    text-shadow: 0 0 8px var(--accent);
   }
+
+  .btn-primary {
+    background: var(--color-primary);
+    border: 1px solid var(--color-primary);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: var(--color-primary-hover);
+    border-color: var(--color-primary-hover);
+    color: white;
+    text-decoration: none;
+  }
+
   .error-banner {
-    padding: 0.75rem 1rem;
-    background: rgba(255, 0, 0, 0.1);
-    color: var(--error);
-    border: 1px solid var(--error);
-    border-radius: var(--radius);
-    margin-bottom: 1.5rem;
-    font-size: 0.875rem;
-    font-weight: bold;
-    text-shadow: 0 0 5px var(--error);
-    box-shadow: 0 0 10px rgba(255, 0, 0, 0.2);
-    animation: glitch 3s infinite;
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid var(--status-error);
+    border-radius: var(--radius-md);
+    color: var(--status-error);
+    font-size: var(--text-sm);
+    margin-bottom: var(--spacing-xl);
   }
+
   .instance-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: var(--spacing-xl);
   }
+
   .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     text-align: center;
-    padding: 4rem 2rem;
-    color: var(--fg-dim);
-    border: 1px dashed var(--border);
+    padding: var(--spacing-3xl) var(--spacing-xl);
     background: var(--bg-surface);
-    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
   }
 
-  :global(body.theme-8bit-lobster) .empty-state,
-  :global(body.theme-8bit-lobster-light) .empty-state {
-    border-style: solid;
+  .empty-icon {
+    color: var(--text-muted);
+    margin-bottom: var(--spacing-lg);
   }
+
+  .empty-state h2 {
+    font-size: var(--text-lg);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
   .empty-state p {
-    margin-bottom: 1.5rem;
-    font-size: 1.125rem;
-    font-family: var(--font-mono);
-  }
-  .empty-state .btn {
-    display: inline-block;
-    padding: 0.75rem 1.5rem;
-    background: var(--bg-surface);
-    color: var(--accent);
-    border: 1px solid var(--accent-dim);
-    border-radius: var(--radius);
-    font-size: 0.875rem;
-    font-weight: bold;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    transition: all 0.2s ease;
-    text-shadow: var(--text-glow);
-  }
-
-  :global(body.theme-8bit-lobster:not(.effects-disabled)) .empty-state .btn,
-  :global(body.theme-8bit-lobster-light:not(.effects-disabled)) .empty-state .btn {
-    animation: lobsterPulse 1.5s steps(6, end) infinite;
-  }
-
-  @keyframes lobsterPulse {
-    0%,
-    100% {
-      box-shadow: 0 0 4px transparent;
-      border-color: var(--accent-dim);
-    }
-
-    50% {
-      box-shadow: 0 0 12px var(--border-glow);
-      border-color: var(--accent);
-    }
-  }
-  .empty-state .btn:hover {
-    text-decoration: none;
-    background: var(--bg-hover);
-    border-color: var(--accent);
-    box-shadow: 0 0 10px var(--border-glow);
-    text-shadow: 0 0 8px var(--accent);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin: var(--spacing-sm) 0 var(--spacing-xl) 0;
   }
 </style>

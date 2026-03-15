@@ -1,46 +1,51 @@
 <script lang="ts">
   let { status = "stopped" } = $props();
 
-  const colors: Record<string, string> = {
-    running: "var(--success)",
-    stopped: "var(--text-muted)",
-    starting: "var(--warning)",
-    failed: "var(--error)",
-    restarting: "var(--warning)",
+  const statusConfig: Record<string, { color: string; bg: string }> = {
+    running: { color: "var(--status-running)", bg: "var(--badge-success)" },
+    stopped: { color: "var(--status-stopped)", bg: "var(--bg-elevated)" },
+    starting: { color: "var(--status-warning)", bg: "var(--badge-warning)" },
+    stopping: { color: "var(--status-warning)", bg: "var(--badge-warning)" },
+    failed: { color: "var(--status-error)", bg: "rgba(239, 68, 68, 0.1)" },
+    restarting: { color: "var(--status-warning)", bg: "var(--badge-warning)" },
   };
+
+  let config = $derived(statusConfig[status] || statusConfig.stopped);
 </script>
 
 <span
-  class="badge"
+  class="status-badge"
   class:running={status === "running"}
-  style="--badge-color: {colors[status] || 'var(--text-muted)'}"
+  style="--status-color: {config.color}; --status-bg: {config.bg}"
 >
+  <span class="status-indicator"></span>
   {status}
 </span>
 
 <style>
-  .badge {
+  .status-badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.25rem 0.75rem;
-    border-radius: 2px;
-    font-size: 0.75rem;
-    font-weight: 700;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    background: color-mix(in srgb, var(--badge-color) 10%, transparent);
-    color: var(--badge-color);
-    box-shadow: inset 0 0 5px
-      color-mix(in srgb, var(--badge-color) 20%, transparent);
-    text-shadow: 0 0 5px var(--badge-color);
+    letter-spacing: 0.5px;
+    background: var(--status-bg);
+    color: var(--status-color);
   }
-  .badge::before {
-    content: "";
+
+  .status-indicator {
+    display: inline-block;
     width: 6px;
     height: 6px;
-    border-radius: var(--radius);
-    background: var(--badge-color);
-    box-shadow: 0 0 6px var(--badge-color);
+    border-radius: 50%;
+    background: var(--status-color);
+  }
+
+  .status-badge.running .status-indicator {
+    box-shadow: 0 0 6px var(--status-running);
   }
 </style>

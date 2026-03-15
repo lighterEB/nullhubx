@@ -27,18 +27,19 @@
     display: flex;
     height: 100vh;
     overflow: hidden;
+    background: var(--bg-base);
   }
+
   .main-area {
     flex: 1;
     display: flex;
     flex-direction: column;
     overflow: hidden;
   }
+
   .content {
     flex: 1;
     overflow-y: auto;
-    padding: 1.5rem;
-    position: relative;
-    z-index: 10;
+    padding: var(--spacing-3xl);
   }
 </style>
