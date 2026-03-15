@@ -99,13 +99,14 @@
       </div>
     {:else}
       <div class="empty-state">
-        <div class="empty-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>
+        <div class="empty-icon-circle">
+          <span class="empty-symbol">◉</span>
         </div>
-        <h2>No Instances Yet</h2>
-        <p>Initialize your first component to get started with the null stack.</p>
-        <a href="/install" class="btn-primary">
-          Install Component →
+        <h2>No instances running</h2>
+        <p>Deploy your first component to get started</p>
+        <a href="/install" class="btn-add-empty">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Component
         </a>
       </div>
     {/if}
@@ -243,52 +244,62 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    text-align: center;
-    padding: var(--spacing-5xl);
-    background: white;
-    border: 1px dashed var(--slate-200);
-    border-radius: var(--radius-lg);
+    justify-content: center;
+    padding-top: 120px;
+    gap: 16px;
   }
 
-  .empty-icon {
-    color: var(--slate-300);
-    margin-bottom: var(--spacing-lg);
+  .empty-icon-circle {
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    border-radius: 50%;
+  }
+
+  .empty-symbol {
+    font-size: 24px;
+    color: #4f46e5;
   }
 
   .empty-state h2 {
     font-family: var(--font-mono);
-    font-size: var(--text-xl);
+    font-size: 18px;
     font-weight: 700;
-    color: var(--slate-900);
-    letter-spacing: 2px;
-    margin: 0 0 var(--spacing-sm);
+    color: #1e1b4b;
+    letter-spacing: 1px;
+    margin: 0;
   }
 
   .empty-state p {
     font-family: var(--font-sans);
-    font-size: var(--text-base);
-    color: var(--slate-500);
-    margin: 0 0 var(--spacing-xl);
+    font-size: 14px;
+    color: #64748b;
+    margin: -4px 0 0 0;
   }
 
-  .btn-primary {
-    display: inline-flex;
+  .btn-add-empty {
+    display: flex;
     align-items: center;
-    padding: var(--spacing-md) var(--spacing-xl);
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-lg);
     background: var(--indigo-600);
     color: white;
     font-family: var(--font-mono);
     font-size: var(--text-sm);
     font-weight: 600;
-    letter-spacing: 1.5px;
+    letter-spacing: 0.5px;
     border-radius: var(--radius-md);
     text-decoration: none;
     transition: all var(--transition-fast);
+    margin-top: 8px;
   }
 
-  .btn-primary:hover {
+  .btn-add-empty:hover {
     background: var(--indigo-700);
-    box-shadow: var(--shadow-indigo);
     transform: translateY(-1px);
   }
 

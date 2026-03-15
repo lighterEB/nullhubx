@@ -199,7 +199,7 @@
     display: grid;
     grid-template-columns: 2fr 1fr 1fr;
     gap: var(--spacing-xl);
-    grid-auto-rows: min-content;
+    grid-auto-rows: 1fr;
   }
 
   @media (max-width: 1200px) {

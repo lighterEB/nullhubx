@@ -14,7 +14,6 @@
   let importing = $state(false);
   let imported = $state(false);
   let comingSoon = $derived(alpha && !installed && !standalone);
-  let isAvailable = $derived(!comingSoon);
 
   async function handleImport(e: MouseEvent) {
     e.preventDefault();
@@ -44,9 +43,6 @@
     nullboiler: "violet",
     nulltickets: "amber",
   };
-
-  let icon = $derived(iconMap[name] || "◈");
-  let color = $derived(colorMap[name] || "indigo");
 </script>
 
 {#if comingSoon}
@@ -66,14 +62,15 @@
   <h3 class="card-name">{displayName}</h3>
   <p class="card-description">{description}</p>
   
-  <div class="tag-row">
-    <span class="tag">{name === "nullboiler" ? "orchestrator" : "tracker"}</span>
-    <span class="tag">{name === "nullboiler" ? "dag" : "api"}</span>
+  <div class="card-footer">
+    <div class="tag-row">
+      <span class="tag">{name === "nullboiler" ? "orchestrator" : "tracker"}</span>
+      <span class="tag">{name === "nullboiler" ? "dag" : "api"}</span>
+    </div>
+    <button class="btn-notify" disabled>
+      Notify me
+    </button>
   </div>
-  
-  <button class="btn-notify" disabled>
-    Notify me
-  </button>
 </div>
 {:else}
 <a href="/install/{name}" class="component-card featured">
@@ -101,26 +98,27 @@
   <h3 class="card-name">{displayName}</h3>
   <p class="card-description">{description}</p>
   
-  <div class="tag-row">
-    <span class="tag">runtime</span>
-    <span class="tag">stable</span>
-    <span class="tag">v2.4.1</span>
-  </div>
-  
-  {#if !installed && !standalone}
-    <button class="btn-install" onclick={(e) => { e.preventDefault(); }}>
-      Install →
-    </button>
-  {:else if standalone && !imported}
-    <button class="btn-install" onclick={handleImport} disabled={importing}>
-      {importing ? "Importing..." : "Import →"}
-    </button>
-  {:else}
-    <div class="installed-status">
-      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--emerald-500)"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-      <span>Installed</span>
+  <div class="card-footer">
+    <div class="tag-row">
+      <span class="tag">runtime</span>
+      <span class="tag">stable</span>
+      <span class="tag">v2.4.1</span>
     </div>
-  {/if}
+    {#if !installed && !standalone}
+      <button class="btn-install" onclick={(e) => { e.preventDefault(); }}>
+        Install →
+      </button>
+    {:else if standalone && !imported}
+      <button class="btn-install" onclick={handleImport} disabled={importing}>
+        {importing ? "Importing..." : "Import →"}
+      </button>
+    {:else}
+      <div class="installed-status">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--emerald-500)"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <span>Installed</span>
+      </div>
+    {/if}
+  </div>
 </a>
 {/if}
 
@@ -129,7 +127,7 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: 12px;
     padding: var(--spacing-xl);
     padding-left: calc(var(--spacing-xl) + 3px);
     background: white;
@@ -192,9 +190,9 @@
     justify-content: center;
     font-size: 18px;
     border-radius: var(--radius-md);
-    background: var(--indigo-50);
-    border: 1px solid var(--indigo-200);
-    color: var(--indigo-500);
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    color: #4f46e5;
   }
 
   .icon-box.violet {
@@ -293,6 +291,13 @@
     color: var(--slate-400);
   }
 
+  .card-footer {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
   .tag-row {
     display: flex;
     gap: var(--spacing-xs);
@@ -329,7 +334,6 @@
     border-radius: var(--radius-md);
     cursor: pointer;
     transition: all var(--transition-fast);
-    margin-top: auto;
   }
 
   .btn-install:hover:not(:disabled) {
@@ -358,7 +362,6 @@
     border: 1px solid var(--slate-200);
     border-radius: var(--radius-md);
     cursor: not-allowed;
-    margin-top: auto;
   }
 
   .installed-status {
@@ -372,6 +375,5 @@
     font-size: var(--text-sm);
     font-weight: 500;
     color: var(--emerald-600);
-    margin-top: auto;
   }
 </style>
