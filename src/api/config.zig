@@ -1,13 +1,22 @@
 const std = @import("std");
 const paths_mod = @import("../core/paths.zig");
+const state_mod = @import("../core/state.zig");
+const config_refs = @import("../core/config_refs.zig");
 const helpers = @import("helpers.zig");
 
 const ApiResponse = helpers.ApiResponse;
 
 // ─── Handlers ────────────────────────────────────────────────────────────────
 
+/// Check if ?resolve=true is in the query string
+fn hasResolveParam(target: []const u8) bool {
+    const query_start = std.mem.indexOfScalar(u8, target, '?') orelse return false;
+    return std.mem.indexOf(u8, target[query_start..], "resolve=true") != null;
+}
+
 /// GET /api/instances/{c}/{n}/config — read instance config file.
-pub fn handleGet(allocator: std.mem.Allocator, p: paths_mod.Paths, component: []const u8, name: []const u8) ApiResponse {
+/// If ?resolve=true, resolve _ref references from saved providers/channels.
+pub fn handleGet(allocator: std.mem.Allocator, p: paths_mod.Paths, state: *state_mod.State, component: []const u8, name: []const u8, resolve: bool) ApiResponse {
     const config_path = p.instanceConfig(allocator, component, name) catch return .{
         .status = "500 Internal Server Error",
         .content_type = "application/json",
@@ -34,6 +43,20 @@ pub fn handleGet(allocator: std.mem.Allocator, p: paths_mod.Paths, component: []
         .content_type = "application/json",
         .body = "{\"error\":\"internal error\"}",
     };
+
+    // If resolve=true, resolve _ref references
+    if (resolve) {
+        const resolved = config_refs.resolveConfigRefs(allocator, contents, state) catch {
+            allocator.free(contents);
+            return .{
+                .status = "500 Internal Server Error",
+                .content_type = "application/json",
+                .body = "{\"error\":\"failed to resolve config references\"}",
+            };
+        };
+        allocator.free(contents);
+        return .{ .status = "200 OK", .content_type = "application/json", .body = resolved };
+    }
 
     return .{ .status = "200 OK", .content_type = "application/json", .body = contents };
 }
@@ -120,7 +143,9 @@ fn makeDirRecursive(path: []const u8) !void {
 /// Parse a config-related sub-path from a parsed instance path.
 /// Returns true if the path ends with "/config".
 pub fn isConfigPath(target: []const u8) bool {
-    return std.mem.endsWith(u8, target, "/config");
+    return std.mem.endsWith(u8, target, "/config") or
+        std.mem.startsWith(u8, target, "/api/instances/") and
+        std.mem.indexOf(u8, target, "/config?") != null;
 }
 
 /// Extract component and name from /api/instances/{c}/{n}/config.
@@ -131,12 +156,18 @@ pub const ParsedConfigPath = struct {
 
 pub fn parseConfigPath(target: []const u8) ?ParsedConfigPath {
     const prefix = "/api/instances/";
-    const suffix = "/config";
-
+    
     if (!std.mem.startsWith(u8, target, prefix)) return null;
-    if (!std.mem.endsWith(u8, target, suffix)) return null;
+    
+    // Strip query string
+    const query_pos = std.mem.indexOfScalar(u8, target, '?');
+    const path_end = query_pos orelse target.len;
+    const path = target[0..path_end];
+    
+    const suffix = "/config";
+    if (!std.mem.endsWith(u8, path, suffix)) return null;
 
-    const rest = target[prefix.len .. target.len - suffix.len];
+    const rest = path[prefix.len .. path.len - suffix.len];
     if (rest.len == 0) return null;
 
     const sep = std.mem.indexOfScalar(u8, rest, '/') orelse return null;
@@ -150,10 +181,21 @@ pub fn parseConfigPath(target: []const u8) ?ParsedConfigPath {
     return .{ .component = component, .name = name };
 }
 
+/// Check if request wants resolved config
+pub fn shouldResolve(target: []const u8) bool {
+    return hasResolveParam(target);
+}
+
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 test "parseConfigPath: valid path" {
     const p = parseConfigPath("/api/instances/nullclaw/my-agent/config").?;
+    try std.testing.expectEqualStrings("nullclaw", p.component);
+    try std.testing.expectEqualStrings("my-agent", p.name);
+}
+
+test "parseConfigPath: handles query string" {
+    const p = parseConfigPath("/api/instances/nullclaw/my-agent/config?resolve=true").?;
     try std.testing.expectEqualStrings("nullclaw", p.component);
     try std.testing.expectEqualStrings("my-agent", p.name);
 }
@@ -172,8 +214,14 @@ test "parseConfigPath: rejects path without name" {
 
 test "isConfigPath detects config suffix" {
     try std.testing.expect(isConfigPath("/api/instances/nullclaw/my-agent/config"));
+    try std.testing.expect(isConfigPath("/api/instances/nullclaw/my-agent/config?resolve=true"));
     try std.testing.expect(!isConfigPath("/api/instances/nullclaw/my-agent"));
     try std.testing.expect(!isConfigPath("/api/instances/nullclaw/my-agent/logs"));
+}
+
+test "shouldResolve detects resolve param" {
+    try std.testing.expect(shouldResolve("/api/instances/nullclaw/my-agent/config?resolve=true"));
+    try std.testing.expect(!shouldResolve("/api/instances/nullclaw/my-agent/config"));
 }
 
 test "handleGet returns 404 when no config file exists" {
@@ -184,8 +232,10 @@ test "handleGet returns 404 when no config file exists" {
 
     var p = try paths_mod.Paths.init(allocator, tmp_root);
     defer p.deinit(allocator);
+    var s = state_mod.State.init(allocator, "/tmp/test-state.json");
+    defer s.deinit();
 
-    const resp = handleGet(allocator, p, "nullclaw", "my-agent");
+    const resp = handleGet(allocator, p, &s, "nullclaw", "my-agent", false);
     try std.testing.expectEqualStrings("404 Not Found", resp.status);
     try std.testing.expectEqualStrings("{\"error\":\"config not found\"}", resp.body);
 }
@@ -223,12 +273,14 @@ test "handleGet reads written config" {
 
     var p = try paths_mod.Paths.init(allocator, tmp_root);
     defer p.deinit(allocator);
+    var s = state_mod.State.init(allocator, "/tmp/test-state-roundtrip.json");
+    defer s.deinit();
 
     const body = "{\"port\":8080}";
     const put_resp = handlePut(allocator, p, "nullclaw", "my-agent", body);
     try std.testing.expectEqualStrings("200 OK", put_resp.status);
 
-    const get_resp = handleGet(allocator, p, "nullclaw", "my-agent");
+    const get_resp = handleGet(allocator, p, &s, "nullclaw", "my-agent", false);
     defer allocator.free(get_resp.body);
     try std.testing.expectEqualStrings("200 OK", get_resp.status);
     try std.testing.expectEqualStrings(body, get_resp.body);

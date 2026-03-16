@@ -977,26 +977,32 @@ pub const Server = struct {
 
         // Config API — /api/instances/{c}/{n}/config
         if (config_api.isConfigPath(target)) {
-            if (config_api.parseConfigPath(target)) |parsed| {
-                if (std.mem.eql(u8, method, "GET")) {
-                    const resp = config_api.handleGet(allocator, self.paths, parsed.component, parsed.name);
-                    return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
-                }
-                if (std.mem.eql(u8, method, "PUT")) {
-                    const resp = config_api.handlePut(allocator, self.paths, parsed.component, parsed.name, body);
-                    return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
-                }
-                if (std.mem.eql(u8, method, "PATCH")) {
-                    const resp = config_api.handlePatch(allocator, self.paths, parsed.component, parsed.name, body);
-                    return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
-                }
-                return .{
-                    .status = "405 Method Not Allowed",
-                    .content_type = "application/json",
-                    .body = "{\"error\":\"method not allowed\"}",
-                };
+            const parsed = config_api.parseConfigPath(target) orelse return .{
+                .status = "500 Internal Server Error",
+                .content_type = "application/json",
+                .body = "{\"error\":\"invalid config path\"}",
+            };
+            
+            if (std.mem.eql(u8, method, "GET")) {
+                const resolve = config_api.shouldResolve(target);
+                const resp = config_api.handleGet(allocator, self.paths, self.state, parsed.component, parsed.name, resolve);
+                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
             }
+            if (std.mem.eql(u8, method, "PUT")) {
+                const resp = config_api.handlePut(allocator, self.paths, parsed.component, parsed.name, body);
+                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
+            }
+            if (std.mem.eql(u8, method, "PATCH")) {
+                const resp = config_api.handlePatch(allocator, self.paths, parsed.component, parsed.name, body);
+                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
+            }
+            return .{
+                .status = "405 Method Not Allowed",
+                .content_type = "application/json",
+                .body = "{\"error\":\"method not allowed\"}",
+            };
         }
+
 
         // Logs API — /api/instances/{c}/{n}/logs and /api/instances/{c}/{n}/logs/stream
         if (logs_api.isLogsPath(target)) {

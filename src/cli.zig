@@ -24,6 +24,10 @@ pub const InstallOptions = struct {
     component: []const u8,
     name: ?[]const u8 = null,
     version: ?[]const u8 = null,
+    provider: ?[]const u8 = null,
+    api_key: ?[]const u8 = null,
+    model: ?[]const u8 = null,
+    memory: ?[]const u8 = null,
     build_from_source: bool = false,
 };
 
@@ -253,6 +257,22 @@ fn parseInstall(args: *std.process.ArgIterator) Command {
             if (args.next()) |val| {
                 opts.version = val;
             }
+        } else if (std.mem.eql(u8, arg, "--provider")) {
+            if (args.next()) |val| {
+                opts.provider = val;
+            }
+        } else if (std.mem.eql(u8, arg, "--api-key")) {
+            if (args.next()) |val| {
+                opts.api_key = val;
+            }
+        } else if (std.mem.eql(u8, arg, "--model")) {
+            if (args.next()) |val| {
+                opts.model = val;
+            }
+        } else if (std.mem.eql(u8, arg, "--memory")) {
+            if (args.next()) |val| {
+                opts.memory = val;
+            }
         } else if (std.mem.eql(u8, arg, "--build-from-source")) {
             opts.build_from_source = true;
         }
@@ -374,6 +394,13 @@ pub fn printUsage() void {
         \\Commands:
         \\  serve                     Start web UI server (default)
         \\  install <component>       Install a component
+        \\    --name <instance>       Instance name (default: default)
+        \\    --version <tag>         Component version (default: latest)
+        \\    --provider <name>       Wizard provider for nullclaw install
+        \\    --api-key <key>         Wizard API key for nullclaw install
+        \\    --model <name>          Wizard model for nullclaw install
+        \\    --memory <backend>      Wizard memory backend for nullclaw install
+        \\    --build-from-source     Hint installer to prefer source build
         \\  start <component/name>    Start an instance
         \\  stop <component/name>     Stop an instance
         \\  restart <component/name>  Restart an instance
@@ -462,6 +489,10 @@ test "InstallOptions defaults" {
     try std.testing.expectEqualStrings("nullclaw", opts.component);
     try std.testing.expect(opts.name == null);
     try std.testing.expect(opts.version == null);
+    try std.testing.expect(opts.provider == null);
+    try std.testing.expect(opts.api_key == null);
+    try std.testing.expect(opts.model == null);
+    try std.testing.expect(opts.memory == null);
     try std.testing.expect(!opts.build_from_source);
 }
 

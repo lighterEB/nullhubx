@@ -83,14 +83,11 @@ pub fn main() !void {
             std.process.exit(1);
         },
         .install => |opts| {
-            std.debug.print("install {s}", .{opts.component});
-            if (opts.name) |n| std.debug.print(" --name {s}", .{n});
-            if (opts.version) |v| std.debug.print(" --version {s}", .{v});
-            std.debug.print(" (not yet implemented)\n", .{});
+            try handleInstallViaApi(allocator, opts);
         },
-        .start => |ref| std.debug.print("start {s}/{s} (not yet implemented)\n", .{ ref.component, ref.name }),
-        .stop => |ref| std.debug.print("stop {s}/{s} (not yet implemented)\n", .{ ref.component, ref.name }),
-        .restart => |ref| std.debug.print("restart {s}/{s} (not yet implemented)\n", .{ ref.component, ref.name }),
+        .start => |ref| try handleInstanceActionViaApi(allocator, ref, "start"),
+        .stop => |ref| try handleInstanceActionViaApi(allocator, ref, "stop"),
+        .restart => |ref| try handleInstanceActionViaApi(allocator, ref, "restart"),
         .start_all => std.debug.print("start-all (not yet implemented)\n", .{}),
         .stop_all => std.debug.print("stop-all (not yet implemented)\n", .{}),
         .logs => |opts| {
@@ -98,14 +95,10 @@ pub fn main() !void {
             if (opts.follow) std.debug.print(" -f", .{});
             std.debug.print(" --lines {d} (not yet implemented)\n", .{opts.lines});
         },
-        .check_updates => std.debug.print("check-updates (not yet implemented)\n", .{}),
-        .update => |ref| std.debug.print("update {s}/{s} (not yet implemented)\n", .{ ref.component, ref.name }),
+        .check_updates => try callLocalApiAndPrint(allocator, "GET", "/api/updates", null),
+        .update => |ref| try handleInstanceActionViaApi(allocator, ref, "update"),
         .update_all => std.debug.print("update-all (not yet implemented)\n", .{}),
-        .config => |opts| {
-            std.debug.print("config {s}/{s}", .{ opts.instance.component, opts.instance.name });
-            if (opts.edit) std.debug.print(" --edit", .{});
-            std.debug.print(" (not yet implemented)\n", .{});
-        },
+        .config => |opts| try handleConfigViaApi(allocator, opts),
         .wizard => |opts| std.debug.print("wizard {s} (not yet implemented)\n", .{opts.component}),
         .service => |sc| handleServiceCommand(allocator, sc) catch |err| {
             const any_err: anyerror = err;
@@ -205,6 +198,102 @@ fn printStdout(text: []const u8) !void {
     try w.flush();
 }
 
+fn handleInstallViaApi(allocator: std.mem.Allocator, opts: cli.InstallOptions) !void {
+    const body = try buildInstallWizardBodyAlloc(allocator, opts);
+    defer allocator.free(body);
+
+    const target = try std.fmt.allocPrint(allocator, "/api/wizard/{s}", .{opts.component});
+    defer allocator.free(target);
+
+    try callLocalApiAndPrint(allocator, "POST", target, body);
+}
+
+fn handleInstanceActionViaApi(
+    allocator: std.mem.Allocator,
+    ref: cli.InstanceRef,
+    action: []const u8,
+) !void {
+    const target = try buildInstanceActionTargetAlloc(allocator, ref, action);
+    defer allocator.free(target);
+
+    try callLocalApiAndPrint(allocator, "POST", target, null);
+}
+
+fn handleConfigViaApi(allocator: std.mem.Allocator, opts: cli.ConfigOptions) !void {
+    if (opts.edit) {
+        try printStdout("config --edit is not implemented yet; showing current config instead.\n");
+    }
+    const target = try buildInstanceActionTargetAlloc(allocator, opts.instance, "config");
+    defer allocator.free(target);
+    try callLocalApiAndPrint(allocator, "GET", target, null);
+}
+
+fn buildInstallWizardBodyAlloc(allocator: std.mem.Allocator, opts: cli.InstallOptions) ![]u8 {
+    const instance_name = opts.name orelse "default";
+    const install_version = opts.version orelse "latest";
+    return std.json.Stringify.valueAlloc(allocator, .{
+        .instance_name = instance_name,
+        .version = install_version,
+        .provider = opts.provider,
+        .api_key = opts.api_key,
+        .model = opts.model,
+        .memory = opts.memory,
+        .build_from_source = opts.build_from_source,
+    }, .{ .emit_null_optional_fields = false });
+}
+
+fn buildInstanceActionTargetAlloc(
+    allocator: std.mem.Allocator,
+    ref: cli.InstanceRef,
+    action: []const u8,
+) ![]u8 {
+    return std.fmt.allocPrint(
+        allocator,
+        "/api/instances/{s}/{s}/{s}",
+        .{ ref.component, ref.name, action },
+    );
+}
+
+fn callLocalApiAndPrint(
+    allocator: std.mem.Allocator,
+    method: []const u8,
+    target: []const u8,
+    body: ?[]const u8,
+) !void {
+    var result = api_cli.execute(allocator, .{
+        .method = method,
+        .target = target,
+        .host = access.default_bind_host,
+        .port = access.default_port,
+        .body = body,
+        .content_type = "application/json",
+    }) catch |err| {
+        const any_err: anyerror = err;
+        switch (any_err) {
+            error.ConnectionRefused => {
+                std.debug.print(
+                    "nullhubx is not running on http://{s}:{d}; run `nullhubx serve` first.\n",
+                    .{ access.default_bind_host, access.default_port },
+                );
+                std.process.exit(1);
+            },
+            else => return any_err,
+        }
+    };
+    defer result.deinit(allocator);
+
+    if (result.body.len > 0) {
+        try printStdout(result.body);
+        if (result.body[result.body.len - 1] != '\n') try printStdout("\n");
+    }
+
+    const code = @intFromEnum(result.status);
+    if (code < 200 or code >= 300) {
+        std.debug.print("HTTP {d}\n", .{code});
+        std.process.exit(1);
+    }
+}
+
 fn supervisorLoop(manager: *manager_mod.Manager, mutex: *std.Thread.Mutex) void {
     while (true) {
         {
@@ -236,4 +325,72 @@ fn delayedOpenBrowser(
 ) void {
     std.Thread.sleep(750 * std.time.ns_per_ms);
     openBrowser(allocator, host, port, publisher.accessOptions());
+}
+
+test "buildInstallWizardBodyAlloc includes optional install fields" {
+    const body = try buildInstallWizardBodyAlloc(std.testing.allocator, .{
+        .component = "nullclaw",
+        .name = "mini-agent",
+        .version = "latest",
+        .provider = "openrouter",
+        .api_key = "sk-test",
+        .model = "anthropic/claude-sonnet-4",
+        .memory = "sqlite",
+        .build_from_source = true,
+    });
+    defer std.testing.allocator.free(body);
+
+    const parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator, body, .{
+        .allocate = .alloc_always,
+    });
+    defer parsed.deinit();
+
+    try std.testing.expect(parsed.value == .object);
+    const obj = parsed.value.object;
+    try std.testing.expectEqualStrings("mini-agent", obj.get("instance_name").?.string);
+    try std.testing.expectEqualStrings("latest", obj.get("version").?.string);
+    try std.testing.expectEqualStrings("openrouter", obj.get("provider").?.string);
+    try std.testing.expectEqualStrings("sk-test", obj.get("api_key").?.string);
+    try std.testing.expectEqualStrings("anthropic/claude-sonnet-4", obj.get("model").?.string);
+    try std.testing.expectEqualStrings("sqlite", obj.get("memory").?.string);
+    try std.testing.expect(obj.get("build_from_source").?.bool);
+}
+
+test "buildInstallWizardBodyAlloc omits null optional install fields" {
+    const body = try buildInstallWizardBodyAlloc(std.testing.allocator, .{
+        .component = "nullclaw",
+    });
+    defer std.testing.allocator.free(body);
+
+    const parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator, body, .{
+        .allocate = .alloc_always,
+    });
+    defer parsed.deinit();
+
+    try std.testing.expect(parsed.value == .object);
+    const obj = parsed.value.object;
+    try std.testing.expectEqualStrings("default", obj.get("instance_name").?.string);
+    try std.testing.expectEqualStrings("latest", obj.get("version").?.string);
+    try std.testing.expect(obj.get("provider") == null);
+    try std.testing.expect(obj.get("api_key") == null);
+    try std.testing.expect(obj.get("model") == null);
+    try std.testing.expect(obj.get("memory") == null);
+}
+
+test "buildInstanceActionTargetAlloc formats instance action route" {
+    const route = try buildInstanceActionTargetAlloc(std.testing.allocator, .{
+        .component = "nullclaw",
+        .name = "mini-agent",
+    }, "start");
+    defer std.testing.allocator.free(route);
+    try std.testing.expectEqualStrings("/api/instances/nullclaw/mini-agent/start", route);
+}
+
+test "buildInstanceActionTargetAlloc supports config action route" {
+    const route = try buildInstanceActionTargetAlloc(std.testing.allocator, .{
+        .component = "nullclaw",
+        .name = "mini-agent",
+    }, "config");
+    defer std.testing.allocator.free(route);
+    try std.testing.expectEqualStrings("/api/instances/nullclaw/mini-agent/config", route);
 }
