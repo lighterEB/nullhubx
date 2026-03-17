@@ -45,6 +45,7 @@
     background: white;
     border-top: 1px solid var(--slate-200);
     z-index: 100;
+    overflow: hidden;
   }
 
   .statusbar-left {
@@ -98,5 +99,22 @@
     font-weight: 600;
     color: var(--red-500);
     letter-spacing: 1px;
+  }
+
+  @media (max-width: 760px) {
+    .statusbar {
+      padding: 0 var(--spacing-lg);
+    }
+
+    .status-item:first-child,
+    .divider {
+      display: none;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .statusbar-left {
+      display: none;
+    }
   }
 </style>

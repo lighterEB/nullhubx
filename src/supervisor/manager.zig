@@ -115,7 +115,7 @@ pub const Manager = struct {
     ) void {
         const logs_dir = self.p.instanceLogs(self.allocator, component, name) catch return;
         defer self.allocator.free(logs_dir);
-        std.fs.makeDirAbsolute(logs_dir) catch |err| switch (err) {
+        std.fs.cwd().makePath(logs_dir) catch |err| switch (err) {
             error.PathAlreadyExists => {},
             else => return,
         };
@@ -261,7 +261,7 @@ pub const Manager = struct {
         // Ensure logs directory exists and compute log file path
         const logs_dir = try self.p.instanceLogs(self.allocator, component, name);
         defer self.allocator.free(logs_dir);
-        std.fs.makeDirAbsolute(logs_dir) catch |err| switch (err) {
+        std.fs.cwd().makePath(logs_dir) catch |err| switch (err) {
             error.PathAlreadyExists => {},
             else => return err,
         };

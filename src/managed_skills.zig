@@ -138,10 +138,11 @@ fn syncAllowedCommands(
         .ignore_unknown_fields = true,
     });
     defer parsed.deinit();
+    const arena = parsed.arena.allocator();
 
     if (parsed.value != .object) return error.InvalidConfig;
     const root = &parsed.value.object;
-    const autonomy = try ensureObjectField(allocator, root, "autonomy");
+    const autonomy = try ensureObjectField(arena, root, "autonomy");
 
     if (autonomy.get("level")) |level_value| {
         if (level_value == .string and
@@ -159,7 +160,7 @@ fn syncAllowedCommands(
         }
     }
 
-    const allowed_value = try ensureArrayField(allocator, autonomy, "allowed_commands");
+    const allowed_value = try ensureArrayField(arena, autonomy, "allowed_commands");
     var changed = false;
     for (required_allowed_commands) |command| {
         if (arrayContainsString(allowed_value.*, command)) continue;
@@ -241,7 +242,9 @@ const ParsedAutonomyConfig = struct {
 };
 
 fn parseAutonomyConfig(allocator: std.mem.Allocator, config_path: []const u8) !std.json.Parsed(ParsedAutonomyConfig) {
-    const bytes = try std.fs.readFileAbsolute(allocator, config_path, 64 * 1024);
+    const file = try std.fs.openFileAbsolute(config_path, .{});
+    defer file.close();
+    const bytes = try file.readToEndAlloc(allocator, 64 * 1024);
     defer allocator.free(bytes);
     return try std.json.parseFromSlice(ParsedAutonomyConfig, allocator, bytes, .{
         .allocate = .alloc_always,
@@ -270,7 +273,9 @@ test "installBundledSkill writes embedded skill to workspace" {
     const skill_path = try std.fs.path.join(allocator, &.{ cwd_path, "skills", "nullhubx-admin", "SKILL.md" });
     defer allocator.free(skill_path);
 
-    const content = try std.fs.readFileAbsolute(allocator, skill_path, 64 * 1024);
+    const content_file = try std.fs.openFileAbsolute(skill_path, .{});
+    defer content_file.close();
+    const content = try content_file.readToEndAlloc(allocator, 64 * 1024);
     defer allocator.free(content);
     try std.testing.expect(std.mem.indexOf(u8, content, "nullhubx routes --json") != null);
 }
@@ -347,11 +352,15 @@ test "installAlwaysBundledSkills installs skill and syncs runtime access" {
 
     const skill_path = try std.fs.path.join(allocator, &.{ workspace_dir, "skills", "nullhubx-admin", "SKILL.md" });
     defer allocator.free(skill_path);
-    const skill_content = try std.fs.readFileAbsolute(allocator, skill_path, 64 * 1024);
+    const skill_file = try std.fs.openFileAbsolute(skill_path, .{});
+    defer skill_file.close();
+    const skill_content = try skill_file.readToEndAlloc(allocator, 64 * 1024);
     defer allocator.free(skill_content);
     try std.testing.expect(std.mem.indexOf(u8, skill_content, "nullhubx api <METHOD> <PATH>") != null);
 
-    const rendered = try std.fs.readFileAbsolute(allocator, config_path, 64 * 1024);
+    const rendered_file = try std.fs.openFileAbsolute(config_path, .{});
+    defer rendered_file.close();
+    const rendered = try rendered_file.readToEndAlloc(allocator, 64 * 1024);
     defer allocator.free(rendered);
     try std.testing.expect(std.mem.indexOf(u8, rendered, "\"nullhubx *\"") != null);
 }

@@ -10,7 +10,7 @@
   let source = $state<LogSource>("instance");
 
   const sourceLabels: Record<LogSource, string> = {
-    instance: "Instance",
+    instance: "实例",
     nullhubx: "NullHubX",
   };
   const logSources: LogSource[] = ["instance", "nullhubx"];
@@ -23,7 +23,7 @@
       lines = data.lines || [];
       scrollToBottom();
     } catch {
-      if (lines.length === 0) lines = ["Failed to load logs"];
+      if (lines.length === 0) lines = ["日志加载失败"];
     }
   }
 
@@ -57,8 +57,8 @@
 <div class="log-viewer">
   <div class="log-header">
     <div class="log-title-group">
-      <span>Logs</span>
-      <div class="source-switch" role="tablist" aria-label="Log source">
+      <span>日志</span>
+      <div class="source-switch" role="tablist" aria-label="日志来源">
         {#each logSources as option}
           <button
             type="button"
@@ -72,10 +72,10 @@
       </div>
     </div>
     <div class="log-actions">
-      <button class="clear-btn" onclick={clearLogs}>Clear</button>
+      <button class="clear-btn" onclick={clearLogs}>清空</button>
       <label class="auto-scroll">
         <input type="checkbox" bind:checked={autoScroll} />
-        Auto-scroll
+        自动滚动
       </label>
     </div>
   </div>
@@ -84,7 +84,7 @@
       <div class="log-line">{line}</div>
     {/each}
     {#if lines.length === 0}
-      <div class="log-empty">No {sourceLabels[source]} logs available</div>
+      <div class="log-empty">暂无 {sourceLabels[source]} 日志</div>
     {/if}
   </div>
 </div>
@@ -96,8 +96,8 @@
     height: 400px;
     background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: 2px;
-    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+    border-radius: var(--radius-sm);
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08);
   }
   .log-header {
     display: flex;
@@ -124,13 +124,13 @@
     gap: 0.375rem;
     padding: 0.1875rem;
     border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--bg) 55%, transparent);
   }
   .source-btn {
     padding: 0.3rem 0.65rem;
     border: 1px solid transparent;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     background: transparent;
     color: var(--fg-dim);
     font-size: 0.6875rem;
@@ -142,13 +142,12 @@
   .source-btn:hover {
     background: color-mix(in srgb, var(--accent) 10%, transparent);
     box-shadow: none;
-    text-shadow: none;
   }
   .source-btn.active {
     color: var(--accent);
     border-color: color-mix(in srgb, var(--accent) 55%, transparent);
     background: color-mix(in srgb, var(--accent) 14%, transparent);
-    text-shadow: var(--text-glow);
+
     box-shadow: inset 0 0 8px color-mix(in srgb, var(--accent) 18%, transparent);
   }
   .log-content {
@@ -159,7 +158,6 @@
     font-size: 0.8125rem;
     line-height: 1.6;
     color: var(--fg);
-    text-shadow: 0 0 2px color-mix(in srgb, var(--fg) 50%, transparent);
   }
   .log-line {
     white-space: pre-wrap;
@@ -184,7 +182,7 @@
   .clear-btn {
     padding: 0.25rem 0.75rem;
     border: 1px solid var(--accent-dim);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--accent) 10%, transparent);
     color: var(--accent);
     font-size: 0.75rem;
@@ -197,7 +195,7 @@
     background: color-mix(in srgb, var(--accent) 20%, transparent);
     border-color: var(--accent);
     box-shadow: 0 0 8px var(--border-glow);
-    text-shadow: var(--text-glow);
+
   }
   .auto-scroll {
     display: flex;
@@ -215,7 +213,7 @@
     height: 14px;
     border: 1px solid var(--border);
     background: var(--bg-surface);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     position: relative;
     cursor: pointer;
   }

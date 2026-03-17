@@ -71,6 +71,7 @@ pub fn runWithComponentHome(
 
 /// Run --export-manifest on a component binary and return the raw JSON.
 pub fn exportManifest(allocator: std.mem.Allocator, binary_path: []const u8) ![]const u8 {
+    std.fs.accessAbsolute(binary_path, .{}) catch return error.CommandFailed;
     const result = try run(allocator, binary_path, &.{"--export-manifest"}, null);
     defer allocator.free(result.stderr);
     if (!result.success) {
@@ -82,6 +83,7 @@ pub fn exportManifest(allocator: std.mem.Allocator, binary_path: []const u8) ![]
 
 /// Run --list-models on a component binary and return the raw JSON array.
 pub fn listModels(allocator: std.mem.Allocator, binary_path: []const u8, provider: []const u8, api_key: []const u8) ![]const u8 {
+    std.fs.accessAbsolute(binary_path, .{}) catch return error.CommandFailed;
     const result = try run(allocator, binary_path, &.{ "--list-models", "--provider", provider, "--api-key", api_key }, null);
     defer allocator.free(result.stderr);
     if (!result.success) {

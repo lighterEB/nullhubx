@@ -2,19 +2,19 @@
   let { status = "stopped" } = $props();
 
   const statusConfig: Record<string, { bg: string; color: string; text: string }> = {
-    running: { bg: "rgba(16, 185, 129, 0.12)", color: "var(--emerald-500)", text: "RUNNING" },
-    stopped: { bg: "var(--slate-100)", color: "var(--slate-500)", text: "STOPPED" },
-    starting: { bg: "rgba(99, 102, 241, 0.12)", color: "var(--indigo-500)", text: "STARTING" },
-    stopping: { bg: "rgba(99, 102, 241, 0.12)", color: "var(--indigo-500)", text: "STOPPING" },
-    failed: { bg: "rgba(239, 68, 68, 0.12)", color: "var(--red-500)", text: "FAILED" },
-    restarting: { bg: "rgba(245, 158, 11, 0.12)", color: "var(--amber-500)", text: "RESTARTING" },
+    running: { bg: "rgba(16, 185, 129, 0.12)", color: "var(--emerald-500)", text: "运行中" },
+    stopped: { bg: "var(--slate-100)", color: "var(--slate-500)", text: "已停止" },
+    starting: { bg: "rgba(99, 102, 241, 0.12)", color: "var(--indigo-500)", text: "启动中" },
+    stopping: { bg: "rgba(99, 102, 241, 0.12)", color: "var(--indigo-500)", text: "停止中" },
+    failed: { bg: "rgba(239, 68, 68, 0.12)", color: "var(--red-500)", text: "失败" },
+    restarting: { bg: "rgba(245, 158, 11, 0.12)", color: "var(--amber-500)", text: "重启中" },
   };
 
   let config = $derived(statusConfig[status] || statusConfig.stopped);
 </script>
 
-<span 
-  class="status-badge" 
+<span
+  class="status-badge"
   class:running={status === "running"}
   style="--bg: {config.bg}; --color: {config.color}"
 >

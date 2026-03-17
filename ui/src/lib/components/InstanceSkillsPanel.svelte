@@ -90,7 +90,7 @@
       if (req !== requestSeq || contextKey !== instanceKey || !active) return;
       if (isInstanceCliError(result)) {
         skills = [];
-        error = describeInstanceCliError(result, "Skills are unavailable.");
+        error = describeInstanceCliError(result, "技能不可用。");
       } else {
         skills = Array.isArray(result) ? result : [];
         error = null;
@@ -99,7 +99,7 @@
     } catch (err) {
       if (req !== requestSeq || contextKey !== instanceKey || !active) return;
       skills = [];
-      error = (err as Error).message || "Failed to load skills.";
+      error = (err as Error).message || "加载技能失败。";
     } finally {
       if (req === requestSeq && contextKey === instanceKey) {
         loading = false;
@@ -124,7 +124,7 @@
     } catch (err) {
       if (req !== catalogRequestSeq || contextKey !== instanceKey || !active) return;
       catalog = [];
-      catalogError = (err as Error).message || "Failed to load recommended skills.";
+      catalogError = (err as Error).message || "加载推荐技能失败。";
     } finally {
       if (req === catalogRequestSeq && contextKey === instanceKey) {
         catalogLoading = false;
@@ -144,16 +144,16 @@
     busyAction = `bundled:${entry.name}`;
     try {
       const result = await api.installBundledSkill(component, name, entry.name) as InstallResult;
-      if (isInstanceCliError(result)) throw new Error(describeInstanceCliError(result, `Failed to install ${entry.name}.`));
+      if (isInstanceCliError(result)) throw new Error(describeInstanceCliError(result, `安装 ${entry.name} 失败。`));
       const baseMessage = result?.status === "updated"
-        ? `Updated ${entry.name}.`
-        : `Installed ${entry.name}.`;
+        ? `已更新 ${entry.name}。`
+        : `已安装 ${entry.name}。`;
       actionMessage = result?.restart_required
-        ? `${baseMessage} Restart this instance if it is already running to apply nullhubx command access.`
+        ? `${baseMessage} 如果实例正在运行，请重启以应用 nullhubx 命令访问。`
         : baseMessage;
       await refreshAll();
     } catch (err) {
-      actionError = (err as Error).message || `Failed to install ${entry.name}.`;
+      actionError = (err as Error).message || `安装 ${entry.name} 失败。`;
     } finally {
       busyAction = null;
     }
@@ -162,7 +162,7 @@
   async function installFromClawhub() {
     const slug = clawhubSlug.trim();
     if (!slug) {
-      actionError = "Enter a ClawHub slug first.";
+      actionError = "请先输入 ClawHub slug。";
       actionMessage = null;
       return;
     }
@@ -171,12 +171,12 @@
     busyAction = `clawhub:${slug}`;
     try {
       const result = await api.installSkillFromClawhub(component, name, slug);
-      if (isInstanceCliError(result)) throw new Error(describeInstanceCliError(result, `Failed to install ${slug} from ClawHub.`));
+      if (isInstanceCliError(result)) throw new Error(describeInstanceCliError(result, `从 ClawHub 安装 ${slug} 失败。`));
       clawhubSlug = "";
-      actionMessage = `Installed ${slug} from ClawHub.`;
+      actionMessage = `已从 ClawHub 安装 ${slug}。`;
       await refreshAll();
     } catch (err) {
-      actionError = (err as Error).message || `Failed to install ${slug} from ClawHub.`;
+      actionError = (err as Error).message || `从 ClawHub 安装 ${slug} 失败。`;
     } finally {
       busyAction = null;
     }
@@ -185,7 +185,7 @@
   async function installFromSource() {
     const source = sourceInput.trim();
     if (!source) {
-      actionError = "Enter a git URL or local path first.";
+      actionError = "请先输入 git URL 或本地路径。";
       actionMessage = null;
       return;
     }
@@ -194,12 +194,12 @@
     busyAction = `source:${source}`;
     try {
       const result = await api.installSkillFromSource(component, name, source);
-      if (isInstanceCliError(result)) throw new Error(describeInstanceCliError(result, "Failed to install skill from source."));
+      if (isInstanceCliError(result)) throw new Error(describeInstanceCliError(result, "从源码安装技能失败。"));
       sourceInput = "";
-      actionMessage = "Installed skill from source.";
+      actionMessage = "已从源码安装技能。";
       await refreshAll();
     } catch (err) {
-      actionError = (err as Error).message || "Failed to install skill from source.";
+      actionError = (err as Error).message || "从源码安装技能失败。";
     } finally {
       busyAction = null;
     }
@@ -211,20 +211,20 @@
     busyAction = `remove:${skillName}`;
     try {
       const result = await api.removeSkill(component, name, skillName);
-      if (isInstanceCliError(result)) throw new Error(describeInstanceCliError(result, `Failed to remove ${skillName}.`));
-      actionMessage = `Removed ${skillName}.`;
+      if (isInstanceCliError(result)) throw new Error(describeInstanceCliError(result, `移除 ${skillName} 失败。`));
+      actionMessage = `已移除 ${skillName}。`;
       await refreshAll();
     } catch (err) {
-      actionError = (err as Error).message || `Failed to remove ${skillName}.`;
+      actionError = (err as Error).message || `移除 ${skillName} 失败。`;
     } finally {
       busyAction = null;
     }
   }
 
   function installLabel(entry: CatalogEntry) {
-    if (entry.install_kind === "bundled") return "Bundled";
+    if (entry.install_kind === "bundled") return "内置";
     if (entry.install_kind === "clawhub") return "ClawHub";
-    return "Source";
+    return "源码";
   }
 
   $effect(() => {
@@ -241,18 +241,18 @@
 <div class="skills-panel">
   <div class="panel-toolbar">
     <div>
-      <h2>Skills</h2>
-      <p>Installed prompt skills visible to this instance workspace.</p>
+      <h2>技能</h2>
+      <p>当前实例工作区可用的提示词技能。</p>
     </div>
-    <button class="toolbar-btn" onclick={() => void refreshAll()} disabled={loading || catalogLoading || busyAction !== null}>Refresh</button>
+    <button class="toolbar-btn" onclick={() => void refreshAll()} disabled={loading || catalogLoading || busyAction !== null}>刷新</button>
   </div>
 
   {#if supportsInstall}
     <section class="skill-section">
       <div class="section-header">
         <div>
-          <h3>Recommended</h3>
-          <p>Install managed skills that teach this nullclaw how to operate sibling tools from the Null ecosystem.</p>
+          <h3>推荐</h3>
+          <p>安装推荐技能，让该实例学会如何使用 Null 生态的工具。</p>
         </div>
       </div>
 
@@ -265,7 +265,7 @@
       {#if catalogError}
         <div class="panel-state warning">{catalogError}</div>
       {:else if catalogLoading && sortedCatalog.length === 0}
-        <div class="panel-state">Loading recommended skills...</div>
+        <div class="panel-state">正在加载推荐技能...</div>
       {:else if sortedCatalog.length > 0}
         <div class="skill-grid">
           {#each sortedCatalog as entry}
@@ -282,28 +282,28 @@
                 </div>
                 <div class="skill-badges">
                   {#if entry.recommended}
-                    <span class="badge accent">recommended</span>
+                    <span class="badge accent">推荐</span>
                   {/if}
                   {#if entry.always}
-                    <span class="badge accent">always</span>
+                    <span class="badge accent">默认</span>
                   {/if}
                   {#if installedSkillNames.has(entry.name)}
-                    <span class="badge ok">installed</span>
+                    <span class="badge ok">已安装</span>
                   {/if}
                 </div>
               </header>
 
               <div class="skill-meta">
                 <div>
-                  <span>Install</span>
+                  <span>安装方式</span>
                   <strong>{installLabel(entry)}</strong>
                 </div>
                 <div>
-                  <span>Source</span>
+                  <span>来源</span>
                   <strong>{entry.source || entry.clawhub_slug || "nullhubx"}</strong>
                 </div>
                 <div>
-                  <span>Homepage</span>
+                  <span>主页</span>
                   <strong>{entry.homepage_url || "-"}</strong>
                 </div>
               </div>
@@ -314,10 +314,10 @@
                   onclick={() => void installBundled(entry)}
                   disabled={busyAction !== null || entry.install_kind !== "bundled"}
                 >
-                  {installedSkillNames.has(entry.name) ? "Reinstall" : "Install"}
+                  {installedSkillNames.has(entry.name) ? "重新安装" : "安装"}
                 </button>
                 {#if entry.homepage_url}
-                  <a class="toolbar-link" href={entry.homepage_url} target="_blank" rel="noreferrer">Browse</a>
+                  <a class="toolbar-link" href={entry.homepage_url} target="_blank" rel="noreferrer">查看</a>
                 {/if}
               </div>
             </article>
@@ -331,8 +331,8 @@
           void installFromClawhub();
         }}>
           <div>
-            <h4>Install From ClawHub</h4>
-            <p>Paste a published ClawHub slug. NullHubX will run <code>clawhub install</code> inside this instance workspace.</p>
+            <h4>从 ClawHub 安装</h4>
+            <p>填写 ClawHub slug，NullHubX 会在实例内执行 <code>clawhub install</code>。</p>
           </div>
           <input
             bind:value={clawhubSlug}
@@ -341,8 +341,8 @@
             disabled={busyAction !== null}
           />
           <div class="skill-actions">
-            <button class="toolbar-btn" type="submit" disabled={busyAction !== null}>Install</button>
-            <a class="toolbar-link" href="https://clawhub.ai" target="_blank" rel="noreferrer">Browse ClawHub</a>
+            <button class="toolbar-btn" type="submit" disabled={busyAction !== null}>安装</button>
+            <a class="toolbar-link" href="https://clawhub.ai" target="_blank" rel="noreferrer">浏览 ClawHub</a>
           </div>
         </form>
 
@@ -351,8 +351,8 @@
           void installFromSource();
         }}>
           <div>
-            <h4>Install From Source</h4>
-            <p>Use a git URL or local skill path. This goes through <code>nullclaw skills install</code>.</p>
+            <h4>从源码安装</h4>
+            <p>填写 git URL 或本地路径，内部将调用 <code>nullclaw skills install</code>。</p>
           </div>
           <input
             bind:value={sourceInput}
@@ -361,7 +361,7 @@
             disabled={busyAction !== null}
           />
           <div class="skill-actions">
-            <button class="toolbar-btn" type="submit" disabled={busyAction !== null}>Install</button>
+            <button class="toolbar-btn" type="submit" disabled={busyAction !== null}>安装</button>
           </div>
         </form>
       </div>
@@ -371,9 +371,9 @@
   {#if error}
     <div class="panel-state warning">{error}</div>
   {:else if loading && skills.length === 0}
-    <div class="panel-state">Loading skills...</div>
+    <div class="panel-state">正在加载技能...</div>
   {:else if sortedSkills.length === 0}
-    <div class="panel-state">No skills found for this instance.</div>
+    <div class="panel-state">该实例暂无技能。</div>
   {:else}
     <div class="skill-grid">
       {#each sortedSkills as skill}
@@ -389,40 +389,40 @@
               {/if}
             </div>
             <div class="skill-badges">
-              <span class:ok={skill.available} class="badge">{skill.available ? "available" : "missing deps"}</span>
+              <span class:ok={skill.available} class="badge">{skill.available ? "可用" : "依赖缺失"}</span>
               {#if skill.always}
-                <span class="badge accent">always</span>
+                <span class="badge accent">默认</span>
               {/if}
               {#if skill.enabled}
-                <span class="badge">enabled</span>
+                <span class="badge">已启用</span>
               {/if}
             </div>
           </header>
 
           <div class="skill-meta">
             <div>
-              <span>Source</span>
+              <span>来源</span>
               <strong>{skill.source || "-"}</strong>
             </div>
             <div>
-              <span>Author</span>
+              <span>作者</span>
               <strong>{skill.author || "-"}</strong>
             </div>
             <div>
-              <span>Instructions</span>
-              <strong>{skill.instructions_bytes ?? 0} bytes</strong>
+              <span>指令</span>
+              <strong>{skill.instructions_bytes ?? 0} 字节</strong>
             </div>
           </div>
 
           <div class="skill-path mono">{skill.path || "-"}</div>
 
           {#if skill.missing_deps}
-            <div class="missing-deps">Missing deps: {skill.missing_deps}</div>
+            <div class="missing-deps">缺少依赖：{skill.missing_deps}</div>
           {/if}
 
           {#if skill.source === "workspace" && supportsInstall}
             <div class="skill-actions">
-              <button class="toolbar-btn danger" onclick={() => void removeSkill(skill.name)} disabled={busyAction !== null}>Remove</button>
+              <button class="toolbar-btn danger" onclick={() => void removeSkill(skill.name)} disabled={busyAction !== null}>移除</button>
             </div>
           {/if}
         </article>

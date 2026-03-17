@@ -95,7 +95,7 @@
       if (req !== statsRequestSeq || contextKey !== instanceKey || !active) return;
       if (isInstanceCliError(result)) {
         stats = null;
-        statsError = describeInstanceCliError(result, "Memory stats are unavailable.");
+        statsError = describeInstanceCliError(result, "记忆统计不可用。");
       } else {
         stats = result || null;
         statsError = null;
@@ -129,7 +129,7 @@
       if (req !== entriesRequestSeq || contextKey !== instanceKey || !active) return;
       if (isInstanceCliError(result)) {
         entries = [];
-        entriesError = describeInstanceCliError(result, "Memory entries are unavailable.");
+        entriesError = describeInstanceCliError(result, "记忆条目不可用。");
       } else {
         entries = Array.isArray(result) ? result : [];
         entriesError = null;
@@ -161,7 +161,7 @@
       if (req !== searchRequestSeq || contextKey !== instanceKey || !active) return;
       if (isInstanceCliError(result)) {
         searchResults = [];
-        searchError = describeInstanceCliError(result, "Memory search is unavailable.");
+        searchError = describeInstanceCliError(result, "记忆检索不可用。");
       } else {
         searchResults = Array.isArray(result) ? result : [];
         searchError = null;
@@ -214,11 +214,11 @@
 <div class="memory-panel">
   <div class="panel-toolbar">
     <div>
-      <h2>Memory</h2>
-      <p>Backend status, persisted entries, and semantic search results.</p>
+      <h2>记忆</h2>
+      <p>后端状态、持久化条目与语义检索结果。</p>
     </div>
     <button class="toolbar-btn" onclick={refreshMemory} disabled={statsLoading || entriesLoading}>
-      Refresh
+      刷新
     </button>
   </div>
 
@@ -226,30 +226,30 @@
     {#if statsError}
       <div class="panel-state warning">{statsError}</div>
     {:else if statsLoading && !stats}
-      <div class="panel-state">Loading memory stats...</div>
+      <div class="panel-state">正在加载记忆统计...</div>
     {:else if stats}
       <div class="stat-card">
-        <span>Backend</span>
+        <span>后端</span>
         <strong>{stats.backend || "-"}</strong>
       </div>
       <div class="stat-card">
-        <span>Retrieval</span>
+        <span>检索</span>
         <strong>{stats.retrieval || "-"}</strong>
       </div>
       <div class="stat-card">
-        <span>Vector</span>
+        <span>向量</span>
         <strong>{stats.vector || "-"}</strong>
       </div>
       <div class="stat-card">
-        <span>Entries</span>
+        <span>条目</span>
         <strong>{stats.entries ?? 0}</strong>
       </div>
       <div class="stat-card">
-        <span>Vector Entries</span>
+        <span>向量条目</span>
         <strong>{stats.vector_entries ?? "-"}</strong>
       </div>
       <div class="stat-card">
-        <span>Outbox Pending</span>
+        <span>待发送</span>
         <strong>{stats.outbox_pending ?? "-"}</strong>
       </div>
     {/if}
@@ -257,19 +257,19 @@
 
   <section class="memory-section">
     <div class="section-header">
-      <h3>Stored Entries</h3>
+      <h3>已存条目</h3>
       <div class="controls">
         <label>
-          <span>Category</span>
+          <span>分类</span>
           <select bind:value={category}>
-            <option value="all">All</option>
-            <option value="core">Core</option>
-            <option value="daily">Daily</option>
-            <option value="conversation">Conversation</option>
+            <option value="all">全部</option>
+            <option value="core">核心</option>
+            <option value="daily">日常</option>
+            <option value="conversation">对话</option>
           </select>
         </label>
         <label>
-          <span>Limit</span>
+          <span>数量</span>
           <select bind:value={limit}>
             <option value="20">20</option>
             <option value="50">50</option>
@@ -282,9 +282,9 @@
     {#if entriesError}
       <div class="panel-state warning">{entriesError}</div>
     {:else if entriesLoading && entries.length === 0}
-      <div class="panel-state">Loading memory entries...</div>
+      <div class="panel-state">正在加载记忆条目...</div>
     {:else if entries.length === 0}
-      <div class="panel-state">No memory entries for this filter.</div>
+      <div class="panel-state">该筛选条件下暂无记忆条目。</div>
     {:else}
       <div class="entry-list">
         {#each entries as entry}
@@ -310,7 +310,7 @@
 
   <section class="memory-section">
     <div class="section-header">
-      <h3>Search</h3>
+      <h3>检索</h3>
       <form
         class="search-form"
         onsubmit={(event) => {
@@ -318,9 +318,9 @@
           void runSearch();
         }}
       >
-        <input bind:value={searchQuery} placeholder="Find facts, snippets, or memory keys" />
+        <input bind:value={searchQuery} placeholder="搜索事实、片段或记忆键" />
         <button class="toolbar-btn" type="submit" disabled={searchLoading || !searchQuery.trim()}>
-          {searchLoading ? "Searching..." : "Search"}
+          {searchLoading ? "检索中..." : "检索"}
         </button>
       </form>
     </div>
@@ -328,9 +328,9 @@
     {#if searchError}
       <div class="panel-state warning">{searchError}</div>
     {:else if searchLoading}
-      <div class="panel-state">Searching memory...</div>
+      <div class="panel-state">正在检索记忆...</div>
     {:else if searchSubmittedQuery && searchResults.length === 0}
-      <div class="panel-state">No results for "{searchSubmittedQuery}".</div>
+      <div class="panel-state">未找到与 "{searchSubmittedQuery}" 相关的结果。</div>
     {:else if searchResults.length > 0}
       <div class="search-list">
         {#each searchResults as result}
@@ -355,7 +355,7 @@
         {/each}
       </div>
     {:else}
-      <div class="panel-state">Search memory when you need a specific fact or snippet.</div>
+      <div class="panel-state">需要具体事实或片段时可在此检索记忆。</div>
     {/if}
   </section>
 </div>

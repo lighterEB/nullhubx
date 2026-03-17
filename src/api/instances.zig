@@ -1424,6 +1424,7 @@ fn appendInstanceJson(buf: *std.array_list.Managed(u8), entry: state_mod.Instanc
 /// GET /api/instances — list all instances grouped by component.
 pub fn handleList(allocator: std.mem.Allocator, s: *state_mod.State, manager: *manager_mod.Manager) ApiResponse {
     var buf = std.array_list.Managed(u8).init(allocator);
+    errdefer buf.deinit();
 
     buildListJson(&buf, s, manager) catch return .{
         .status = "500 Internal Server Error",
@@ -1431,7 +1432,8 @@ pub fn handleList(allocator: std.mem.Allocator, s: *state_mod.State, manager: *m
         .body = "{\"error\":\"internal error\"}",
     };
 
-    return jsonOk(buf.items);
+    const body = buf.toOwnedSlice() catch return helpers.serverError();
+    return jsonOk(body);
 }
 
 fn buildListJson(buf: *std.array_list.Managed(u8), s: *state_mod.State, manager: *manager_mod.Manager) !void {
@@ -1474,12 +1476,14 @@ pub fn handleGet(allocator: std.mem.Allocator, s: *state_mod.State, manager: *ma
     const status_str = if (manager.getStatus(component, name)) |st| @tagName(st.status) else "stopped";
 
     var buf = std.array_list.Managed(u8).init(allocator);
+    errdefer buf.deinit();
     appendInstanceJson(&buf, entry, status_str) catch return .{
         .status = "500 Internal Server Error",
         .content_type = "application/json",
         .body = "{\"error\":\"internal error\"}",
     };
-    return jsonOk(buf.items);
+    const body = buf.toOwnedSlice() catch return helpers.serverError();
+    return jsonOk(body);
 }
 
 /// POST /api/instances/{component}/{name}/start
@@ -1527,6 +1531,7 @@ pub fn handleStart(allocator: std.mem.Allocator, s: *state_mod.State, manager: *
     // Resolve binary path
     const bin_path = paths.binary(allocator, component, entry.version) catch return helpers.serverError();
     defer allocator.free(bin_path);
+    std.fs.accessAbsolute(bin_path, .{}) catch return helpers.serverError();
 
     // Read manifest from binary to get health endpoint and port
     var health_endpoint: []const u8 = "/health";
@@ -1714,6 +1719,7 @@ pub fn handleProviderHealth(allocator: std.mem.Allocator, s: *state_mod.State, m
     }
 
     var buf = std.array_list.Managed(u8).init(allocator);
+    errdefer buf.deinit();
     buf.appendSlice("{\"provider\":\"") catch return helpers.serverError();
     appendEscaped(&buf, provider) catch return helpers.serverError();
     buf.appendSlice("\",\"model\":\"") catch return helpers.serverError();
@@ -1734,7 +1740,8 @@ pub fn handleProviderHealth(allocator: std.mem.Allocator, s: *state_mod.State, m
     }
     buf.appendSlice("}") catch return helpers.serverError();
 
-    return jsonOk(buf.items);
+    const body = buf.toOwnedSlice() catch return helpers.serverError();
+    return jsonOk(body);
 }
 
 /// GET /api/instances/{component}/{name}/usage?window=24h|7d|30d|all
@@ -1869,6 +1876,7 @@ pub fn handleUsage(allocator: std.mem.Allocator, s: *state_mod.State, paths: pat
     }
 
     var buf = std.array_list.Managed(u8).init(allocator);
+    errdefer buf.deinit();
     buf.appendSlice("{\"window\":\"") catch return helpers.serverError();
     appendEscaped(&buf, window) catch return helpers.serverError();
     buf.writer().print("\",\"generated_at\":{d},\"rows\":[", .{now_ts}) catch return helpers.serverError();
@@ -1907,7 +1915,8 @@ pub fn handleUsage(allocator: std.mem.Allocator, s: *state_mod.State, paths: pat
     buf.writer().print("{d}", .{total_requests}) catch return helpers.serverError();
     buf.appendSlice("}}") catch return helpers.serverError();
 
-    return jsonOk(buf.items);
+    const body = buf.toOwnedSlice() catch return helpers.serverError();
+    return jsonOk(body);
 }
 
 /// GET /api/instances/{component}/{name}/history?limit=N&offset=N
@@ -2620,17 +2629,29 @@ fn handleIntegrationPost(
             null;
         if (pipeline_id == null) return badRequest("{\"error\":\"pipeline_id is required\"}");
         const cfg = integration_mod.loadNullTicketsConfig(allocator, paths, tracker_name.?) catch null orelse return notFound();
+        errdefer {
+            var owned_cfg = cfg;
+            integration_mod.deinitNullTicketsConfig(allocator, &owned_cfg);
+        }
+        const pipeline_id_owned = allocator.dupe(u8, pipeline_id.?) catch return helpers.serverError();
+        errdefer allocator.free(pipeline_id_owned);
+        const claim_role_value = if (parsed.value.object.get("claim_role")) |value|
+            if (value == .string and value.string.len > 0) value.string else "coder"
+        else
+            "coder";
+        const claim_role_owned = allocator.dupe(u8, claim_role_value) catch return helpers.serverError();
+        errdefer allocator.free(claim_role_owned);
+        const success_trigger_value = if (parsed.value.object.get("success_trigger")) |value|
+            if (value == .string and value.string.len > 0) value.string else "complete"
+        else
+            "complete";
+        const success_trigger_owned = allocator.dupe(u8, success_trigger_value) catch return helpers.serverError();
+        errdefer allocator.free(success_trigger_owned);
         break :blk .{
             .tickets = cfg,
-            .pipeline_id = pipeline_id.?,
-            .claim_role = if (parsed.value.object.get("claim_role")) |value|
-                if (value == .string and value.string.len > 0) value.string else "coder"
-            else
-                "coder",
-            .success_trigger = if (parsed.value.object.get("success_trigger")) |value|
-                if (value == .string and value.string.len > 0) value.string else "complete"
-            else
-                "complete",
+            .pipeline_id = pipeline_id_owned,
+            .claim_role = claim_role_owned,
+            .success_trigger = success_trigger_owned,
             .max_concurrent_tasks = if (parsed.value.object.get("max_concurrent_tasks")) |value|
                 switch (value) {
                     .integer => if (value.integer > 0 and value.integer <= std.math.maxInt(u32)) @as(?u32, @intCast(value.integer)) else null,
@@ -2644,6 +2665,9 @@ fn handleIntegrationPost(
     defer {
         var owned_cfg = tracker_cfg.tickets;
         integration_mod.deinitNullTicketsConfig(allocator, &owned_cfg);
+        allocator.free(tracker_cfg.pipeline_id);
+        allocator.free(tracker_cfg.claim_role);
+        allocator.free(tracker_cfg.success_trigger);
     }
 
     var existing = integration_mod.loadNullBoilerConfig(allocator, paths, name) catch null orelse return notFound();
@@ -2686,9 +2710,10 @@ fn handleIntegrationPost(
     }) catch return helpers.serverError();
     defer parsed_config.deinit();
     if (parsed_config.value != .object) return helpers.serverError();
+    const arena = parsed_config.arena.allocator();
 
-    const tracker_map = ensureObjectField(allocator, &parsed_config.value.object, "tracker") catch return helpers.serverError();
-    const tracker_url = std.fmt.allocPrint(allocator, "http://127.0.0.1:{d}", .{tracker_cfg.tickets.port}) catch return helpers.serverError();
+    const tracker_map = ensureObjectField(arena, &parsed_config.value.object, "tracker") catch return helpers.serverError();
+    const tracker_url = std.fmt.allocPrint(arena, "http://127.0.0.1:{d}", .{tracker_cfg.tickets.port}) catch return helpers.serverError();
     tracker_map.put("url", .{ .string = tracker_url }) catch return helpers.serverError();
     if (tracker_cfg.tickets.api_token) |token| {
         tracker_map.put("api_token", .{ .string = token }) catch return helpers.serverError();
@@ -2710,7 +2735,7 @@ fn handleIntegrationPost(
         tracker_map.put("workflows_dir", .{ .string = "workflows" }) catch return helpers.serverError();
     }
 
-    const concurrency_map = ensureObjectField(allocator, tracker_map, "concurrency") catch return helpers.serverError();
+    const concurrency_map = ensureObjectField(arena, tracker_map, "concurrency") catch return helpers.serverError();
     if (tracker_cfg.max_concurrent_tasks) |max_concurrent_tasks| {
         concurrency_map.put("max_concurrent_tasks", .{ .integer = max_concurrent_tasks }) catch return helpers.serverError();
     } else if (concurrency_map.get("max_concurrent_tasks") == null) {
@@ -2764,6 +2789,22 @@ fn ensureTrackerWorkflowFile(
 ) !void {
     try ensurePath(workflows_dir);
 
+    var workflows_handle = try std.fs.openDirAbsolute(workflows_dir, .{ .iterate = true });
+    defer workflows_handle.close();
+    var workflows_it = workflows_handle.iterate();
+    while (try workflows_it.next()) |entry| {
+        if (entry.kind != .file) continue;
+        if (!std.mem.endsWith(u8, entry.name, ".json")) continue;
+        if (std.mem.eql(u8, entry.name, integration_mod.managed_workflow_file_name)) continue;
+
+        const candidate_path = try std.fs.path.join(allocator, &.{ workflows_dir, entry.name });
+        const managed = isNullHubXManagedWorkflow(allocator, candidate_path);
+        if (managed) {
+            std.fs.deleteFileAbsolute(candidate_path) catch {};
+        }
+        allocator.free(candidate_path);
+    }
+
     if (previous_workflow_file) |file_name| {
         if (!std.mem.eql(u8, file_name, integration_mod.managed_workflow_file_name)) {
             const previous_path = try std.fs.path.join(allocator, &.{ workflows_dir, file_name });
@@ -2786,8 +2827,10 @@ fn ensureTrackerWorkflowFile(
     const workflow_path = try std.fs.path.join(allocator, &.{ workflows_dir, integration_mod.managed_workflow_file_name });
     defer allocator.free(workflow_path);
 
+    const workflow_id = try std.fmt.allocPrint(allocator, "wf-{s}-{s}", .{ pipeline_id, claim_role });
+    defer allocator.free(workflow_id);
     const rendered = try std.json.Stringify.valueAlloc(allocator, .{
-        .id = try std.fmt.allocPrint(allocator, "wf-{s}-{s}", .{ pipeline_id, claim_role }),
+        .id = workflow_id,
         .pipeline_id = pipeline_id,
         .claim_roles = &.{claim_role},
         .execution = "subprocess",
@@ -2899,7 +2942,16 @@ const TestManagerCtx = struct {
     paths: paths_mod.Paths,
 
     fn init(allocator: std.mem.Allocator) TestManagerCtx {
-        const p = paths_mod.Paths.init(allocator, "/tmp/nullhubx-test-instances-api") catch @panic("Paths.init failed");
+        const root = std.fmt.allocPrint(
+            allocator,
+            "/tmp/nullhubx-test-instances-api-{d}-{x}",
+            .{ std.time.nanoTimestamp(), std.crypto.random.int(u64) },
+        ) catch @panic("alloc test root failed");
+        defer allocator.free(root);
+
+        var p = paths_mod.Paths.init(allocator, root) catch @panic("Paths.init failed");
+        std.fs.deleteTreeAbsolute(p.root) catch {};
+        p.ensureDirs() catch @panic("ensureDirs failed");
         return .{
             .paths = p,
             .manager = manager_mod.Manager.init(allocator, p),
@@ -2909,6 +2961,7 @@ const TestManagerCtx = struct {
 
     fn deinit(self: *TestManagerCtx, allocator: std.mem.Allocator) void {
         self.manager.deinit();
+        std.fs.deleteTreeAbsolute(self.paths.root) catch {};
         self.paths.deinit(allocator);
     }
 };
@@ -3903,8 +3956,9 @@ test "handleUsage aggregates provider/model rows" {
     var writer_buf: [512]u8 = undefined;
     var fw = ledger.writer(&writer_buf);
     const w = &fw.interface;
-    try w.writeAll("{\"ts\":1700000000,\"provider\":\"openrouter\",\"model\":\"anthropic/claude-sonnet-4\",\"prompt_tokens\":100,\"completion_tokens\":50,\"total_tokens\":150,\"success\":true}\n");
-    try w.writeAll("{\"ts\":1700000001,\"provider\":\"openrouter\",\"model\":\"anthropic/claude-sonnet-4\",\"prompt_tokens\":20,\"completion_tokens\":10,\"total_tokens\":30,\"success\":true}\n");
+    const usage_base_ts = std.time.timestamp() - 60;
+    try w.print("{{\"ts\":{d},\"provider\":\"openrouter\",\"model\":\"anthropic/claude-sonnet-4\",\"prompt_tokens\":100,\"completion_tokens\":50,\"total_tokens\":150,\"success\":true}}\n", .{usage_base_ts});
+    try w.print("{{\"ts\":{d},\"provider\":\"openrouter\",\"model\":\"anthropic/claude-sonnet-4\",\"prompt_tokens\":20,\"completion_tokens\":10,\"total_tokens\":30,\"success\":true}}\n", .{usage_base_ts + 1});
     try w.flush();
 
     const resp = handleUsage(allocator, &s, mctx.paths, "nullclaw", "usage-agent", "/api/instances/nullclaw/usage-agent/usage?window=all");
@@ -3946,7 +4000,8 @@ test "handleUsage refreshes cache immediately when ledger changes" {
     var writer_buf: [512]u8 = undefined;
     var fw = ledger.writer(&writer_buf);
     const w = &fw.interface;
-    try w.writeAll("{\"ts\":1700001000,\"provider\":\"openrouter\",\"model\":\"anthropic/claude-sonnet-4\",\"prompt_tokens\":1,\"completion_tokens\":1,\"total_tokens\":2,\"success\":true}\n");
+    const usage_cache_base_ts = std.time.timestamp() - 60;
+    try w.print("{{\"ts\":{d},\"provider\":\"openrouter\",\"model\":\"anthropic/claude-sonnet-4\",\"prompt_tokens\":1,\"completion_tokens\":1,\"total_tokens\":2,\"success\":true}}\n", .{usage_cache_base_ts});
     try w.flush();
 
     const first = handleUsage(allocator, &s, mctx.paths, "nullclaw", "usage-agent-cache", "/api/instances/nullclaw/usage-agent-cache/usage?window=all");
@@ -3957,7 +4012,7 @@ test "handleUsage refreshes cache immediately when ledger changes" {
 
     // Append one more row and verify the next read reflects it immediately.
     try ledger.seekFromEnd(0);
-    try w.writeAll("{\"ts\":1700001001,\"provider\":\"openrouter\",\"model\":\"anthropic/claude-sonnet-4\",\"prompt_tokens\":2,\"completion_tokens\":1,\"total_tokens\":3,\"success\":true}\n");
+    try w.print("{{\"ts\":{d},\"provider\":\"openrouter\",\"model\":\"anthropic/claude-sonnet-4\",\"prompt_tokens\":2,\"completion_tokens\":1,\"total_tokens\":3,\"success\":true}}\n", .{usage_cache_base_ts + 1});
     try w.flush();
 
     const second = handleUsage(allocator, &s, mctx.paths, "nullclaw", "usage-agent-cache", "/api/instances/nullclaw/usage-agent-cache/usage?window=all");
@@ -4128,13 +4183,17 @@ test "dispatch routes POST bundled skill install" {
     defer allocator.free(inst_dir);
     const skill_path = try std.fs.path.join(allocator, &.{ inst_dir, "workspace", "skills", "nullhubx-admin", "SKILL.md" });
     defer allocator.free(skill_path);
-    const installed = std.fs.readFileAbsolute(allocator, skill_path, 64 * 1024) catch @panic("missing skill");
+    const installed_file = std.fs.openFileAbsolute(skill_path, .{}) catch @panic("missing skill");
+    defer installed_file.close();
+    const installed = installed_file.readToEndAlloc(allocator, 64 * 1024) catch @panic("missing skill");
     defer allocator.free(installed);
     try std.testing.expect(std.mem.indexOf(u8, installed, "nullhubx api <METHOD> <PATH>") != null);
 
     const config_path = try mctx.paths.instanceConfig(allocator, "nullclaw", "my-agent");
     defer allocator.free(config_path);
-    const config = try std.fs.readFileAbsolute(allocator, config_path, 64 * 1024);
+    const config_file = try std.fs.openFileAbsolute(config_path, .{});
+    defer config_file.close();
+    const config = try config_file.readToEndAlloc(allocator, 64 * 1024);
     defer allocator.free(config);
     try std.testing.expect(std.mem.indexOf(u8, config, "\"nullhubx *\"") != null);
 }

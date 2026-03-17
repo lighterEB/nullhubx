@@ -14,6 +14,7 @@ pub fn resolveConfigRefs(
         .ignore_unknown_fields = true,
     });
     defer parsed.deinit();
+    const arena = parsed.arena.allocator();
 
     // Resolve providers refs
     if (parsed.value == .object) {
@@ -23,7 +24,7 @@ pub fn resolveConfigRefs(
             if (models.* == .object) {
                 if (models.object.getPtr("providers")) |providers| {
                     if (providers.* == .object) {
-                        try resolveProvidersRefs(allocator, &providers.object, state);
+                        try resolveProvidersRefs(&providers.object, state);
                     }
                 }
             }
@@ -32,7 +33,7 @@ pub fn resolveConfigRefs(
         // Resolve channels refs
         if (root_obj.getPtr("channels")) |channels| {
             if (channels.* == .object) {
-                try resolveChannelsRefs(allocator, &channels.object, state);
+                    try resolveChannelsRefs(arena, &channels.object, state);
             }
         }
     }
@@ -41,11 +42,7 @@ pub fn resolveConfigRefs(
     return try std.json.Stringify.valueAlloc(allocator, parsed.value, .{ .whitespace = .indent_2 });
 }
 
-fn resolveProvidersRefs(
-    allocator: std.mem.Allocator,
-    providers: *std.json.ObjectMap,
-    state: *state_mod.State,
-) !void {
+fn resolveProvidersRefs(providers: *std.json.ObjectMap, state: *state_mod.State) !void {
     var it = providers.iterator();
     while (it.next()) |entry| {
         const provider_config = entry.value_ptr;
@@ -60,7 +57,7 @@ fn resolveProvidersRefs(
                 if (state.getSavedProvider(ref_id)) |saved| {
                     // Merge saved provider values (only if not already set in config)
                     if (!obj.contains("api_key") and saved.api_key.len > 0) {
-                        try obj.put(try allocator.dupe(u8, "api_key"), .{ .string = try allocator.dupe(u8, saved.api_key) });
+                        try obj.put("api_key", .{ .string = saved.api_key });
                     }
                     if (!obj.contains("base_url") and saved.provider.len > 0) {
                         // Some providers use base_url instead of provider name

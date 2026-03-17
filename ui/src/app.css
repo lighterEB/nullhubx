@@ -14,6 +14,14 @@
   --indigo-600: #4f46e5;
   --indigo-700: #4338ca;
   --indigo-900: #1e1b4b;
+  --red-50: #fef2f2;
+  --red-100: #fee2e2;
+  --red-200: #fecaca;
+  --red-300: #fca5a5;
+  --red-700: #b91c1c;
+  --emerald-50: #ecfdf5;
+  --emerald-200: #a7f3d0;
+  --emerald-700: #047857;
   
   /* Slate */
   --slate-50: #f8fafc;
@@ -82,6 +90,25 @@
   /* Layout */
   --topbar-height: 56px;
   --statusbar-height: 28px;
+
+  /* Legacy semantic token compatibility */
+  --bg: var(--slate-50);
+  --bg-panel: white;
+  --bg-surface: white;
+  --bg-hover: var(--slate-100);
+  --fg: var(--slate-900);
+  --fg-dim: var(--slate-500);
+  --fg-muted: var(--slate-400);
+  --border: var(--slate-200);
+  --border-glow: color-mix(in srgb, var(--indigo-500) 35%, transparent);
+  --text-glow: 0 0 4px color-mix(in srgb, var(--indigo-500) 38%, transparent);
+  --accent: var(--indigo-600);
+  --accent-dim: var(--indigo-500);
+  --success: var(--emerald-600);
+  --warning: var(--amber-600);
+  --error: var(--red-600);
+  --danger: var(--red-600);
+  --radius: var(--radius-sm);
 }
 
 /* ========================================

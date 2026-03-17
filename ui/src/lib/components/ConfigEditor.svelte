@@ -42,7 +42,7 @@
     } catch (e) {
       configObj = {};
       configText = "{}";
-      message = "No config found, starting with empty object";
+      message = "未找到配置，已使用空对象初始化";
       error = false;
     }
     loaded = true;
@@ -56,7 +56,7 @@
       try {
         configObj = JSON.parse(configText);
       } catch (e) {
-        message = "Invalid JSON — fix before switching to UI mode";
+        message = "JSON 无效，修复后再切换到可视化模式";
         error = true;
         return;
       }
@@ -90,9 +90,9 @@
 
       if (restartAfterSave) {
         await api.restartInstance(component, name);
-        message = "Config saved. Instance restarting";
+        message = "配置已保存，实例正在重启";
       } else {
-        message = "Config saved";
+        message = "配置已保存";
       }
 
       error = false;
@@ -100,9 +100,9 @@
     } catch (e) {
       const err = (e as Error).message;
       if (saved && restartAfterSave) {
-        message = `Config saved, but restart failed: ${err}`;
+        message = `配置已保存，但重启失败：${err}`;
       } else {
-        message = `Error: ${err}`;
+        message = `错误：${err}`;
       }
       error = true;
     } finally {
@@ -117,20 +117,20 @@
   <div class="editor-header">
     {#if supportsUi}
       <div class="mode-toggle">
-        <button class="mode-btn" class:active={mode === 'ui'} onclick={() => switchMode('ui')}>UI</button>
-        <button class="mode-btn" class:active={mode === 'raw'} onclick={() => switchMode('raw')}>Raw</button>
+        <button class="mode-btn" class:active={mode === 'ui'} onclick={() => switchMode('ui')}>可视化</button>
+        <button class="mode-btn" class:active={mode === 'raw'} onclick={() => switchMode('raw')}>原始</button>
       </div>
     {:else}
       <div class="mode-toggle">
-        <button class="mode-btn active">Raw</button>
+        <button class="mode-btn active">原始</button>
       </div>
     {/if}
     <div class="action-buttons">
       <button class="save-btn" onclick={() => save()} disabled={busy}>
-        {action === "save" ? "Saving..." : "Save"}
+        {action === "save" ? "保存中..." : "保存"}
       </button>
       <button class="save-btn secondary" onclick={() => save(true)} disabled={busy}>
-        {action === "save-restart" ? "Restarting..." : "Save & Restart"}
+        {action === "save-restart" ? "重启中..." : "保存并重启"}
       </button>
     </div>
   </div>
@@ -188,10 +188,10 @@
     transition: all 0.2s ease;
   }
   .mode-btn:first-child {
-    border-radius: 2px 0 0 2px;
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
   }
   .mode-btn:last-child {
-    border-radius: 0 2px 2px 0;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
     border-left: none;
   }
   .mode-btn:hover {
@@ -203,7 +203,7 @@
     background: color-mix(in srgb, var(--accent) 15%, transparent);
     border-color: var(--accent);
     color: var(--accent);
-    text-shadow: var(--text-glow);
+
     box-shadow: inset 0 0 5px color-mix(in srgb, var(--accent) 30%, transparent);
   }
   .save-btn {
@@ -211,7 +211,7 @@
     background: color-mix(in srgb, var(--accent) 15%, transparent);
     color: var(--accent);
     border: 1px solid var(--accent);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     cursor: pointer;
     font-size: 0.8125rem;
     font-family: var(--font-mono);
@@ -224,7 +224,7 @@
   .save-btn:hover:not(:disabled) {
     background: color-mix(in srgb, var(--accent) 30%, transparent);
     box-shadow: 0 0 10px var(--border-glow), inset 0 0 10px color-mix(in srgb, var(--accent) 50%, transparent);
-    text-shadow: var(--text-glow);
+
   }
   .save-btn:disabled {
     opacity: 0.5;
@@ -243,7 +243,6 @@
     background: color-mix(in srgb, var(--warning, #f59e0b) 24%, transparent);
     box-shadow: 0 0 10px color-mix(in srgb, var(--warning, #f59e0b) 20%, transparent),
       inset 0 0 10px color-mix(in srgb, var(--warning, #f59e0b) 40%, transparent);
-    text-shadow: 0 0 5px color-mix(in srgb, var(--warning, #f59e0b) 70%, transparent);
   }
   .ui-content {
     max-height: 600px;
@@ -269,7 +268,7 @@
     background: var(--bg-surface);
     color: var(--fg);
     border: 1px solid var(--border);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     padding: 1rem;
     font-family: var(--font-mono);
     font-size: 0.875rem;
@@ -277,16 +276,16 @@
     line-height: 1.6;
     outline: none;
     transition: all 0.2s ease;
-    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08);
   }
   .raw-editor:focus {
     border-color: var(--accent);
-    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 8px var(--border-glow);
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08), 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
   }
   .message {
     padding: 0.75rem 1rem;
     margin-bottom: 0.75rem;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     font-size: 0.8125rem;
     font-family: var(--font-mono);
     text-transform: uppercase;
@@ -294,12 +293,32 @@
     background: color-mix(in srgb, var(--success, #22c55e) 15%, transparent);
     color: var(--success, #22c55e);
     border: 1px solid color-mix(in srgb, var(--success, #22c55e) 30%, transparent);
-    text-shadow: 0 0 5px var(--success, #22c55e);
   }
   .message.error {
     background: color-mix(in srgb, var(--error) 15%, transparent);
     color: var(--error);
     border-color: color-mix(in srgb, var(--error) 30%, transparent);
-    text-shadow: 0 0 5px var(--error);
+  }
+
+  @media (max-width: 900px) {
+    .editor-header {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .action-buttons {
+      justify-content: stretch;
+    }
+
+    .action-buttons .save-btn {
+      flex: 1;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .mode-btn {
+      flex: 1;
+      text-align: center;
+    }
   }
 </style>

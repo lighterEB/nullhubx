@@ -10,7 +10,7 @@
     standalone = false,
     instanceCount = 0,
   } = $props();
-  
+
   let importing = $state(false);
   let imported = $state(false);
   let comingSoon = $derived(alpha && !installed && !standalone);
@@ -48,7 +48,7 @@
 {#if comingSoon}
 <div class="component-card disabled">
   <div class="accent-bar {colorMap[name] || 'indigo'}"></div>
-  
+
   <div class="card-top">
     <div class="icon-box {colorMap[name] || 'indigo'}">
       {iconMap[name] || "◈"}
@@ -58,10 +58,10 @@
       <span class="badge badge-slate">COMING SOON</span>
     </div>
   </div>
-  
+
   <h3 class="card-name">{displayName}</h3>
   <p class="card-description">{description}</p>
-  
+
   <div class="card-footer">
     <div class="tag-row">
       <span class="tag">{name === "nullboiler" ? "orchestrator" : "tracker"}</span>
@@ -73,9 +73,9 @@
   </div>
 </div>
 {:else}
-<a href="/install/{name}" class="component-card featured">
+<a href="/hub/{name}" class="component-card featured">
   <div class="accent-bar {colorMap[name] || 'indigo'}"></div>
-  
+
   <div class="card-top">
     <div class="icon-box {colorMap[name] || 'indigo'}">
       {iconMap[name] || "◈"}
@@ -94,10 +94,10 @@
       {/if}
     </div>
   </div>
-  
+
   <h3 class="card-name">{displayName}</h3>
   <p class="card-description">{description}</p>
-  
+
   <div class="card-footer">
     <div class="tag-row">
       <span class="tag">runtime</span>
@@ -169,7 +169,7 @@
   }
 
   .accent-bar.violet {
-    background: linear-gradient(to bottom, var(--violet-500), #7c3aed);
+    background: linear-gradient(to bottom, var(--violet-500), color-mix(in srgb, var(--violet-500) 75%, black));
   }
 
   .accent-bar.amber {
@@ -190,9 +190,9 @@
     justify-content: center;
     font-size: 18px;
     border-radius: var(--radius-md);
-    background: #eef2ff;
-    border: 1px solid #c7d2fe;
-    color: #4f46e5;
+    background: var(--indigo-50);
+    border: 1px solid var(--indigo-200);
+    color: var(--indigo-600);
   }
 
   .icon-box.violet {
@@ -375,5 +375,17 @@
     font-size: var(--text-sm);
     font-weight: 500;
     color: var(--emerald-600);
+  }
+
+  @media (max-width: 640px) {
+    .component-card {
+      padding: var(--spacing-lg);
+      padding-left: calc(var(--spacing-lg) + 3px);
+    }
+
+    .card-name {
+      letter-spacing: 1px;
+      font-size: var(--text-base);
+    }
   }
 </style>

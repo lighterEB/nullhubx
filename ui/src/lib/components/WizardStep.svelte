@@ -203,7 +203,7 @@
     margin-bottom: 0.25rem;
     text-transform: uppercase;
     letter-spacing: 1px;
-    text-shadow: var(--text-glow);
+
   }
 
   .step-description {
@@ -232,7 +232,7 @@
     text-align: left;
     background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     padding: 0.75rem 1rem;
     color: var(--fg);
     cursor: pointer;
@@ -256,7 +256,7 @@
     color: var(--accent);
     text-transform: uppercase;
     letter-spacing: 1px;
-    text-shadow: var(--text-glow);
+
   }
 
   .option-btn span {
@@ -276,7 +276,7 @@
     font-size: 0.75rem;
     color: var(--accent);
     font-weight: 700;
-    text-shadow: var(--text-glow);
+
   }
 
   .option-header {
@@ -293,7 +293,7 @@
     color: var(--accent);
     border: 1px solid var(--accent);
     padding: 0.15rem 0.4rem;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     text-transform: uppercase;
     letter-spacing: 1px;
     box-shadow: inset 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
@@ -308,14 +308,14 @@
     width: 100%;
     background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     padding: 0.625rem 0.875rem;
     color: var(--fg);
     font-size: 0.875rem;
     font-family: var(--font-mono);
     outline: none;
     transition: all 0.2s ease;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
   }
 
   .search-input:focus {
@@ -333,9 +333,9 @@
     background: var(--bg-surface);
     border: 1px solid var(--border);
     border-top: none;
-    border-radius: 0 0 2px 2px;
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
     z-index: 100;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--shadow-sm);
     backdrop-filter: blur(8px);
   }
 
@@ -404,14 +404,14 @@
     width: 100%;
     background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     padding: 0.625rem 0.875rem;
     color: var(--fg);
     font-size: 0.875rem;
     font-family: var(--font-mono);
     outline: none;
     transition: all 0.2s ease;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
   }
 
   input[type="text"]:focus,
@@ -445,9 +445,9 @@
     inset: 0;
     background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     transition: all 0.2s ease;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08);
   }
 
   .toggle-slider::before {
@@ -458,7 +458,7 @@
     left: 4px;
     top: 3px;
     background: var(--fg-dim);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     transition: all 0.2s ease;
   }
 
@@ -473,5 +473,15 @@
     transform: translateX(18px);
     background: var(--accent);
     box-shadow: 0 0 5px var(--border-glow);
+  }
+
+  @media (max-width: 760px) {
+    .option-btn {
+      padding: 0.625rem 0.75rem;
+    }
+
+    .step-description {
+      margin-bottom: 0.625rem;
+    }
   }
 </style>

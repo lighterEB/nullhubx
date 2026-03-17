@@ -110,13 +110,15 @@ fn startLogPump(
     stderr_pipe: std.fs.File,
     log_path: []const u8,
 ) !void {
-    const ctx = try allocator.create(LogPumpContext);
-    errdefer allocator.destroy(ctx);
-    const owned_log_path = try allocator.dupe(u8, log_path);
-    errdefer allocator.free(owned_log_path);
+    _ = allocator;
+    const pump_allocator = std.heap.page_allocator;
+    const ctx = try pump_allocator.create(LogPumpContext);
+    errdefer pump_allocator.destroy(ctx);
+    const owned_log_path = try pump_allocator.dupe(u8, log_path);
+    errdefer pump_allocator.free(owned_log_path);
 
     ctx.* = .{
-        .allocator = allocator,
+        .allocator = pump_allocator,
         .stdout_pipe = stdout_pipe,
         .stderr_pipe = stderr_pipe,
         .log_path = owned_log_path,
@@ -125,8 +127,8 @@ fn startLogPump(
     const thread = std.Thread.spawn(.{}, pumpChildOutputToLog, .{ctx}) catch |err| {
         ctx.stdout_pipe.close();
         ctx.stderr_pipe.close();
-        allocator.free(ctx.log_path);
-        allocator.destroy(ctx);
+        pump_allocator.free(ctx.log_path);
+        pump_allocator.destroy(ctx);
         return err;
     };
     thread.detach();
@@ -193,10 +195,20 @@ pub fn isAliveEx(pid: std.process.Child.Id) AliveStatus {
         };
         return .{ .alive = false, .reaped = false };
     }
-    // Try to reap zombie — WNOHANG returns immediately.
-    // If waitpid returns the pid, the process has exited (zombie reaped).
-    const wait_result = std.posix.waitpid(pid, std.c.W.NOHANG);
-    if (wait_result.pid == pid) return .{ .alive = false, .reaped = true }; // reaped zombie or exited child
+    // Avoid std.posix.waitpid() because it panics on ECHILD; query the raw syscall wrapper directly.
+    var status: u32 = 0;
+    while (true) {
+        const rc = std.posix.system.waitpid(pid, &status, @intCast(std.c.W.NOHANG));
+        switch (std.posix.errno(rc)) {
+            .SUCCESS => {
+                if (@as(std.posix.pid_t, @intCast(rc)) == pid) return .{ .alive = false, .reaped = true };
+                break;
+            },
+            .INTR => continue,
+            .CHILD => break,
+            else => break,
+        }
+    }
 
     if (std.posix.kill(pid, 0)) {
         return .{ .alive = true, .reaped = false };

@@ -106,7 +106,7 @@
         messagesTotal = 0;
         messagesOffset = 0;
         loadedMessagesKey = "";
-        sessionsError = describeInstanceCliError(result, "History is unavailable.");
+        sessionsError = describeInstanceCliError(result, "历史记录不可用。");
         loadedSessionsKey = nextKey;
         return;
       }
@@ -189,7 +189,7 @@
           messagesTotal = Number(session.message_count || 0);
           messagesOffset = 0;
         }
-        messagesError = describeInstanceCliError(result, "History is unavailable.");
+        messagesError = describeInstanceCliError(result, "历史记录不可用。");
         loadedMessagesKey = `${instanceKey}:${session.session_id}:${session.message_count}`;
         return;
       }
@@ -269,25 +269,25 @@
 <div class="history-panel">
   <div class="panel-toolbar">
     <div>
-      <h2>Conversation History</h2>
-      <p>Stored sessions and message transcripts from this instance.</p>
+      <h2>对话历史</h2>
+      <p>该实例保存的会话与消息记录。</p>
     </div>
     <button class="toolbar-btn" onclick={refreshHistory} disabled={sessionsLoading || messagesLoading}>
-      Refresh
+      刷新
     </button>
   </div>
 
   {#if sessionsError}
     <div class="panel-state warning">{sessionsError}</div>
   {:else if sessionsLoading && sessions.length === 0}
-    <div class="panel-state">Loading sessions...</div>
+    <div class="panel-state">正在加载会话...</div>
   {:else if sessions.length === 0}
-    <div class="panel-state">No conversation history yet.</div>
+    <div class="panel-state">暂无对话历史。</div>
   {:else}
     <div class="history-grid">
       <aside class="session-list">
         <div class="session-list-header">
-          <span>Sessions</span>
+          <span>会话</span>
           <span>
             {#if sessions.length > 0}
               {visibleSessionStart}-{visibleSessionEnd} / {sessionsTotal}
@@ -298,10 +298,10 @@
         </div>
         <div class="session-page-controls">
           <button class="toolbar-btn small" onclick={showNewerSessions} disabled={!canShowNewerSessions}>
-            Newer
+            更新
           </button>
           <button class="toolbar-btn small" onclick={showOlderSessions} disabled={!canShowOlderSessions}>
-            Older
+            更早
           </button>
         </div>
         {#each sessions as session}
@@ -312,7 +312,7 @@
           >
             <div class="session-id">{session.session_id}</div>
             <div class="session-meta">
-              <span>{session.message_count} msg</span>
+              <span>{session.message_count} 条</span>
               <span>{formatTimestamp(session.last_message_at)}</span>
             </div>
           </button>
@@ -321,22 +321,22 @@
 
       <section class="message-pane">
         {#if !selectedSession}
-          <div class="panel-state">Select a session to view messages.</div>
+          <div class="panel-state">请选择会话以查看消息。</div>
         {:else}
           <div class="message-header">
             <div>
               <div class="message-title">{selectedSession.session_id}</div>
               <div class="message-subtitle">
                 {#if messages.length > 0}
-                  Showing {messagesOffset + 1}-{messagesOffset + messages.length} of {messagesTotal}
+                  显示 {messagesOffset + 1}-{messagesOffset + messages.length} / {messagesTotal}
                 {:else}
-                  {messagesTotal} message(s)
+                  共 {messagesTotal} 条消息
                 {/if}
               </div>
             </div>
             {#if canLoadOlder}
               <button class="toolbar-btn" onclick={loadOlderMessages} disabled={olderMessagesLoading}>
-                {olderMessagesLoading ? "Loading..." : "Load Older"}
+                {olderMessagesLoading ? "加载中..." : "加载更早"}
               </button>
             {/if}
           </div>
@@ -344,9 +344,9 @@
           {#if messagesError}
             <div class="panel-state warning">{messagesError}</div>
           {:else if messagesLoading}
-            <div class="panel-state">Loading messages...</div>
+            <div class="panel-state">正在加载消息...</div>
           {:else if messages.length === 0}
-            <div class="panel-state">No messages found for this session.</div>
+            <div class="panel-state">该会话暂无消息。</div>
           {:else}
             <div class="message-list">
               {#each visibleMessages as message}

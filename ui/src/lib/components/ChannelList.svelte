@@ -298,7 +298,7 @@
     margin-bottom: 0.25rem;
     text-transform: uppercase;
     letter-spacing: 1px;
-    text-shadow: var(--text-glow);
+
   }
 
   .step-description {
@@ -313,7 +313,7 @@
     margin-bottom: 0.5rem;
     background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     display: flex;
     align-items: center;
     opacity: 0.7;
@@ -343,7 +343,7 @@
     color: var(--fg-dim);
     border: 1px solid var(--border);
     padding: 0.1rem 0.35rem;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     text-transform: uppercase;
     letter-spacing: 1px;
   }
@@ -351,10 +351,10 @@
   .channel-row {
     background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     padding: 1rem;
     margin-bottom: 0.75rem;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
     transition: all 0.2s ease;
   }
 
@@ -376,7 +376,7 @@
     color: var(--accent);
     text-transform: uppercase;
     letter-spacing: 1px;
-    text-shadow: var(--text-glow);
+
     flex: 1;
   }
 
@@ -391,7 +391,7 @@
   .advanced-section {
     margin-top: 0.25rem;
     border: 1px solid var(--border);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     padding: 0 0.75rem;
   }
 
@@ -443,14 +443,14 @@
     width: 100%;
     background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     padding: 0.5rem 0.75rem;
     color: var(--fg);
     font-size: 0.875rem;
     font-family: var(--font-mono);
     outline: none;
     transition: all 0.2s ease;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
   }
 
   .channel-field input:focus,
@@ -482,7 +482,7 @@
     justify-content: center;
     background: color-mix(in srgb, var(--bg-surface) 80%, transparent);
     border: 1px solid var(--border);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     color: var(--fg-dim);
     font-size: 1rem;
     cursor: pointer;
@@ -502,14 +502,14 @@
     padding: 1rem;
     background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
   }
 
   .picker-option {
     padding: 0.5rem 0.75rem;
     background: color-mix(in srgb, var(--bg-surface) 50%, transparent);
     border: 1px solid var(--border);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     color: var(--fg);
     font-size: 0.8rem;
     font-family: var(--font-mono);
@@ -524,14 +524,14 @@
     color: var(--accent);
     background: color-mix(in srgb, var(--accent) 10%, transparent);
     box-shadow: 0 0 8px var(--border-glow);
-    text-shadow: var(--text-glow);
+
   }
 
   .picker-cancel {
     padding: 0.5rem 0.75rem;
     background: none;
     border: 1px dashed var(--border);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     color: var(--fg-dim);
     font-size: 0.8rem;
     cursor: pointer;
@@ -545,7 +545,7 @@
     padding: 0.75rem;
     background: color-mix(in srgb, var(--bg-surface) 50%, transparent);
     border: 1px dashed color-mix(in srgb, var(--border) 60%, transparent);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     color: var(--fg-dim);
     font-size: 0.875rem;
     font-family: var(--font-mono);
@@ -560,7 +560,7 @@
     color: var(--accent);
     background: color-mix(in srgb, var(--accent) 10%, transparent);
     box-shadow: 0 0 8px var(--border-glow);
-    text-shadow: var(--text-glow);
+
   }
 
   .add-row {
@@ -590,9 +590,9 @@
     inset: 0;
     background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     transition: all 0.2s ease;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08);
   }
   .toggle-slider::before {
     content: "";
@@ -602,7 +602,7 @@
     left: 4px;
     top: 3px;
     background: var(--fg-dim);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     transition: all 0.2s ease;
   }
   .toggle input:checked + .toggle-slider {
@@ -627,7 +627,7 @@
     border-color: var(--accent);
     background: color-mix(in srgb, var(--accent) 10%, transparent);
     box-shadow: 0 0 8px var(--border-glow);
-    text-shadow: var(--text-glow);
+
   }
   .saved-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .saved-dropdown {
@@ -637,11 +637,11 @@
     min-width: 220px;
     background: var(--bg-surface);
     border: 1px solid var(--accent-dim);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     max-height: 200px;
     overflow-y: auto;
     z-index: 10;
-    box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--shadow-md);
     margin-bottom: 0.25rem;
   }
   .saved-item {
@@ -673,5 +673,26 @@
     margin-top: 0.125rem;
     text-transform: uppercase;
     letter-spacing: 1px;
+  }
+
+  @media (max-width: 760px) {
+    .channel-row-header {
+      flex-wrap: wrap;
+    }
+
+    .channel-name {
+      flex-basis: 100%;
+    }
+
+    .add-row {
+      flex-direction: column;
+    }
+
+    .saved-dropdown {
+      left: 0;
+      right: auto;
+      width: 100%;
+      min-width: 0;
+    }
   }
 </style>

@@ -56,25 +56,25 @@
 
 <header class="topbar">
   <a href="/" class="logo">NULLHUBX</a>
-  
+
   <nav class="nav-tabs">
     {#each navItems as item}
-      <a 
-        href={item.href} 
-        class="nav-tab" 
+      <a
+        href={item.href}
+        class="nav-tab"
         class:active={isActive(item.href)}
       >
         {item.label}
       </a>
     {/each}
   </nav>
-  
+
   <div class="topbar-right">
     <div class="live-sync">
       <span class="sync-dot" class:pulse-dot={$hubConnected}></span>
       <span class="sync-label">LIVE SYNC</span>
     </div>
-    
+
     <!-- Language Switcher -->
     <div class="lang-switcher">
       <button class="lang-btn" onclick={toggleLangMenu}>
@@ -83,15 +83,15 @@
       </button>
       {#if showLangMenu}
         <div class="lang-menu">
-          <button 
-            class="lang-option" 
+          <button
+            class="lang-option"
             class:active={i18n.locale === 'zh-CN'}
             onclick={() => setLocale('zh-CN')}
           >
             中文
           </button>
-          <button 
-            class="lang-option" 
+          <button
+            class="lang-option"
             class:active={i18n.locale === 'en-US'}
             onclick={() => setLocale('en-US')}
           >
@@ -100,7 +100,7 @@
         </div>
       {/if}
     </div>
-    
+
     <div class="avatar">
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
     </div>
@@ -138,6 +138,7 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-xl);
+    min-width: 0;
   }
 
   .nav-tab {
@@ -150,6 +151,7 @@
     border-bottom: 2px solid transparent;
     transition: all var(--transition-fast);
     letter-spacing: 0.5px;
+    white-space: nowrap;
   }
 
   .nav-tab:hover {
@@ -263,5 +265,52 @@
 
   .pulse-dot {
     animation: pulse 2s ease-in-out infinite;
+  }
+
+  @media (max-width: 1080px) {
+    .topbar {
+      padding: 0 var(--spacing-2xl);
+    }
+
+    .nav-tabs {
+      gap: var(--spacing-lg);
+    }
+  }
+
+  @media (max-width: 820px) {
+    .topbar {
+      padding: 0 var(--spacing-lg);
+      gap: var(--spacing-sm);
+    }
+
+    .logo {
+      letter-spacing: 1.5px;
+    }
+
+    .nav-tabs {
+      flex: 1;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .nav-tabs::-webkit-scrollbar {
+      display: none;
+    }
+
+    .live-sync {
+      display: none;
+    }
+  }
+
+  @media (max-width: 620px) {
+    .avatar {
+      display: none;
+    }
+
+    .nav-tab {
+      font-size: var(--text-xs);
+      padding: var(--spacing-sm) 0;
+    }
   }
 </style>

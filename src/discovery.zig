@@ -58,8 +58,7 @@ pub fn resolveTemplate(
 
     // Format port once up front.
     var port_buf: [5]u8 = undefined;
-    const port_len = std.fmt.formatIntBuf(&port_buf, target_port, 10, .lower, .{});
-    const port_str = port_buf[0..port_len];
+    const port_str = try std.fmt.bufPrint(&port_buf, "{d}", .{target_port});
 
     var i: usize = 0;
     while (i < template.len) {
@@ -121,12 +120,10 @@ fn testManifest(connects_to: []const manifest_mod.ConnectionSpec) manifest_mod.M
         .icon = "agent",
         .repo = "nullclaw/nullclaw",
         .platforms = .{},
-        .config = .{ .path = "config.json" },
         .launch = .{ .command = "gateway" },
         .health = .{ .endpoint = "/health", .port_from_config = "gateway.port" },
         .ports = &.{},
         .wizard = .{ .steps = &.{} },
-        .ui_modules = &.{},
         .depends_on = &.{},
         .connects_to = connects_to,
     };

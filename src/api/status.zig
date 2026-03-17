@@ -66,6 +66,7 @@ fn appendInstanceJson(buf: *std.array_list.Managed(u8), entry: state_mod.Instanc
 /// GET /api/status — aggregated dashboard data.
 pub fn handleStatus(allocator: std.mem.Allocator, s: *state_mod.State, manager: *manager_mod.Manager, uptime_seconds: u64, host: []const u8, port: u16, access_options: access.Options) ApiResponse {
     var buf = std.array_list.Managed(u8).init(allocator);
+    errdefer buf.deinit();
 
     buildStatusJson(&buf, s, manager, uptime_seconds, host, port, access_options) catch return .{
         .status = "500 Internal Server Error",
@@ -73,7 +74,12 @@ pub fn handleStatus(allocator: std.mem.Allocator, s: *state_mod.State, manager: 
         .body = "{\"error\":\"internal error\"}",
     };
 
-    return .{ .status = "200 OK", .content_type = "application/json", .body = buf.items };
+    const body = buf.toOwnedSlice() catch return .{
+        .status = "500 Internal Server Error",
+        .content_type = "application/json",
+        .body = "{\"error\":\"internal error\"}",
+    };
+    return .{ .status = "200 OK", .content_type = "application/json", .body = body };
 }
 
 fn buildStatusJson(buf: *std.array_list.Managed(u8), s: *state_mod.State, manager: *manager_mod.Manager, uptime_seconds: u64, host: []const u8, port: u16, access_options: access.Options) !void {
@@ -196,7 +202,7 @@ test "handleStatus returns valid JSON with hub version" {
         },
         allocator,
         resp.body,
-        .{ .allocate = .alloc_always },
+        .{ .allocate = .alloc_always, .ignore_unknown_fields = true },
     );
     defer parsed.deinit();
 
@@ -244,7 +250,7 @@ test "handleStatus includes instances" {
         },
         allocator,
         resp.body,
-        .{ .allocate = .alloc_always },
+        .{ .allocate = .alloc_always, .ignore_unknown_fields = true },
     );
     defer parsed.deinit();
 

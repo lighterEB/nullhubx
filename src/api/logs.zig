@@ -114,7 +114,7 @@ fn readTailLinesJson(
     var buf = std.array_list.Managed(u8).init(allocator);
     errdefer buf.deinit();
     try buildLinesJson(&buf, contents, max_lines);
-    return buf.items;
+    return buf.toOwnedSlice();
 }
 
 fn readSourceContents(
@@ -161,23 +161,25 @@ fn filterLegacyStdout(allocator: std.mem.Allocator, contents: []const u8, source
     var filtered = std.array_list.Managed(u8).init(allocator);
     errdefer filtered.deinit();
 
-    var wrote_any = false;
-    var line_it = std.mem.splitScalar(u8, contents, '\n');
-    while (line_it.next()) |line| {
+    var start: usize = 0;
+    while (start <= contents.len) {
+        const maybe_nl = std.mem.indexOfScalarPos(u8, contents, start, '\n');
+        const end = maybe_nl orelse contents.len;
+        const line = contents[start..end];
         const is_supervisor_line = std.mem.startsWith(u8, line, SUPERVISOR_PREFIX);
         const keep = switch (source) {
             .instance => !is_supervisor_line,
             .nullhubx => is_supervisor_line,
         };
-        if (!keep) continue;
-
-        if (wrote_any) try filtered.append('\n');
-        try filtered.appendSlice(line);
-        wrote_any = true;
-    }
-
-    if (wrote_any and contents.len > 0 and contents[contents.len - 1] == '\n') {
-        try filtered.append('\n');
+        if (keep) {
+            try filtered.appendSlice(line);
+            if (maybe_nl != null) try filtered.append('\n');
+        }
+        if (maybe_nl) |nl| {
+            start = nl + 1;
+            continue;
+        }
+        break;
     }
 
     if (filtered.items.len == 0) return allocator.dupe(u8, "");
@@ -339,6 +341,7 @@ pub fn handleStream(
     defer allocator.free(lines_json);
 
     var body = std.array_list.Managed(u8).init(allocator);
+    errdefer body.deinit();
     body.appendSlice("retry: 3000\n") catch return .{
         .status = "500 Internal Server Error",
         .content_type = "text/event-stream",
@@ -365,10 +368,15 @@ pub fn handleStream(
         .body = "event: error\ndata: {\"error\":\"stream_build_failed\"}\n\n",
     };
 
+    const payload = body.toOwnedSlice() catch return .{
+        .status = "500 Internal Server Error",
+        .content_type = "text/event-stream",
+        .body = "event: error\ndata: {\"error\":\"stream_build_failed\"}\n\n",
+    };
     return .{
         .status = "200 OK",
         .content_type = "text/event-stream",
-        .body = body.items,
+        .body = payload,
     };
 }
 

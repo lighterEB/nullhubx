@@ -70,10 +70,12 @@ fn fetchLatestTagForComponent(allocator: std.mem.Allocator, component: []const u
 /// GET /api/updates — check for updates across all installed instances.
 pub fn handleCheckUpdates(allocator: std.mem.Allocator, s: *state_mod.State) ApiResponse {
     var buf = std.array_list.Managed(u8).init(allocator);
+    errdefer buf.deinit();
 
     buildUpdatesJson(allocator, &buf, s) catch return serverError();
 
-    return jsonOk(buf.items);
+    const body = buf.toOwnedSlice() catch return serverError();
+    return jsonOk(body);
 }
 
 fn buildUpdatesJson(allocator: std.mem.Allocator, buf: *std.array_list.Managed(u8), s: *state_mod.State) !void {
@@ -120,8 +122,10 @@ pub fn handleApplyUpdate(allocator: std.mem.Allocator, s: *state_mod.State, comp
     _ = s.getInstance(component, name) orelse return notFound();
 
     var buf = std.array_list.Managed(u8).init(allocator);
+    errdefer buf.deinit();
     buildApplyJson(&buf, component, name) catch return serverError();
-    return jsonOk(buf.items);
+    const body = buf.toOwnedSlice() catch return serverError();
+    return jsonOk(body);
 }
 
 /// POST /api/instances/{component}/{name}/update — apply a real binary update.
@@ -153,6 +157,7 @@ pub fn handleApplyUpdateRuntime(
     const latest_tag = release.value.tag_name;
     if (versionsEqual(entry.version, latest_tag)) {
         var up_to_date = std.array_list.Managed(u8).init(allocator);
+        errdefer up_to_date.deinit();
         up_to_date.appendSlice("{\"status\":\"up_to_date\",\"component\":\"") catch return serverError();
         appendEscaped(&up_to_date, component) catch return serverError();
         up_to_date.appendSlice("\",\"instance\":\"") catch return serverError();
@@ -160,7 +165,8 @@ pub fn handleApplyUpdateRuntime(
         up_to_date.appendSlice("\",\"version\":\"") catch return serverError();
         appendEscaped(&up_to_date, latest_tag) catch return serverError();
         up_to_date.appendSlice("\"}") catch return serverError();
-        return jsonOk(up_to_date.items);
+        const body = up_to_date.toOwnedSlice() catch return serverError();
+        return jsonOk(body);
     }
 
     const platform_key = comptime platform.detect().toString();
@@ -257,6 +263,7 @@ pub fn handleApplyUpdateRuntime(
     s.save() catch return serverError();
 
     var buf = std.array_list.Managed(u8).init(allocator);
+    errdefer buf.deinit();
     buf.appendSlice("{\"status\":\"updated\",\"component\":\"") catch return serverError();
     appendEscaped(&buf, component) catch return serverError();
     buf.appendSlice("\",\"instance\":\"") catch return serverError();
@@ -269,7 +276,8 @@ pub fn handleApplyUpdateRuntime(
     buf.appendSlice(if (was_running) "true" else "false") catch return serverError();
     buf.appendSlice("}") catch return serverError();
 
-    return jsonOk(buf.items);
+    const body = buf.toOwnedSlice() catch return serverError();
+    return jsonOk(body);
 }
 
 fn buildApplyJson(buf: *std.array_list.Managed(u8), component: []const u8, name: []const u8) !void {

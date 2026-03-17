@@ -190,6 +190,12 @@ NullClaw 默认路径规范：
 
 ## 7. Phase 1 API 契约草案（实例内 Agent 管理）
 
+实现状态（2026-03-17）：
+- 后端首版已落地到 `src/api/config.zig`、`src/server.zig`、`src/api/meta.zig`。
+- 当前已支持 `GET/PUT /api/instances/{component}/{name}/agents/profiles` 与 `GET/PUT /api/instances/{component}/{name}/agents/bindings`。
+- 已实现基础校验：profile 唯一性、`defaults.model_primary` 格式、binding 的 `agent_id` 引用校验、legacy topic id 规范化。
+- profiles 已支持“保留未知字段并覆盖标准字段”的合并写入（按 id 匹配旧条目）；bindings 仍为整体替换。
+
 目标：
 - 保持“实例是一等资源”不变。
 - 新增 Agent 管理 API，但底层仍只读写实例 `config.json`。
@@ -343,7 +349,7 @@ NullClaw 默认路径规范：
 - `bindings` <-> 顶层 `bindings`
 
 3. 兼容策略：
-- 保留未知字段，不在 Phase 1 中做语义重写。
+- profiles PUT 会保留未知字段（按 id 匹配旧条目）；bindings 仍不做语义合并。
 - 仍允许高级用户通过现有 `PUT /config` 手工编辑完整配置。
 
 ### 验收检查（对应本次文档目标）

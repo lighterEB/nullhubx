@@ -36,6 +36,7 @@ pub const NullBoilerConfig = struct {
 
 pub fn listNullTickets(allocator: std.mem.Allocator, state: *state_mod.State, paths: paths_mod.Paths) ![]NullTicketsConfig {
     const names = try state.instanceNames("nulltickets") orelse return allocator.alloc(NullTicketsConfig, 0);
+    defer state.allocator.free(names);
     var list: std.ArrayListUnmanaged(NullTicketsConfig) = .empty;
     errdefer deinitNullTicketsConfigs(allocator, list.items);
     defer list.deinit(allocator);
@@ -53,6 +54,7 @@ pub fn listNullTickets(allocator: std.mem.Allocator, state: *state_mod.State, pa
 
 pub fn listNullBoilers(allocator: std.mem.Allocator, state: *state_mod.State, paths: paths_mod.Paths) ![]NullBoilerConfig {
     const names = try state.instanceNames("nullboiler") orelse return allocator.alloc(NullBoilerConfig, 0);
+    defer state.allocator.free(names);
     var list: std.ArrayListUnmanaged(NullBoilerConfig) = .empty;
     errdefer deinitNullBoilerConfigs(allocator, list.items);
     defer list.deinit(allocator);
@@ -187,7 +189,7 @@ pub fn extractLocalPort(url: []const u8) ?u16 {
 
     return switch (host) {
         .raw => |value| if (isLocalHost(value)) port else null,
-        else => null,
+        .percent_encoded => |value| if (isLocalHost(value)) port else null,
     };
 }
 

@@ -20,7 +20,7 @@
   // Separate core engine (nullclaw) from extensions
   let coreEngine = $derived(components.find(c => c.name === "nullclaw"));
   let extensions = $derived(components.filter(c => c.name !== "nullclaw"));
-  
+
   // Split extensions into available and coming soon
   let availableExtensions = $derived(extensions.filter(c => !c.alpha || c.installed));
   let comingSoonExtensions = $derived(extensions.filter(c => c.alpha && !c.installed && !c.standalone));
@@ -56,7 +56,7 @@
       </h2>
       <p class="section-desc">{t('hub.coreEngineDesc')}</p>
     </div>
-    
+
     <div class="core-grid">
       {#if coreEngine}
         <div class="core-card-wrapper">
@@ -89,7 +89,7 @@
         </h2>
         <p class="section-desc">{t('hub.extensionsDesc')}</p>
       </div>
-      
+
       <div class="extensions-grid">
         {#each availableExtensions as comp, i}
           <div class="card-wrapper" style="animation-delay: {i * 60}ms">
@@ -118,7 +118,7 @@
         </h2>
         <p class="section-desc">{t('hub.comingSoonDesc')}</p>
       </div>
-      
+
       <div class="extensions-grid coming-soon">
         {#each comingSoonExtensions as comp, i}
           <div class="card-wrapper" style="animation-delay: {i * 60}ms">

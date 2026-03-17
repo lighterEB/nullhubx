@@ -39,7 +39,7 @@ pub const Server = struct {
     manager: *manager_mod.Manager,
     mutex: *std.Thread.Mutex,
     start_time: i64,
-    
+
     // Thread management
     active_threads: std.atomic.Value(usize) = std.atomic.Value(usize).init(0),
     max_threads: usize = 64, // Limit concurrent connections
@@ -516,7 +516,9 @@ pub const Server = struct {
     }
 
     fn routeWithoutServerMutex(target: []const u8) bool {
-        return instances_api.isIntegrationPath(target) or orchestration_api.isProxyPath(target);
+        return instances_api.isIntegrationPath(target) or
+            orchestration_api.isProxyPath(target) or
+            logs_api.isLogsPath(target);
     }
 
     fn route(self: *Server, allocator: std.mem.Allocator, method: []const u8, target: []const u8, body: []const u8) Response {
@@ -975,6 +977,50 @@ pub const Server = struct {
             }
         }
 
+        // Agent config API — /api/instances/{c}/{n}/agents/profiles|bindings
+        if (config_api.isAgentProfilesPath(target)) {
+            const parsed = config_api.parseAgentProfilesPath(target) orelse return .{
+                .status = "500 Internal Server Error",
+                .content_type = "application/json",
+                .body = "{\"error\":\"invalid agent profiles path\"}",
+            };
+
+            if (std.mem.eql(u8, method, "GET")) {
+                const resp = config_api.handleGetAgentProfiles(allocator, self.paths, parsed.component, parsed.name);
+                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
+            }
+            if (std.mem.eql(u8, method, "PUT")) {
+                const resp = config_api.handlePutAgentProfiles(allocator, self.paths, parsed.component, parsed.name, body);
+                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
+            }
+            return .{
+                .status = "405 Method Not Allowed",
+                .content_type = "application/json",
+                .body = "{\"error\":\"method not allowed\"}",
+            };
+        }
+        if (config_api.isAgentBindingsPath(target)) {
+            const parsed = config_api.parseAgentBindingsPath(target) orelse return .{
+                .status = "500 Internal Server Error",
+                .content_type = "application/json",
+                .body = "{\"error\":\"invalid agent bindings path\"}",
+            };
+
+            if (std.mem.eql(u8, method, "GET")) {
+                const resp = config_api.handleGetAgentBindings(allocator, self.paths, parsed.component, parsed.name);
+                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
+            }
+            if (std.mem.eql(u8, method, "PUT")) {
+                const resp = config_api.handlePutAgentBindings(allocator, self.paths, parsed.component, parsed.name, body);
+                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
+            }
+            return .{
+                .status = "405 Method Not Allowed",
+                .content_type = "application/json",
+                .body = "{\"error\":\"method not allowed\"}",
+            };
+        }
+
         // Config API — /api/instances/{c}/{n}/config
         if (config_api.isConfigPath(target)) {
             const parsed = config_api.parseConfigPath(target) orelse return .{
@@ -982,7 +1028,7 @@ pub const Server = struct {
                 .content_type = "application/json",
                 .body = "{\"error\":\"invalid config path\"}",
             };
-            
+
             if (std.mem.eql(u8, method, "GET")) {
                 const resolve = config_api.shouldResolve(target);
                 const resp = config_api.handleGet(allocator, self.paths, self.state, parsed.component, parsed.name, resolve);
@@ -1002,7 +1048,6 @@ pub const Server = struct {
                 .body = "{\"error\":\"method not allowed\"}",
             };
         }
-
 
         // Logs API — /api/instances/{c}/{n}/logs and /api/instances/{c}/{n}/logs/stream
         if (logs_api.isLogsPath(target)) {
@@ -1118,11 +1163,11 @@ fn readBody(raw: []const u8, n: usize, stream: std.net.Stream, alloc: std.mem.Al
             const full_buf = try alloc.alloc(u8, total_size);
             @memcpy(full_buf[0..n], raw);
             var total_read = n;
-            
+
             // Timeout after ~5 seconds of waiting for body
             const start_time = std.time.milliTimestamp();
             const timeout_ms: i64 = 5000;
-            
+
             while (total_read < total_size) {
                 const elapsed = std.time.milliTimestamp() - start_time;
                 if (elapsed > timeout_ms) {
@@ -1133,7 +1178,7 @@ fn readBody(raw: []const u8, n: usize, stream: std.net.Stream, alloc: std.mem.Al
                 if (extra == 0) break; // Connection closed
                 total_read += extra;
             }
-            
+
             // Return whatever we got if it's at least the expected size
             if (total_read >= body_start + content_length) {
                 return full_buf[body_start .. body_start + content_length];
@@ -1333,11 +1378,11 @@ const TestContext = struct {
     mutex: std.Thread.Mutex,
     server: Server,
 
-    fn init(allocator: std.mem.Allocator) TestContext {
+    fn init(allocator: std.mem.Allocator) *TestContext {
+        const ctx = allocator.create(TestContext) catch @panic("OOM");
         const state = allocator.create(state_mod.State) catch @panic("OOM");
         state.* = state_mod.State.init(allocator, "/tmp/nullhubx-test-server-state.json");
         const paths = paths_mod.Paths.init(allocator, "/tmp/nullhubx-test-server") catch @panic("Paths.init failed");
-        var ctx: TestContext = undefined;
         ctx.state = state;
         ctx.paths = paths;
         ctx.manager = manager_mod.Manager.init(allocator, paths);
@@ -1351,6 +1396,7 @@ const TestContext = struct {
         self.state.deinit();
         allocator.destroy(self.state);
         self.paths.deinit(allocator);
+        allocator.destroy(self);
     }
 
     fn route(self: *TestContext, allocator: std.mem.Allocator, method: []const u8, target: []const u8, body: []const u8) Response {
@@ -1694,7 +1740,8 @@ test "route POST /api/instances/{c}/{n}/update returns 404 for empty state" {
 }
 
 test "Server init sets fields" {
-    const paths = try paths_mod.Paths.init(std.testing.allocator, null);
+    var paths = try paths_mod.Paths.init(std.testing.allocator, null);
+    defer paths.deinit(std.testing.allocator);
     var mgr = manager_mod.Manager.init(std.testing.allocator, paths);
     defer mgr.deinit();
     var mutex = std.Thread.Mutex{};

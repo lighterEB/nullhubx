@@ -85,6 +85,20 @@ export const api = {
   deleteInstance: (c: string, n: string) =>
     request<any>(`/instances/${c}/${n}`, { method: 'DELETE' }),
   getConfig: (c: string, n: string) => request<any>(`/instances/${c}/${n}/config`),
+  getAgentProfiles: (c: string, n: string) =>
+    request<any>(`/instances/${c}/${n}/agents/profiles`),
+  putAgentProfiles: (c: string, n: string, payload: any) =>
+    request<any>(`/instances/${c}/${n}/agents/profiles`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  getAgentBindings: (c: string, n: string) =>
+    request<any>(`/instances/${c}/${n}/agents/bindings`),
+  putAgentBindings: (c: string, n: string, payload: any) =>
+    request<any>(`/instances/${c}/${n}/agents/bindings`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
   getProviderHealth: (c: string, n: string) =>
     request<any>(`/instances/${c}/${n}/provider-health`),
   getUsage: (c: string, n: string, window: '24h' | '7d' | '30d' | 'all' = '24h') =>

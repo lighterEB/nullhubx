@@ -197,7 +197,7 @@
   </div>
 
   <!-- Channels heading -->
-  <div class="channels-heading">Channels</div>
+  <div class="channels-heading">渠道</div>
 
   <!-- Configured channels -->
   {#each configuredChannels as channelType}
@@ -395,9 +395,9 @@
   {/each}
 
   <!-- Add Channel button + dropdown -->
-  <div class="add-channel">
+  <div class="add-channel" class:open={addChannelOpen}>
     <button class="add-channel-btn" onclick={() => addChannelOpen = !addChannelOpen}>
-      + Add Channel
+      + 添加渠道
     </button>
     {#if addChannelOpen}
       <div class="add-channel-dropdown">
@@ -405,7 +405,7 @@
           <button onclick={() => addChannel(ch.key)}>{ch.label}</button>
         {/each}
         {#if availableChannels.length === 0}
-          <button disabled>All channels configured</button>
+          <button disabled>渠道已全部配置</button>
         {/if}
       </div>
     {/if}
@@ -622,7 +622,7 @@
 
   .section {
     border: 1px solid var(--border);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     background: var(--bg-surface);
   }
 
@@ -644,7 +644,7 @@
   }
   .accordion-header:hover {
     background: color-mix(in srgb, var(--accent) 5%, transparent);
-    text-shadow: var(--text-glow);
+
   }
 
   .accordion-arrow {
@@ -682,13 +682,13 @@
     padding: 0.5rem 0.75rem;
     background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     color: var(--fg);
     font-size: 0.875rem;
     font-family: var(--font-mono);
     outline: none;
     transition: all 0.2s ease;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
     box-sizing: border-box;
   }
   .field input:focus,
@@ -750,7 +750,7 @@
     padding: 0.25rem 0.5rem;
     background: none;
     border: 1px solid color-mix(in srgb, var(--error) 30%, transparent);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     color: var(--error);
     font-size: 0.75rem;
     cursor: pointer;
@@ -776,12 +776,15 @@
     position: relative;
     margin-top: 0.5rem;
   }
+  .add-channel.open {
+    margin-bottom: 0.75rem;
+  }
   .add-channel-btn {
     padding: 0.5rem 1rem;
     background: color-mix(in srgb, var(--accent) 10%, transparent);
     color: var(--accent);
     border: 1px dashed var(--accent-dim);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     cursor: pointer;
     font-size: 0.8125rem;
     font-weight: 700;
@@ -793,22 +796,19 @@
   .add-channel-btn:hover {
     background: color-mix(in srgb, var(--accent) 20%, transparent);
     border-color: var(--accent);
-    text-shadow: var(--text-glow);
+
   }
 
   .add-channel-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
+    position: relative;
     z-index: 10;
     background: var(--bg-surface);
     border: 1px solid var(--accent);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     max-height: 300px;
     overflow-y: auto;
     margin-top: 0.25rem;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 15px var(--border-glow);
+    box-shadow: var(--shadow-md);
   }
   .add-channel-dropdown button {
     display: block;
@@ -860,5 +860,29 @@
     text-transform: uppercase;
     letter-spacing: 1px;
     padding: 0.5rem 0;
+  }
+
+  @media (max-width: 760px) {
+    .accordion-header {
+      padding: 0.75rem;
+    }
+
+    .accordion-body {
+      padding: 0 0.75rem 0.75rem;
+    }
+
+    .channel-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+
+    .field input[type="text"],
+    .field input[type="number"],
+    .field input[type="password"],
+    .field select,
+    .field textarea {
+      font-size: 0.8125rem;
+    }
   }
 </style>

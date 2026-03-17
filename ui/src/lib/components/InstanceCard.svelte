@@ -11,7 +11,7 @@
     port = 0,
     onAction = () => {},
   } = $props();
-  
+
   let loading = $state(false);
   let localStatus = $state("stopped");
   let displayVersion = $derived(
@@ -52,6 +52,19 @@
     }
   }
 
+  async function remove(e: Event) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm(`确认删除实例 ${component}/${name} 吗？此操作不可撤销。`)) return;
+    loading = true;
+    try {
+      await api.deleteInstance(component, name);
+      onAction();
+    } finally {
+      loading = false;
+    }
+  }
+
   const colorMap: Record<string, "indigo" | "violet" | "amber"> = {
     nullclaw: "indigo",
     nullboiler: "violet",
@@ -67,38 +80,41 @@
 
 <a href="/instances/{component}/{name}" class="instance-card">
   <div class="accent-bar {colorMap[component] || 'indigo'}"></div>
-  
+
   <div class="card-top">
     <div class="icon-box {colorMap[component] || 'indigo'}">
       {iconMap[component] || "◈"}
     </div>
     <StatusBadge status={localStatus} />
   </div>
-  
+
   <h3 class="card-name">{name}</h3>
-  
+
   <div class="card-meta">
     <span class="component-tag">{component}</span>
     <span class="version">{displayVersion}</span>
   </div>
-  
+
   {#if localStatus === "running" && port > 0}
     <div class="gateway-info">
-      <span class="gateway-label">Gateway:</span>
+      <span class="gateway-label">网关:</span>
       <code class="gateway-addr">127.0.0.1:{port}</code>
     </div>
   {/if}
-  
+
   <div class="card-actions">
     {#if localStatus === "running" || localStatus === "stopping"}
       <button class="btn-stop" onclick={stop} disabled={loading}>
-        {loading ? "Stopping..." : "Stop"}
+        {loading ? "停止中..." : "停止"}
       </button>
     {:else}
       <button class="btn-start" onclick={start} disabled={loading}>
-        {loading ? "Starting..." : "Start"}
+        {loading ? "启动中..." : "启动"}
       </button>
     {/if}
+    <button class="btn-delete" onclick={remove} disabled={loading}>
+      删除
+    </button>
   </div>
 </a>
 
@@ -136,7 +152,7 @@
   }
 
   .accent-bar.violet {
-    background: linear-gradient(to bottom, var(--violet-500), #7c3aed);
+    background: linear-gradient(to bottom, var(--violet-500), color-mix(in srgb, var(--violet-500) 75%, black));
   }
 
   .accent-bar.amber {
@@ -252,31 +268,70 @@
   }
 
   .btn-start {
-    background: var(--indigo-600);
+    background: var(--emerald-600);
     color: white;
     border: none;
   }
 
   .btn-start:hover:not(:disabled) {
-    background: var(--indigo-700);
-    box-shadow: var(--shadow-indigo);
+    background: var(--emerald-700);
+    box-shadow: 0 10px 20px rgba(16, 185, 129, 0.2);
     transform: translateY(-1px);
   }
 
   .btn-stop {
-    background: white;
-    color: var(--slate-600);
-    border: 1px solid var(--slate-200);
+    background: var(--red-600);
+    color: white;
+    border: none;
   }
 
   .btn-stop:hover:not(:disabled) {
-    background: var(--slate-50);
-    border-color: var(--slate-300);
+    background: var(--red-700);
   }
 
   .btn-start:disabled, .btn-stop:disabled {
     opacity: 0.5;
     cursor: not-allowed;
     transform: none;
+  }
+
+  .btn-delete {
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    letter-spacing: 1px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    border: 1px solid var(--red-300);
+    background: white;
+    color: var(--red-600);
+    transition: all var(--transition-fast);
+  }
+
+  .btn-delete:hover:not(:disabled) {
+    background: var(--red-50);
+    border-color: var(--red-500);
+  }
+
+  .btn-delete:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  @media (max-width: 640px) {
+    .instance-card {
+      padding: var(--spacing-lg);
+      padding-left: calc(var(--spacing-lg) + 3px);
+    }
+
+    .card-name {
+      letter-spacing: 1px;
+      font-size: var(--text-base);
+    }
+
+    .card-actions {
+      flex-direction: column;
+    }
   }
 </style>

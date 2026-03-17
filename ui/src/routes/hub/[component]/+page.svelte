@@ -30,7 +30,7 @@
 
 <div class="wizard-page">
   <aside class="wizard-sidebar">
-    <a href="/install" class="back-link">
+    <a href="/hub" class="back-link">
       <span class="back-icon">←</span>
       <span>All Components</span>
     </a>
@@ -60,7 +60,7 @@
         <div class="error-icon">⚠</div>
         <h2>Unable to Load Wizard</h2>
         <p>{wizardError}</p>
-        <button class="back-btn" onclick={() => goto('/install')}>Back to Components</button>
+        <button class="back-btn" onclick={() => goto('/hub')}>Back to Components</button>
       </div>
     {:else if wizardData}
       <WizardRenderer

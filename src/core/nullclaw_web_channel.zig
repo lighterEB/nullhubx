@@ -36,6 +36,7 @@ pub fn ensureNullclawWebChannelConfig(
         .ignore_unknown_fields = true,
     });
     defer parsed.deinit();
+    const arena = parsed.arena.allocator();
 
     if (parsed.value != .object) return .{};
     const root = &parsed.value.object;
@@ -49,10 +50,10 @@ pub fn ensureNullclawWebChannelConfig(
     const web_port = pickAvailableWebPort(used_ports);
 
     var changed = false;
-    const channels_obj = (try ensureObjectField(allocator, root, "channels", &changed)) orelse return .{};
-    const web_obj = (try ensureObjectField(allocator, channels_obj, "web", &changed)) orelse return .{};
-    const accounts_obj = (try ensureObjectField(allocator, web_obj, "accounts", &changed)) orelse return .{};
-    const default_obj = (try ensureObjectField(allocator, accounts_obj, "default", &changed)) orelse return .{};
+    const channels_obj = (try ensureObjectField(arena, root, "channels", &changed)) orelse return .{};
+    const web_obj = (try ensureObjectField(arena, channels_obj, "web", &changed)) orelse return .{};
+    const accounts_obj = (try ensureObjectField(arena, web_obj, "accounts", &changed)) orelse return .{};
+    const default_obj = (try ensureObjectField(arena, accounts_obj, "default", &changed)) orelse return .{};
 
     try setStringFieldIfMissing(default_obj, "account_id", "default", &changed);
     try setStringFieldIfMissing(default_obj, "transport", "local", &changed);
@@ -61,7 +62,7 @@ pub fn ensureNullclawWebChannelConfig(
     try setStringFieldIfMissing(default_obj, "path", "/ws", &changed);
     try setIntegerFieldIfMissing(default_obj, "max_connections", 10, &changed);
     try setStringFieldIfMissing(default_obj, "message_auth_mode", "pairing", &changed);
-    try setOriginsIfMissing(allocator, default_obj, &changed);
+    try setOriginsIfMissing(arena, default_obj, &changed);
 
     if (!changed) {
         return .{ .web_port = web_port };
@@ -261,7 +262,7 @@ test "ensureNullclawWebChannelConfig injects web channel when missing" {
     defer std.fs.deleteTreeAbsolute(root) catch {};
 
     var paths = try paths_mod.Paths.init(allocator, root);
-    defer paths.deinit();
+    defer paths.deinit(allocator);
     try paths.ensureDirs();
 
     var state = state_mod.State.init(allocator, "/tmp/nullhubx-test-web-channel-missing/state.json");
@@ -275,7 +276,7 @@ test "ensureNullclawWebChannelConfig injects web channel when missing" {
 
     const inst_dir = try paths.instanceDir(allocator, "nullclaw", "instance-1");
     defer allocator.free(inst_dir);
-    try std.fs.makeDirAbsolute(inst_dir);
+    try std.fs.cwd().makePath(inst_dir);
 
     const cfg_path = try paths.instanceConfig(allocator, "nullclaw", "instance-1");
     defer allocator.free(cfg_path);
@@ -310,7 +311,7 @@ test "ensureNullclawWebChannelConfig picks next free port among instances" {
     defer std.fs.deleteTreeAbsolute(root) catch {};
 
     var paths = try paths_mod.Paths.init(allocator, root);
-    defer paths.deinit();
+    defer paths.deinit(allocator);
     try paths.ensureDirs();
 
     var state = state_mod.State.init(allocator, "/tmp/nullhubx-test-web-channel-port-pick/state.json");
@@ -329,7 +330,7 @@ test "ensureNullclawWebChannelConfig picks next free port among instances" {
 
     const default_dir = try paths.instanceDir(allocator, "nullclaw", "default");
     defer allocator.free(default_dir);
-    try std.fs.makeDirAbsolute(default_dir);
+    try std.fs.cwd().makePath(default_dir);
 
     const default_cfg = try paths.instanceConfig(allocator, "nullclaw", "default");
     defer allocator.free(default_cfg);
@@ -349,7 +350,7 @@ test "ensureNullclawWebChannelConfig picks next free port among instances" {
 
     const inst_dir = try paths.instanceDir(allocator, "nullclaw", "instance-2");
     defer allocator.free(inst_dir);
-    try std.fs.makeDirAbsolute(inst_dir);
+    try std.fs.cwd().makePath(inst_dir);
 
     const inst_cfg = try paths.instanceConfig(allocator, "nullclaw", "instance-2");
     defer allocator.free(inst_cfg);

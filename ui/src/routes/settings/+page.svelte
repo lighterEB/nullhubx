@@ -185,7 +185,7 @@
     <section class="settings-section">
       <h2>Service</h2>
       <p class="section-hint">Register NullHubX as a system service for automatic startup</p>
-      
+
       <div class="service-panel">
         <div class="service-row">
           <span class="service-label">Autostart</span>
@@ -305,7 +305,7 @@
   .message.error {
     background: rgba(239, 68, 68, 0.08);
     border-color: rgba(239, 68, 68, 0.2);
-    color: #ef4444;
+    color: var(--red-600);
   }
 
   .settings-grid {
@@ -565,5 +565,40 @@
   .btn-save:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  @media (max-width: 900px) {
+    .page {
+      padding: var(--spacing-2xl);
+    }
+  }
+
+  @media (max-width: 680px) {
+    .page {
+      padding: var(--spacing-lg);
+    }
+
+    h1 {
+      font-size: var(--text-2xl);
+      letter-spacing: 1.5px;
+    }
+
+    .service-actions {
+      flex-direction: column;
+    }
+
+    .service-actions .btn-primary,
+    .service-actions .btn-secondary {
+      width: 100%;
+    }
+
+    .actions-bar {
+      padding-top: var(--spacing-md);
+      margin-top: var(--spacing-md);
+    }
+
+    .btn-save {
+      width: 100%;
+    }
   }
 </style>

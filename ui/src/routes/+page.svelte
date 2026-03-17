@@ -279,12 +279,12 @@
     .page {
       padding: var(--spacing-xl);
     }
-    
+
     .page-header {
       flex-direction: column;
       gap: var(--spacing-lg);
     }
-    
+
     .header-right {
       width: 100%;
       justify-content: flex-start;
