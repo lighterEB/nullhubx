@@ -141,6 +141,12 @@ cd ui && bun run dev
 ./tests/test_e2e.sh
 ```
 
+核心回归（推荐）：
+
+```bash
+./tests/regression_core_flow.sh
+```
+
 ## 技术栈
 
 - Zig 0.15.2
@@ -166,6 +172,7 @@ ui/src/
   lib/api/              # 类型化 API 客户端
 tests/
   test_e2e.sh           # 端到端测试脚本
+  regression_core_flow.sh # 核心链路回归脚本
 ```
 
 ## 贡献

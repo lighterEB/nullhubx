@@ -8,7 +8,7 @@
 | Phase 1 | Agent 管理后端与基础 UI | 后端 `agents/profiles` + `agents/bindings` API；前端 Agents 页基础表单 | done |
 | Phase 2 | UI 可用性与防错 | 前端表单校验；下拉/建议输入；实例页汇总指标 | done |
 | Phase 3 | 配置合并与运行态验证 | Profiles 合并保留未知字段；真实服务冒烟与 curl 回归脚本 | done |
-| Phase 4 | 体验收尾与回归 | UI 细节优化；核心链路回归用例整理 | in_progress |
+| Phase 4 | 体验收尾与回归 | UI 细节优化；核心链路回归用例整理 | done |
 
 ## Phase 2 执行记录
 1. 前端表单校验（完成）
@@ -23,4 +23,5 @@
 ## Phase 4 执行记录
 1. 全局样式与核心组件视觉统一（首轮完成）
 2. 新增 `InstanceAgentsPanel` 并接入实例详情页（完成）
-3. 剩余：回归清单沉淀与体验细节打磨
+3. 新增 `tests/regression_core_flow.sh`，统一覆盖核心 API + 实例 config/logs + agents 冒烟（完成）
+4. 新增 `docs/regression-checklist.md`，固化执行方式与判定标准（完成）
