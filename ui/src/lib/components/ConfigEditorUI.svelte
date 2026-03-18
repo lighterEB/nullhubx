@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { channelSchemas, staticSections, type FieldDef } from './configSchemas';
+  import { channelSchemas, staticSections } from './configSchemas';
 
   let { config = $bindable({}), onchange = () => {} }: {
     config: any;
@@ -35,9 +35,6 @@
   }
 
   let providers = $derived(Object.keys(config?.models?.providers || {}));
-
-  let modelFallbacks = $derived((config?.reliability?.model_fallbacks || []) as string[]);
-  let fallbackProviders = $derived((config?.reliability?.fallback_providers || []) as string[]);
 
   let configuredChannels = $derived(Object.keys(config?.channels || {}));
 
@@ -119,14 +116,25 @@
     {#if openSections['models']}
       <div class="accordion-body">
         {#each staticSections[0].fields as field}
+          {@const value = getPath(config, field.key)}
           {@const inputId = fieldId(field.key)}
-          {#if field.type === 'number'}
+          {#if field.type === 'toggle'}
+            <label class="toggle-field">
+              <input
+                id={inputId}
+                type="checkbox"
+                checked={!!value}
+                onchange={(e) => updateField(field.key, e.currentTarget.checked)}
+              />
+              <span>{field.label}</span>
+            </label>
+          {:else if field.type === 'number'}
             <div class="field">
               <label for={inputId}>{field.label}</label>
               <input
                 id={inputId}
                 type="number"
-                value={getPath(config, field.key) ?? field.default ?? ''}
+                value={value ?? field.default ?? ''}
                 step={field.step}
                 min={field.min}
                 max={field.max}
@@ -142,9 +150,47 @@
               <input
                 id={inputId}
                 type="text"
-                value={getPath(config, field.key) ?? ''}
+                value={value ?? ''}
                 oninput={(e) => updateField(field.key, e.currentTarget.value)}
               />
+              {#if field.hint}
+                <p class="hint">{field.hint}</p>
+              {/if}
+            </div>
+          {:else if field.type === 'password'}
+            <div class="field">
+              <label for={inputId}>{field.label}</label>
+              <input
+                id={inputId}
+                type="password"
+                value={value ?? ''}
+                oninput={(e) => updateField(field.key, e.currentTarget.value)}
+              />
+              {#if field.hint}
+                <p class="hint">{field.hint}</p>
+              {/if}
+            </div>
+          {:else if field.type === 'select'}
+            <div class="field">
+              <label for={inputId}>{field.label}</label>
+              <select id={inputId} onchange={(e) => updateField(field.key, e.currentTarget.value)}>
+                {#each field.options ?? [] as opt}
+                  <option value={opt} selected={value === opt}>{opt}</option>
+                {/each}
+              </select>
+              {#if field.hint}
+                <p class="hint">{field.hint}</p>
+              {/if}
+            </div>
+          {:else if field.type === 'list'}
+            <div class="field">
+              <label for={inputId}>{field.label}</label>
+              <textarea
+                id={inputId}
+                value={parseList(value)}
+                oninput={(e) => updateField(field.key, toList(e.currentTarget.value))}
+                rows="3"
+              ></textarea>
               {#if field.hint}
                 <p class="hint">{field.hint}</p>
               {/if}
@@ -152,9 +198,12 @@
           {/if}
         {/each}
 
-        <!-- Dynamic provider API keys -->
+        <!-- Dynamic provider settings -->
         {#each providers as provider}
           {@const apiKeyId = fieldId(`models.providers.${provider}.api_key`)}
+          {@const baseUrlId = fieldId(`models.providers.${provider}.base_url`)}
+          {@const userAgentId = fieldId(`models.providers.${provider}.user_agent`)}
+          {@const nativeToolsId = fieldId(`models.providers.${provider}.native_tools`)}
           <div class="provider-row">
             <div class="provider-name">{provider}</div>
             <div class="field">
@@ -166,32 +215,35 @@
                 oninput={(e) => updateField(`models.providers.${provider}.api_key`, e.currentTarget.value)}
               />
             </div>
+            <div class="field">
+              <label for={baseUrlId}>Base URL</label>
+              <input
+                id={baseUrlId}
+                type="text"
+                value={getPath(config, `models.providers.${provider}.base_url`) ?? ''}
+                oninput={(e) => updateField(`models.providers.${provider}.base_url`, e.currentTarget.value)}
+              />
+            </div>
+            <div class="field">
+              <label for={userAgentId}>User-Agent</label>
+              <input
+                id={userAgentId}
+                type="text"
+                value={getPath(config, `models.providers.${provider}.user_agent`) ?? ''}
+                oninput={(e) => updateField(`models.providers.${provider}.user_agent`, e.currentTarget.value)}
+              />
+            </div>
+            <label class="toggle-field" for={nativeToolsId}>
+              <input
+                id={nativeToolsId}
+                type="checkbox"
+                checked={getPath(config, `models.providers.${provider}.native_tools`) ?? true}
+                onchange={(e) => updateField(`models.providers.${provider}.native_tools`, e.currentTarget.checked)}
+              />
+              <span>Native Tools</span>
+            </label>
           </div>
         {/each}
-
-        <!-- Model Fallbacks -->
-        <div class="field">
-          <label for={fieldId('reliability.model_fallbacks')}>Model Fallbacks</label>
-          <textarea
-            id={fieldId('reliability.model_fallbacks')}
-            value={parseList(modelFallbacks)}
-            oninput={(e) => updateField('reliability.model_fallbacks', toList(e.currentTarget.value))}
-            rows="3"
-          ></textarea>
-          <p class="hint">One model per line</p>
-        </div>
-
-        <!-- Fallback Providers -->
-        <div class="field">
-          <label for={fieldId('reliability.fallback_providers')}>Fallback Providers</label>
-          <textarea
-            id={fieldId('reliability.fallback_providers')}
-            value={parseList(fallbackProviders)}
-            oninput={(e) => updateField('reliability.fallback_providers', toList(e.currentTarget.value))}
-            rows="3"
-          ></textarea>
-          <p class="hint">One provider per line</p>
-        </div>
       </div>
     {/if}
   </div>
@@ -411,206 +463,99 @@
     {/if}
   </div>
 
-  <!-- Agent section (staticSections[1]) -->
-  <div class="section">
-    <button class="accordion-header" onclick={() => toggle('agent')}>
-      <span class="accordion-arrow" class:open={openSections['agent']}>&#9654;</span>
-      <span>{staticSections[1].label}</span>
-    </button>
-    {#if openSections['agent']}
-      <div class="accordion-body">
-        {#each staticSections[1].fields as field}
-          {@const value = getPath(config, field.key)}
-          {@const inputId = fieldId(field.key)}
-          {#if field.type === 'toggle'}
-            <label class="toggle-field">
-              <input
-                type="checkbox"
-                checked={!!value}
-                onchange={(e) => updateField(field.key, e.currentTarget.checked)}
-              />
-              <span>{field.label}</span>
-            </label>
-          {:else if field.type === 'number'}
-            <div class="field">
-              <label for={inputId}>{field.label}</label>
-              <input
-                id={inputId}
-                type="number"
-                value={value ?? field.default ?? ''}
-                step={field.step}
-                min={field.min}
-                max={field.max}
-                oninput={(e) => updateField(field.key, Number(e.currentTarget.value))}
-              />
-              {#if field.hint}
-                <p class="hint">{field.hint}</p>
-              {/if}
-            </div>
-          {:else if field.type === 'text'}
-            <div class="field">
-              <label for={inputId}>{field.label}</label>
-              <input
-                id={inputId}
-                type="text"
-                value={value ?? ''}
-                oninput={(e) => updateField(field.key, e.currentTarget.value)}
-              />
-              {#if field.hint}
-                <p class="hint">{field.hint}</p>
-              {/if}
-            </div>
-          {:else if field.type === 'select'}
-            <div class="field">
-              <label for={inputId}>{field.label}</label>
-              <select id={inputId} onchange={(e) => updateField(field.key, e.currentTarget.value)}>
-                {#each field.options ?? [] as opt}
-                  <option value={opt} selected={value === opt}>{opt}</option>
-                {/each}
-              </select>
-              {#if field.hint}
-                <p class="hint">{field.hint}</p>
-              {/if}
-            </div>
-          {/if}
-        {/each}
-      </div>
-    {/if}
-  </div>
-
-  <!-- Autonomy section (staticSections[2]) -->
-  <div class="section">
-    <button class="accordion-header" onclick={() => toggle('autonomy')}>
-      <span class="accordion-arrow" class:open={openSections['autonomy']}>&#9654;</span>
-      <span>{staticSections[2].label}</span>
-    </button>
-    {#if openSections['autonomy']}
-      <div class="accordion-body">
-        {#each staticSections[2].fields as field}
-          {@const value = getPath(config, field.key)}
-          {@const inputId = fieldId(field.key)}
-          {#if field.type === 'toggle'}
-            <label class="toggle-field">
-              <input
-                type="checkbox"
-                checked={!!value}
-                onchange={(e) => updateField(field.key, e.currentTarget.checked)}
-              />
-              <span>{field.label}</span>
-            </label>
-          {:else if field.type === 'number'}
-            <div class="field">
-              <label for={inputId}>{field.label}</label>
-              <input
-                id={inputId}
-                type="number"
-                value={value ?? field.default ?? ''}
-                step={field.step}
-                min={field.min}
-                max={field.max}
-                oninput={(e) => updateField(field.key, Number(e.currentTarget.value))}
-              />
-              {#if field.hint}
-                <p class="hint">{field.hint}</p>
-              {/if}
-            </div>
-          {:else if field.type === 'text'}
-            <div class="field">
-              <label for={inputId}>{field.label}</label>
-              <input
-                id={inputId}
-                type="text"
-                value={value ?? ''}
-                oninput={(e) => updateField(field.key, e.currentTarget.value)}
-              />
-              {#if field.hint}
-                <p class="hint">{field.hint}</p>
-              {/if}
-            </div>
-          {:else if field.type === 'select'}
-            <div class="field">
-              <label for={inputId}>{field.label}</label>
-              <select id={inputId} onchange={(e) => updateField(field.key, e.currentTarget.value)}>
-                {#each field.options ?? [] as opt}
-                  <option value={opt} selected={value === opt}>{opt}</option>
-                {/each}
-              </select>
-              {#if field.hint}
-                <p class="hint">{field.hint}</p>
-              {/if}
-            </div>
-          {/if}
-        {/each}
-      </div>
-    {/if}
-  </div>
-
-  <!-- Diagnostics section (staticSections[3]) -->
-  <div class="section">
-    <button class="accordion-header" onclick={() => toggle('diagnostics')}>
-      <span class="accordion-arrow" class:open={openSections['diagnostics']}>&#9654;</span>
-      <span>{staticSections[3].label}</span>
-    </button>
-    {#if openSections['diagnostics']}
-      <div class="accordion-body">
-        {#each staticSections[3].fields as field}
-          {@const value = getPath(config, field.key)}
-          {@const inputId = fieldId(field.key)}
-          {#if field.type === 'toggle'}
-            <label class="toggle-field">
-              <input
-                type="checkbox"
-                checked={!!value}
-                onchange={(e) => updateField(field.key, e.currentTarget.checked)}
-              />
-              <span>{field.label}</span>
-            </label>
-          {:else if field.type === 'number'}
-            <div class="field">
-              <label for={inputId}>{field.label}</label>
-              <input
-                id={inputId}
-                type="number"
-                value={value ?? field.default ?? ''}
-                step={field.step}
-                min={field.min}
-                max={field.max}
-                oninput={(e) => updateField(field.key, Number(e.currentTarget.value))}
-              />
-              {#if field.hint}
-                <p class="hint">{field.hint}</p>
-              {/if}
-            </div>
-          {:else if field.type === 'text'}
-            <div class="field">
-              <label for={inputId}>{field.label}</label>
-              <input
-                id={inputId}
-                type="text"
-                value={value ?? ''}
-                oninput={(e) => updateField(field.key, e.currentTarget.value)}
-              />
-              {#if field.hint}
-                <p class="hint">{field.hint}</p>
-              {/if}
-            </div>
-          {:else if field.type === 'select'}
-            <div class="field">
-              <label for={inputId}>{field.label}</label>
-              <select id={inputId} onchange={(e) => updateField(field.key, e.currentTarget.value)}>
-                {#each field.options ?? [] as opt}
-                  <option value={opt} selected={value === opt}>{opt}</option>
-                {/each}
-              </select>
-              {#if field.hint}
-                <p class="hint">{field.hint}</p>
-              {/if}
-            </div>
-          {/if}
-        {/each}
-      </div>
-    {/if}
-  </div>
+  {#each staticSections.slice(1) as section}
+    <div class="section">
+      <button class="accordion-header" onclick={() => toggle(section.key)}>
+        <span class="accordion-arrow" class:open={openSections[section.key]}>&#9654;</span>
+        <span>{section.label}</span>
+      </button>
+      {#if openSections[section.key]}
+        <div class="accordion-body">
+          {#each section.fields as field}
+            {@const value = getPath(config, field.key)}
+            {@const inputId = fieldId(field.key)}
+            {#if field.type === 'toggle'}
+              <label class="toggle-field">
+                <input
+                  type="checkbox"
+                  checked={!!value}
+                  onchange={(e) => updateField(field.key, e.currentTarget.checked)}
+                />
+                <span>{field.label}</span>
+              </label>
+            {:else if field.type === 'number'}
+              <div class="field">
+                <label for={inputId}>{field.label}</label>
+                <input
+                  id={inputId}
+                  type="number"
+                  value={value ?? field.default ?? ''}
+                  step={field.step}
+                  min={field.min}
+                  max={field.max}
+                  oninput={(e) => updateField(field.key, Number(e.currentTarget.value))}
+                />
+                {#if field.hint}
+                  <p class="hint">{field.hint}</p>
+                {/if}
+              </div>
+            {:else if field.type === 'text'}
+              <div class="field">
+                <label for={inputId}>{field.label}</label>
+                <input
+                  id={inputId}
+                  type="text"
+                  value={value ?? ''}
+                  oninput={(e) => updateField(field.key, e.currentTarget.value)}
+                />
+                {#if field.hint}
+                  <p class="hint">{field.hint}</p>
+                {/if}
+              </div>
+            {:else if field.type === 'password'}
+              <div class="field">
+                <label for={inputId}>{field.label}</label>
+                <input
+                  id={inputId}
+                  type="password"
+                  value={value ?? ''}
+                  oninput={(e) => updateField(field.key, e.currentTarget.value)}
+                />
+                {#if field.hint}
+                  <p class="hint">{field.hint}</p>
+                {/if}
+              </div>
+            {:else if field.type === 'select'}
+              <div class="field">
+                <label for={inputId}>{field.label}</label>
+                <select id={inputId} onchange={(e) => updateField(field.key, e.currentTarget.value)}>
+                  {#each field.options ?? [] as opt}
+                    <option value={opt} selected={value === opt}>{opt}</option>
+                  {/each}
+                </select>
+                {#if field.hint}
+                  <p class="hint">{field.hint}</p>
+                {/if}
+              </div>
+            {:else if field.type === 'list'}
+              <div class="field">
+                <label for={inputId}>{field.label}</label>
+                <textarea
+                  id={inputId}
+                  value={parseList(value)}
+                  oninput={(e) => updateField(field.key, toList(e.currentTarget.value))}
+                  rows="3"
+                ></textarea>
+                {#if field.hint}
+                  <p class="hint">{field.hint}</p>
+                {/if}
+              </div>
+            {/if}
+          {/each}
+        </div>
+      {/if}
+    </div>
+  {/each}
 </div>
 
 <style>

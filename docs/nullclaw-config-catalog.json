@@ -1,0 +1,7000 @@
+{
+  "version": 2,
+  "generated_at": "2026-03-18T14:50:30.191951+00:00",
+  "source_priority": [
+    "/home/huspc/projects/nullclaw/src/config_types.zig",
+    "/home/huspc/projects/nullclaw/src/config_parse.zig",
+    "/home/huspc/projects/nullclaw/src/config.zig",
+    "/home/huspc/projects/nullclaw/config.example.json",
+    "/home/huspc/projects/nullclaw/docs/zh/configuration.md"
+  ],
+  "notes": [
+    "catalog v2 = config.example 扁平字段 + config_types 结构化字段 + config_parse 实际解析叶子字段。",
+    "channels 的多账号路径统一规范为 channels.<type>.accounts.<account>.*。",
+    "仍有少量动态/数组对象键只能通过运行时样本补全。"
+  ],
+  "top_level_sections_from_config_zig": [
+    "a2a",
+    "agent",
+    "autonomy",
+    "browser",
+    "channels",
+    "composio",
+    "cost",
+    "cron",
+    "diagnostics",
+    "gateway",
+    "hardware",
+    "heartbeat",
+    "http_request",
+    "identity",
+    "memory",
+    "peripherals",
+    "reliability",
+    "runtime",
+    "scheduler",
+    "secrets",
+    "security",
+    "session",
+    "tools",
+    "tunnel"
+  ],
+  "ui_schema_channels": [
+    "cli",
+    "dingtalk",
+    "discord",
+    "email",
+    "external",
+    "imessage",
+    "irc",
+    "lark",
+    "line",
+    "maixcam",
+    "matrix",
+    "mattermost",
+    "max",
+    "nostr",
+    "onebot",
+    "qq",
+    "signal",
+    "slack",
+    "teams",
+    "telegram",
+    "web",
+    "webhook",
+    "whatsapp"
+  ],
+  "enum_count": 14,
+  "struct_count": 92,
+  "leaf_fields": [
+    {
+      "path": "a2a.description",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"AI assistant\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "a2a.enabled",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "a2a.name",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"NullClaw\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "a2a.url",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "a2a.version",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"1.0.0\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "agent.auto_disable_vision_on_error",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "agent.compact_context",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "agent.compaction_keep_recent",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "20"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "agent.compaction_max_source_chars",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "12_000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "agent.compaction_max_summary_chars",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "2_000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "agent.max_history_messages",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "100"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "agent.max_tool_iterations",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "1000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "agent.message_timeout_secs",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "600"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "agent.parallel_tools",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "agent.session_idle_timeout_secs",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "1800"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "agent.status_show_emojis",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "agent.token_limit",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "DEFAULT_AGENT_TOKEN_LIMIT"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "agent.tool_dispatcher",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"auto\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "agent.tool_filter_groups",
+      "types": [
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "agent.tool_filter_groups[*].keywords",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "agent.tool_filter_groups[*].mode",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": [
+        "always",
+        "dynamic"
+      ]
+    },
+    {
+      "path": "agent.tool_filter_groups[*].tools",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "agent.vision_disabled_models",
+      "types": [
+        "array",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "agents.defaults.heartbeat.enabled",
+      "types": [
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "agents.defaults.heartbeat.every",
+      "types": [
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "agents.defaults.heartbeat.interval_minutes",
+      "types": [
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "agents.defaults.model.primary",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "agents.list",
+      "types": [
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "autonomy.allow_raw_url_chars",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "autonomy.allowed_commands",
+      "types": [
+        "array",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "autonomy.allowed_paths",
+      "types": [
+        "array",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "autonomy.block_high_risk_commands",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "autonomy.level",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        ".supervised"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "autonomy.require_approval_for_medium_risk",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "browser.allowed_domains",
+      "types": [
+        "array",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "browser.backend",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"agent_browser\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "browser.computer_use.allow_remote_endpoint",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "browser.computer_use.api_key",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "browser.computer_use.endpoint",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"http://127.0.0.1:8787/v1/actions\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "browser.computer_use.max_coordinate_x",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "browser.computer_use.max_coordinate_y",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "browser.computer_use.timeout_ms",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "15_000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "browser.enabled",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "browser.native_chrome_path",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "browser.native_headless",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "browser.native_webdriver_url",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"http://127.0.0.1:9515\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "browser.session_name",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.cli",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.dingtalk.accounts.<account>.account_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.dingtalk.accounts.<account>.ai_card_streaming_key",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.dingtalk.accounts.<account>.ai_card_template_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.dingtalk.accounts.<account>.allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.dingtalk.accounts.<account>.client_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.dingtalk.accounts.<account>.client_secret",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.discord.accounts.<account>.account_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.discord.accounts.<account>.allow_bots",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.discord.accounts.<account>.allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.discord.accounts.<account>.guild_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.discord.accounts.<account>.intents",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "37377"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.discord.accounts.<account>.require_mention",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.discord.accounts.<account>.token",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.email.accounts.<account>.account_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.email.accounts.<account>.allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.email.accounts.<account>.consent_granted",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.email.accounts.<account>.from_address",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.email.accounts.<account>.imap_folder",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"INBOX\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.email.accounts.<account>.imap_host",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.email.accounts.<account>.imap_port",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "993"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.email.accounts.<account>.password",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.email.accounts.<account>.poll_interval_secs",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "60"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.email.accounts.<account>.smtp_host",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.email.accounts.<account>.smtp_port",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "587"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.email.accounts.<account>.smtp_tls",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.email.accounts.<account>.username",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.external.accounts.<account>.account_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.external.accounts.<account>.config.allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config.example.json"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.external.accounts.<account>.config.bridge_url",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.external.accounts.<account>.plugin_config_json",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"{}\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.external.accounts.<account>.runtime_name",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.external.accounts.<account>.transport.args",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.external.accounts.<account>.transport.command",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.external.accounts.<account>.transport.env.PLUGIN_TOKEN",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.external.accounts.<account>.transport.env[*].key",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.external.accounts.<account>.transport.env[*].value",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.external.accounts.<account>.transport.timeout_ms",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "10_000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.imessage.accounts.<account>.account_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.imessage.accounts.<account>.allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.imessage.accounts.<account>.db_path",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.imessage.accounts.<account>.enabled",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.imessage.accounts.<account>.group_allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.imessage.accounts.<account>.group_policy",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"allowlist\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.irc.accounts.<account>.account_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.irc.accounts.<account>.allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.irc.accounts.<account>.channels",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.irc.accounts.<account>.host",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.irc.accounts.<account>.nick",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.irc.accounts.<account>.nickserv_password",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.irc.accounts.<account>.port",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "6697"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.irc.accounts.<account>.sasl_password",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.irc.accounts.<account>.server_password",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.irc.accounts.<account>.tls",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.irc.accounts.<account>.username",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.lark.accounts.<account>.account_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.lark.accounts.<account>.allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.lark.accounts.<account>.app_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.lark.accounts.<account>.app_secret",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.lark.accounts.<account>.encrypt_key",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.lark.accounts.<account>.port",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.lark.accounts.<account>.receive_mode",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        ".websocket"
+      ],
+      "enum_values": [
+        "webhook",
+        "websocket"
+      ]
+    },
+    {
+      "path": "channels.lark.accounts.<account>.use_feishu",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.lark.accounts.<account>.verification_token",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.line.accounts.<account>.access_token",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.line.accounts.<account>.account_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.line.accounts.<account>.allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.line.accounts.<account>.channel_secret",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.line.accounts.<account>.port",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "3000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.maixcam.accounts.<account>.account_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.maixcam.accounts.<account>.allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.maixcam.accounts.<account>.host",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"0.0.0.0\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.maixcam.accounts.<account>.name",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"maixcam\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.maixcam.accounts.<account>.port",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "7777"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.matrix.accounts.<account>.access_token",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.matrix.accounts.<account>.account_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.matrix.accounts.<account>.allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.matrix.accounts.<account>.dm_policy",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"allowlist\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.matrix.accounts.<account>.group_allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.matrix.accounts.<account>.group_policy",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"allowlist\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.matrix.accounts.<account>.homeserver",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.matrix.accounts.<account>.require_mention",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.matrix.accounts.<account>.room_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.matrix.accounts.<account>.user_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.mattermost.accounts.<account>.account_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.mattermost.accounts.<account>.allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.mattermost.accounts.<account>.base_url",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.mattermost.accounts.<account>.bot_token",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.mattermost.accounts.<account>.chatmode",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"oncall\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.mattermost.accounts.<account>.dm_policy",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"allowlist\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.mattermost.accounts.<account>.group_allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.mattermost.accounts.<account>.group_policy",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"allowlist\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.mattermost.accounts.<account>.onchar_prefixes",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{ \">\", \"!\" }"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.mattermost.accounts.<account>.require_mention",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.max.accounts.<account>.account_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.max.accounts.<account>.allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.max.accounts.<account>.bot_token",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.max.accounts.<account>.group_allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.max.accounts.<account>.group_policy",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"allowlist\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.max.accounts.<account>.interactive.enabled",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.max.accounts.<account>.interactive.owner_only",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.max.accounts.<account>.interactive.ttl_secs",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "900"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.max.accounts.<account>.mode",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        ".polling"
+      ],
+      "enum_values": [
+        "polling",
+        "webhook"
+      ]
+    },
+    {
+      "path": "channels.max.accounts.<account>.proxy",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.max.accounts.<account>.require_mention",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.max.accounts.<account>.streaming",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.max.accounts.<account>.webhook_secret",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.max.accounts.<account>.webhook_url",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.nostr.about",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"AI assistant\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.nostr.bot_pubkey",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.nostr.bunker_uri",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.nostr.display_name",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"NullClaw\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.nostr.display_pic",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.nostr.dm_allowed_pubkeys",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.nostr.dm_relays",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{\"wss://auth.nostr1.com\"}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.nostr.lnurl",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.nostr.nak_path",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"nak\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.nostr.nip05",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.nostr.owner_pubkey",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.nostr.private_key",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.onebot.accounts.<account>.access_token",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.onebot.accounts.<account>.account_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.onebot.accounts.<account>.allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.onebot.accounts.<account>.group_trigger_prefix",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.onebot.accounts.<account>.url",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"ws://localhost:6700\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.qq.accounts.<account>.account_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.qq.accounts.<account>.allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.qq.accounts.<account>.allowed_groups",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.qq.accounts.<account>.app_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.qq.accounts.<account>.app_secret",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.qq.accounts.<account>.bot_token",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.qq.accounts.<account>.group_policy",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        ".allow"
+      ],
+      "enum_values": [
+        "allow",
+        "allowlist"
+      ]
+    },
+    {
+      "path": "channels.qq.accounts.<account>.receive_mode",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        ".webhook"
+      ],
+      "enum_values": [
+        "webhook",
+        "websocket"
+      ]
+    },
+    {
+      "path": "channels.qq.accounts.<account>.sandbox",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.signal.accounts.<account>.account",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.signal.accounts.<account>.account_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.signal.accounts.<account>.allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.signal.accounts.<account>.group_allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.signal.accounts.<account>.group_policy",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"allowlist\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.signal.accounts.<account>.http_url",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.signal.accounts.<account>.ignore_attachments",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.signal.accounts.<account>.ignore_stories",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.slack.accounts.<account>.account_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.slack.accounts.<account>.allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.slack.accounts.<account>.app_token",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.slack.accounts.<account>.bot_token",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.slack.accounts.<account>.channel_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.slack.accounts.<account>.dm_policy",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"pairing\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.slack.accounts.<account>.group_policy",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"mention_only\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.slack.accounts.<account>.mode",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        ".socket"
+      ],
+      "enum_values": [
+        "http",
+        "socket"
+      ]
+    },
+    {
+      "path": "channels.slack.accounts.<account>.reply_to_mode",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        ".off"
+      ],
+      "enum_values": [
+        "all",
+        "off"
+      ]
+    },
+    {
+      "path": "channels.slack.accounts.<account>.signing_secret",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.slack.accounts.<account>.webhook_path",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"/slack/events\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.teams.accounts.<account>.account_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.teams.accounts.<account>.bot_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.teams.accounts.<account>.client_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.teams.accounts.<account>.client_secret",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.teams.accounts.<account>.notification_channel_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.teams.accounts.<account>.tenant_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.teams.accounts.<account>.webhook_secret",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.telegram.accounts.<account>.account_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.telegram.accounts.<account>.allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.telegram.accounts.<account>.binding_commands_enabled",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.telegram.accounts.<account>.bot_token",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.telegram.accounts.<account>.commands_menu_mode",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        ".flat"
+      ],
+      "enum_values": [
+        "flat",
+        "off",
+        "scoped"
+      ]
+    },
+    {
+      "path": "channels.telegram.accounts.<account>.group_allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.telegram.accounts.<account>.group_policy",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"allowlist\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.telegram.accounts.<account>.interactive.enabled",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.telegram.accounts.<account>.interactive.owner_only",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.telegram.accounts.<account>.interactive.remove_on_click",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.telegram.accounts.<account>.interactive.ttl_secs",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "900"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.telegram.accounts.<account>.proxy",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.telegram.accounts.<account>.reaction_emojis.accepted",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"👀\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.telegram.accounts.<account>.reaction_emojis.done",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"👍\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.telegram.accounts.<account>.reaction_emojis.failed",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"💔\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.telegram.accounts.<account>.reaction_emojis.running",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"⚡\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.telegram.accounts.<account>.reply_in_private",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.telegram.accounts.<account>.require_mention",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.telegram.accounts.<account>.status_reactions",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.telegram.accounts.<account>.streaming",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.telegram.accounts.<account>.topic_commands_enabled",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.telegram.accounts.<account>.topic_map_command_enabled",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.web.accounts.<account>.account_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.web.accounts.<account>.allowed_origins",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.web.accounts.<account>.auth_token",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.web.accounts.<account>.listen",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"127.0.0.1\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.web.accounts.<account>.max_connections",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "10"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.web.accounts.<account>.max_handshake_size",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "DEFAULT_MAX_HANDSHAKE_SIZE"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.web.accounts.<account>.message_auth_mode",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "DEFAULT_MESSAGE_AUTH_MODE"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.web.accounts.<account>.path",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "DEFAULT_PATH"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.web.accounts.<account>.port",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "32123"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.web.accounts.<account>.relay_agent_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.web.accounts.<account>.relay_e2e_required",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.web.accounts.<account>.relay_pairing_code_ttl_secs",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "300"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.web.accounts.<account>.relay_token",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.web.accounts.<account>.relay_token_ttl_secs",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "2_592_000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.web.accounts.<account>.relay_ui_token_ttl_secs",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "86_400"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.web.accounts.<account>.relay_url",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.web.accounts.<account>.transport",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "DEFAULT_TRANSPORT"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.webhook.port",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "8080"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.webhook.secret",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.whatsapp.accounts.<account>.access_token",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.whatsapp.accounts.<account>.account_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.whatsapp.accounts.<account>.allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.whatsapp.accounts.<account>.app_secret",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.whatsapp.accounts.<account>.group_allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.whatsapp.accounts.<account>.group_policy",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"allowlist\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.whatsapp.accounts.<account>.groups",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.whatsapp.accounts.<account>.phone_number_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.whatsapp.accounts.<account>.verify_token",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "composio.api_key",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "composio.enabled",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "composio.entity_id",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "cost.allow_override",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "cost.daily_limit_usd",
+      "types": [
+        "float",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "10.0"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "cost.enabled",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "cost.monthly_limit_usd",
+      "types": [
+        "float",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "100.0"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "cost.warn_at_percent",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "80"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "cron.enabled",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "cron.interval_minutes",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "30"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "cron.max_run_history",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "50"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "default_model",
+      "types": [
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "default_provider",
+      "types": [
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "default_temperature",
+      "types": [
+        "float",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "diagnostics.api_error_max_chars",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "diagnostics.backend",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"none\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "diagnostics.log_llm_io",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "diagnostics.log_message_payloads",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "diagnostics.log_message_receipts",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "diagnostics.log_tool_calls",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "diagnostics.otel.endpoint",
+      "types": [
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "diagnostics.otel.headers",
+      "types": [
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "diagnostics.otel.service_name",
+      "types": [
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "diagnostics.otel_endpoint",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "diagnostics.otel_headers[*].key",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "diagnostics.otel_headers[*].value",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "diagnostics.otel_service_name",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "diagnostics.token_usage_ledger_enabled",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "diagnostics.token_usage_ledger_max_bytes",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "0"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "diagnostics.token_usage_ledger_max_lines",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "0"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "diagnostics.token_usage_ledger_window_hours",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "24"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "gateway.allow_public_bind",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "gateway.host",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"127.0.0.1\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "gateway.idempotency_ttl_secs",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "300"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "gateway.pair_rate_limit_per_minute",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "10"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "gateway.paired_tokens",
+      "types": [
+        "array",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "gateway.port",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "3000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "gateway.require_pairing",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "gateway.webhook_rate_limit_per_minute",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "60"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "hardware.baud_rate",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "115200"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "hardware.enabled",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "hardware.probe_target",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "hardware.serial_port",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "hardware.transport",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        ".none"
+      ],
+      "enum_values": [
+        "native",
+        "none",
+        "probe",
+        "serial"
+      ]
+    },
+    {
+      "path": "hardware.workspace_datasheets",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "heartbeat.enabled",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "heartbeat.interval_minutes",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "30"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "http_request.allowed_domains",
+      "types": [
+        "array",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "http_request.enabled",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "http_request.max_response_size",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "1_000_000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "http_request.proxy",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "http_request.search_base_url",
+      "types": [
+        "null",
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "http_request.search_fallback_providers",
+      "types": [
+        "array",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "http_request.search_provider",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"auto\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "http_request.timeout_secs",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "30"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "identity.aieos_inline",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "identity.aieos_path",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "identity.format",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"nullclaw\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "mcp_servers",
+      "types": [
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "memory.api.api_key",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.api.namespace",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.api.timeout_ms",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "10_000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.api.url",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.auto_save",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.backend",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "DEFAULT_MEMORY_BACKEND"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.citations",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"auto\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.clickhouse.database",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.clickhouse.host",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"127.0.0.1\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.clickhouse.password",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.clickhouse.port",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "8123"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.clickhouse.table",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"memories\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.clickhouse.use_https",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.clickhouse.user",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.instance_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.lifecycle.archive_after_days",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "7"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.lifecycle.auto_hydrate",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.lifecycle.conversation_retention_days",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "30"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.lifecycle.hygiene_enabled",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.lifecycle.preserve_before_purge",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.lifecycle.purge_after_days",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "30"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.lifecycle.snapshot_enabled",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.lifecycle.snapshot_on_hygiene",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.postgres.connect_timeout_secs",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "30"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.postgres.schema",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"public\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.postgres.table",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"memories\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.postgres.url",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.profile",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"hybrid_keyword\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.command",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"qmd\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.enabled",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.include_default_memory",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.limits.max_injected_chars",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "4_000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.limits.max_results",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "6"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.limits.max_snippet_chars",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "700"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.limits.timeout_ms",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "4_000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.mcporter.enabled",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.mcporter.server_name",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"qmd\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.mcporter.start_daemon",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.paths[*].name",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.paths[*].path",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.paths[*].pattern",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"**/*.md\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.search_mode",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"search\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.sessions.enabled",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.sessions.export_dir",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.sessions.retention_days",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "30"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.update.command_timeout_ms",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "30_000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.update.debounce_ms",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "15_000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.update.embed_interval_ms",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "3_600_000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.update.embed_timeout_ms",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "120_000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.update.interval_ms",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "300_000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.update.on_boot",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.update.update_timeout_ms",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "120_000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.qmd.update.wait_for_boot_sync",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.redis.db_index",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "0"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.redis.host",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"127.0.0.1\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.redis.key_prefix",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"nullclaw\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.redis.password",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.redis.port",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "6379"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.redis.ttl_seconds",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "0"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.reliability.canary_hybrid_percent",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "0"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.reliability.circuit_breaker_cooldown_ms",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "30_000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.reliability.circuit_breaker_failures",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "5"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.reliability.fallback_policy",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"degrade\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.reliability.rollout_mode",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"off\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.reliability.shadow_hybrid_percent",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "0"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.response_cache.enabled",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.response_cache.max_entries",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "5_000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.response_cache.ttl_minutes",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "60"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.retrieval_stages.adaptive_keyword_max_tokens",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "3"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.retrieval_stages.adaptive_retrieval_enabled",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.retrieval_stages.adaptive_vector_min_tokens",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "6"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.retrieval_stages.llm_reranker_enabled",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.retrieval_stages.llm_reranker_max_candidates",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "10"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.retrieval_stages.llm_reranker_timeout_ms",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "5_000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.retrieval_stages.query_expansion_enabled",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.cache.enabled",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.cache.max_entries",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "10_000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.chunking.overlap",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "64"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.dimensions",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "1536"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.enabled",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.fallback_provider",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"none\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.model",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"text-embedding-3-small\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.provider",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"none\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.query.hybrid.candidate_multiplier",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "4"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.query.hybrid.enabled",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.query.hybrid.mmr.enabled",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.query.hybrid.mmr.lambda",
+      "types": [
+        "float"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "0.7"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.query.hybrid.temporal_decay.enabled",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.query.hybrid.temporal_decay.half_life_days",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "30"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.query.hybrid.text_weight",
+      "types": [
+        "float"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "0.3"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.query.hybrid.vector_weight",
+      "types": [
+        "float"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "0.7"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.query.max_results",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "6"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.query.merge_strategy",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"rrf\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.query.min_score",
+      "types": [
+        "float"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "0.0"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.query.rrf_k",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "60"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.store.ann_candidate_multiplier",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "12"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.store.ann_min_candidates",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "64"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.store.kind",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"auto\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.store.pgvector_table",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"memory_embeddings\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.store.qdrant_api_key",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.store.qdrant_collection",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"nullclaw_memories\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.store.qdrant_url",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.store.sidecar_path",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.sync.embed_max_retries",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "2"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.sync.embed_timeout_ms",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "15_000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.sync.mode",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"best_effort\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.sync.vector_max_retries",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "2"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.search.sync.vector_timeout_ms",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "5_000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.summarizer.auto_extract_semantic",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.summarizer.enabled",
+      "types": [
+        "bool"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.summarizer.summary_max_tokens",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "500"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "memory.summarizer.window_size_tokens",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "4000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "model_routes",
+      "types": [
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "models.providers.azure.api_key",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "models.providers.azure.base_url",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "models.providers.openrouter.api_key",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "models.providers.vertex.api_key.client_email",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "models.providers.vertex.api_key.private_key",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "models.providers.vertex.api_key.project_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "models.providers.vertex.api_key.type",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "models.providers.vertex.base_url",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config.example.json"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "peripherals.boards[*].baud",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "115200"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "peripherals.boards[*].board",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "peripherals.boards[*].path",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "peripherals.boards[*].transport",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"serial\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "peripherals.datasheet_dir",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "peripherals.enabled",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "reasoning_effort",
+      "types": [
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "reliability.api_keys",
+      "types": [
+        "array",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "reliability.channel_initial_backoff_secs",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "2"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "reliability.channel_max_backoff_secs",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "60"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "reliability.fallback_providers",
+      "types": [
+        "array",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "reliability.model_fallbacks",
+      "types": [
+        "array",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "reliability.model_fallbacks[*].fallbacks",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "reliability.model_fallbacks[*].model",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "reliability.provider_backoff_ms",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "500"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "reliability.provider_retries",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "2"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "reliability.scheduler_poll_secs",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "15"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "reliability.scheduler_retries",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "2"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "runtime.docker.cpu_limit",
+      "types": [
+        "float"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "1.0"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "runtime.docker.image",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"alpine:3.20\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "runtime.docker.memory_limit_mb",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "512"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "runtime.docker.mount_workspace",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "runtime.docker.network",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"none\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "runtime.docker.read_only_rootfs",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "runtime.kind",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"native\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "scheduler.agent_timeout_secs",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "0"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "scheduler.enabled",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "scheduler.max_concurrent",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "4"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "scheduler.max_tasks",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "64"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "secrets.encrypt",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "security.audit.enabled",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "security.audit.log_file",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "security.audit.log_path",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"audit.log\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "security.audit.max_size_mb",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "100"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "security.audit.retention_days",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "90"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "security.audit.sign_events",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "security.resources.max_cpu_percent",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "80"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "security.resources.max_cpu_time_seconds",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "60"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "security.resources.max_disk_mb",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "1024"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "security.resources.max_memory_mb",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "512"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "security.resources.max_subprocesses",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "10"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "security.resources.memory_monitoring",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "security.sandbox.backend",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        ".auto"
+      ],
+      "enum_values": [
+        "auto",
+        "bubblewrap",
+        "docker",
+        "firejail",
+        "landlock",
+        "none"
+      ]
+    },
+    {
+      "path": "security.sandbox.enabled",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "security.sandbox.firejail_args",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "session.auto_provision_direct_agents",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "false"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "session.claim_admin_secret",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "session.claim_lockout_secs",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "300"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "session.claim_max_attempts",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "5"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "session.claim_secret",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "session.dm_scope",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        ".per_channel_peer"
+      ],
+      "enum_values": [
+        "main",
+        "per_account_channel_peer",
+        "per_channel_peer",
+        "per_peer"
+      ]
+    },
+    {
+      "path": "session.identity_links[*].canonical",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "session.identity_links[*].peers",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "session.idle_minutes",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "60"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "session.max_concurrent_tasks",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "4"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "session.typing_interval_secs",
+      "types": [
+        "int"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "5"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "tools.max_file_size_bytes",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "10_485_760"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "tools.media.audio.enabled",
+      "types": [
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "tools.media.audio.language",
+      "types": [
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "tools.media.audio.models",
+      "types": [
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "tools.path_env_vars",
+      "types": [
+        "array",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "tools.shell_max_output_bytes",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "1_048_576"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "tools.shell_timeout_secs",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "60"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "tools.web_fetch_max_chars",
+      "types": [
+        "int",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "100_000"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "tunnel.cloudflare.token",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "tunnel.custom.health_url",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "tunnel.custom.start_command",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "tunnel.custom.url_pattern",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "tunnel.ngrok.auth_token",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "tunnel.ngrok.domain",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "tunnel.provider",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "tunnel.tailscale.funnel",
+      "types": [
+        "bool",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "tunnel.tailscale.hostname",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config.example.json",
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "workspace",
+      "types": [
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    }
+  ]
+}
