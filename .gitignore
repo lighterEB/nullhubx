@@ -4,3 +4,20 @@ zig-out/
 .generated_ui_assets.zig
 src/.generated_ui_assets.zig
 AGENTS.md
+
+# Python tools and generated docs
+tools/
+*.py
+docs/*.json
+docs/*-coverage-report.md
+
+# Config visualization working docs (not for commit)
+docs/config-visualization/stage-*.md
+docs/config-visualization/phase-06-*.md
+docs/config-visualization/phase-progress.md
+docs/config-visualization/README.md
+CLAUDE.md
+
+# Test scripts (not code itself)
+tests/*.sh
+tests/*.py
