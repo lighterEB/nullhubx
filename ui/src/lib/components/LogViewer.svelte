@@ -3,11 +3,12 @@
   import { api } from "$lib/api/client";
   import type { LogSource } from "$lib/api/client";
 
-  let { component = "", name = "" } = $props();
+  let { component = "", name = "", initialSource = "instance" as LogSource } = $props();
   let lines = $state<string[]>([]);
   let container: HTMLElement;
   let autoScroll = $state(true);
   let source = $state<LogSource>("instance");
+  let lastInitialSource = $state<LogSource>("instance");
 
   const sourceLabels: Record<LogSource, string> = {
     instance: "实例",
@@ -38,6 +39,13 @@
     name;
     source;
     void fetchLogs();
+  });
+
+  $effect(() => {
+    if (initialSource !== lastInitialSource) {
+      source = initialSource;
+      lastInitialSource = initialSource;
+    }
   });
 
   function scrollToBottom() {

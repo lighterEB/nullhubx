@@ -1,0 +1,64 @@
+{
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "project": "./tsconfig.json",
+    "tsconfigRootDir": "."
+  },
+  "plugins": [
+    "@typescript-eslint",
+    "svelte"
+  ],
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:@typescript-eslint/eslint-recommended",
+    "plugin:svelte/recommended"
+  ],
+  "env": {
+    "browser": true,
+    "es2022": true,
+    "node": true
+  },
+  "rules": {
+    "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/no-unused-vars": ["warn", { 
+      "argsIgnorePattern": "^_",
+      "varsIgnorePattern": "^_"
+    }],
+    "@typescript-eslint/consistent-type-imports": ["error", {
+      "prefer": "type-imports",
+      "disallowTypeAnnotations": false
+    }],
+    "svelte/no-at-html-tags": "error",
+    "svelte/require-event-dispatcher": "error",
+    "svelte/require-store-callbacks-use-set-param": "error",
+    "svelte/valid-compile": "error",
+    "no-console": ["warn", { "allow": ["warn", "error"] }]
+  },
+  "settings": {
+    "svelte": {
+      "ignoreWarnings": [
+        "missing-custom-element-compile-options"
+      ]
+    }
+  },
+  "overrides": [
+    {
+      "files": ["*.svelte"],
+      "parser": "svelte-eslint-parser",
+      "parserOptions": {
+        "parser": "@typescript-eslint/parser",
+        "extraFileExtensions": [".svelte"]
+      }
+    }
+  ],
+  "ignorePatterns": [
+    "node_modules/",
+    "build/",
+    ".svelte-kit/",
+    "dist/",
+    "*.d.ts",
+    "*.generated.*"
+  ]
+}

@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import InstanceCard from "$lib/components/InstanceCard.svelte";
   import { status, statusError, instanceCount, runningCount, subscribeStatus, refreshStatus } from "$lib/statusStore";
 
   let unsubscribe: (() => void) | null = null;
@@ -12,282 +11,298 @@
   onDestroy(() => {
     unsubscribe?.();
   });
+
+  const componentCount = $derived(Object.keys($status?.instances || {}).length);
+
+  const recentInstances = $derived.by(() => {
+    const rows: Array<{ component: string; name: string; status: string; version: string }> = [];
+    const groups = $status?.instances || {};
+    for (const [component, instances] of Object.entries(groups)) {
+      for (const [name, info] of Object.entries(instances as Record<string, any>)) {
+        rows.push({
+          component,
+          name,
+          status: (info as any)?.status || "stopped",
+          version: (info as any)?.version || "-",
+        });
+      }
+    }
+    rows.sort((a, b) => `${a.component}/${a.name}`.localeCompare(`${b.component}/${b.name}`));
+    return rows.slice(0, 10);
+  });
 </script>
 
 <svelte:head>
-  <title>大盘图表 - NullHubX</title>
+  <title>总览 - NullHubX</title>
 </svelte:head>
 
 <div class="page">
-  <header class="page-header">
-    <div class="header-left">
-      <div class="breadcrumb">
-        <span class="breadcrumb-item">监控</span>
-        <span class="breadcrumb-sep">/</span>
-        <span class="breadcrumb-item active">大盘图表</span>
-      </div>
-      <h1>
-        系统总体 <span class="highlight">运行状态</span>
-      </h1>
-      <p class="subtitle">监控全局资源占用与活跃实例</p>
+  <header class="hero">
+    <div>
+      <h1>NullHubX 总览</h1>
+      <p>后端驱动的多实例管理入口：先看状态，再进工作区。</p>
     </div>
-    <div class="header-right">
-      <span class="badge badge-indigo">{$instanceCount} 个管理实例</span>
-      <span class="badge badge-emerald">{$runningCount} 正在运行</span>
-      <a href="/hub" class="btn-add">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        前往应用市场
-      </a>
-    </div>
+    <button class="refresh-btn" onclick={refreshStatus}>刷新状态</button>
   </header>
 
-  <hr class="divider" />
-
   {#if $statusError}
-    <div class="error-banner">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      <span>ERR: {$statusError}</span>
-    </div>
+    <div class="error-banner">状态拉取失败：{$statusError}</div>
   {/if}
 
-  {#if $status}
-    {#if Object.keys($status.instances || {}).length > 0}
-      <div class="instance-grid">
-        {#each Object.entries($status.instances || {}) as [component, instances], i}
-          {#each Object.entries(instances as Record<string, any>) as [name, info], j}
-            <div class="card-wrapper" style="animation-delay: {(i * 3 + j) * 60}ms">
-              <InstanceCard
-                {component}
-                {name}
-                version={info.version}
-                status={info.status || "stopped"}
-                autoStart={info.auto_start}
-                port={info.port || 0}
-                onAction={refreshStatus}
-              />
-            </div>
-          {/each}
-        {/each}
-      </div>
+  <section class="stats-grid">
+    <article class="stat-card">
+      <span>组件数量</span>
+      <strong>{componentCount}</strong>
+    </article>
+    <article class="stat-card">
+      <span>实例总数</span>
+      <strong>{$instanceCount}</strong>
+    </article>
+    <article class="stat-card">
+      <span>运行中实例</span>
+      <strong>{$runningCount}</strong>
+    </article>
+    <article class="stat-card">
+      <span>管理入口</span>
+      <strong>5</strong>
+    </article>
+  </section>
+
+  <section class="entry-grid">
+    <a class="entry-card" href="/instances">
+      <h2>实例工作区</h2>
+      <p>按组件分组管理实例，执行启动/停止/重启/更新。</p>
+    </a>
+    <a class="entry-card" href="/resources">
+      <h2>资源中心</h2>
+      <p>集中管理全局 Providers 与 Channels 共享资源。</p>
+    </a>
+    <a class="entry-card" href="/orchestration">
+      <h2>编排中心</h2>
+      <p>查看编排工作流与运行记录，联动 NullBoiler/NullTickets。</p>
+    </a>
+    <a class="entry-card" href="/hub">
+      <h2>应用市场</h2>
+      <p>安装或导入组件实例，补齐运行依赖。</p>
+    </a>
+  </section>
+
+  <section class="recent-card">
+    <div class="recent-header">
+      <h2>最近实例</h2>
+      <a href="/instances">进入实例页</a>
+    </div>
+    {#if recentInstances.length === 0}
+      <p class="empty">暂无实例。可前往应用市场安装组件。</p>
     {:else}
-      <div class="empty-state">
-        <div class="empty-icon-circle">
-          <span class="empty-symbol">◉</span>
-        </div>
-        <h2>暂无运行中的引擎</h2>
-        <p>请先在应用市场安装核心组件</p>
-        <a href="/hub" class="btn-add-empty">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          前往应用市场
-        </a>
-      </div>
+      <ul class="recent-list">
+        {#each recentInstances as row}
+          <li>
+            <a href={`/instances/${row.component}/${row.name}`}>{row.component}/{row.name}</a>
+            <span>{row.status}</span>
+            <span>{row.version}</span>
+          </li>
+        {/each}
+      </ul>
     {/if}
-  {/if}
+  </section>
 </div>
 
 <style>
   .page {
-    padding: var(--spacing-4xl) var(--spacing-5xl);
-    max-width: 1400px;
+    max-width: 1240px;
     margin: 0 auto;
-  }
-
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: var(--spacing-xl);
-  }
-
-  .header-left {
+    padding: var(--spacing-3xl);
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
-  }
-
-  .breadcrumb {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--slate-400);
-    letter-spacing: 1px;
-  }
-
-  .breadcrumb-sep {
-    color: var(--slate-300);
-  }
-
-  .breadcrumb-item.active {
-    color: var(--slate-600);
-  }
-
-  h1 {
-    font-family: var(--font-mono);
-    font-size: var(--text-3xl);
-    font-weight: 700;
-    color: var(--slate-900);
-    letter-spacing: 3px;
-  }
-
-  .highlight {
-    color: var(--indigo-600);
-  }
-
-  .subtitle {
-    font-family: var(--font-sans);
-    font-size: var(--text-base);
-    color: var(--slate-500);
-    margin-top: var(--spacing-xs);
-  }
-
-  .header-right {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-md);
-  }
-
-  .btn-add {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm) var(--spacing-lg);
-    background: var(--indigo-600);
-    color: white;
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    border-radius: var(--radius-md);
-    text-decoration: none;
-    transition: all var(--transition-fast);
-  }
-
-  .btn-add:hover {
-    background: var(--indigo-700);
-    transform: translateY(-1px);
-  }
-
-  .divider {
-    border: none;
-    height: 1px;
-    background: var(--slate-200);
-    margin: var(--spacing-xl) 0;
-  }
-
-  .error-banner {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-md) var(--spacing-lg);
-    background: rgba(239, 68, 68, 0.08);
-    border: 1px solid rgba(239, 68, 68, 0.2);
-    border-radius: var(--radius-md);
-    color: var(--red-500);
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    margin-bottom: var(--spacing-xl);
-  }
-
-  .instance-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
     gap: var(--spacing-xl);
   }
 
-  .card-wrapper {
-    opacity: 0;
-    animation: fadeUp 0.4s ease forwards;
-  }
-
-  @keyframes fadeUp {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .empty-state {
+  .hero {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding-top: 120px;
-    gap: 16px;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: var(--spacing-lg);
   }
 
-  .empty-icon-circle {
-    width: 64px;
-    height: 64px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #eef2ff;
-    border: 1px solid #c7d2fe;
-    border-radius: 50%;
-  }
-
-  .empty-symbol {
-    font-size: 24px;
-    color: #4f46e5;
-  }
-
-  .empty-state h2 {
-    font-family: var(--font-mono);
-    font-size: 18px;
-    font-weight: 700;
-    color: #1e1b4b;
-    letter-spacing: 1px;
+  h1 {
     margin: 0;
+    font-family: var(--font-mono);
+    font-size: 2rem;
+    color: var(--slate-900);
   }
 
-  .empty-state p {
-    font-family: var(--font-sans);
-    font-size: 14px;
-    color: #64748b;
-    margin: -4px 0 0 0;
+  .hero p {
+    margin: var(--spacing-xs) 0 0 0;
+    color: var(--slate-500);
   }
 
-  .btn-add-empty {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm) var(--spacing-lg);
+  .refresh-btn {
+    border: 1px solid var(--indigo-500);
     background: var(--indigo-600);
     color: white;
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    font-weight: 600;
-    letter-spacing: 0.5px;
     border-radius: var(--radius-md);
+    padding: 0.55rem 0.9rem;
+    cursor: pointer;
+  }
+
+  .error-banner {
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--red-200);
+    background: var(--red-50);
+    border-radius: var(--radius-md);
+    color: var(--red-700);
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--spacing-md);
+  }
+
+  .stat-card {
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius-lg);
+    background: white;
+    padding: var(--spacing-lg);
+  }
+
+  .stat-card span {
+    color: var(--slate-500);
+    font-size: var(--text-sm);
+  }
+
+  .stat-card strong {
+    margin-top: var(--spacing-xs);
+    display: block;
+    color: var(--slate-900);
+    font-size: 1.6rem;
+  }
+
+  .entry-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-md);
+  }
+
+  .entry-card {
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius-lg);
+    background: white;
+    padding: var(--spacing-lg);
     text-decoration: none;
+    color: inherit;
     transition: all var(--transition-fast);
-    margin-top: 8px;
   }
 
-  .btn-add-empty:hover {
-    background: var(--indigo-700);
-    transform: translateY(-1px);
+  .entry-card:hover {
+    border-color: var(--indigo-300);
+    transform: translateY(-2px);
   }
 
-  @media (max-width: 768px) {
+  .entry-card h2 {
+    margin: 0;
+    color: var(--slate-800);
+    font-size: var(--text-lg);
+  }
+
+  .entry-card p {
+    margin: var(--spacing-sm) 0 0 0;
+    color: var(--slate-500);
+    line-height: 1.45;
+  }
+
+  .recent-card {
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius-lg);
+    background: white;
+    padding: var(--spacing-xl);
+  }
+
+  .recent-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-md);
+  }
+
+  .recent-header h2 {
+    margin: 0;
+    color: var(--slate-800);
+    font-size: var(--text-lg);
+  }
+
+  .recent-header a {
+    color: var(--indigo-600);
+    text-decoration: none;
+    font-size: var(--text-sm);
+  }
+
+  .recent-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .recent-list li {
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius-md);
+    padding: 0.55rem 0.7rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) 0.8fr 0.7fr;
+    gap: var(--spacing-sm);
+    align-items: center;
+    font-size: var(--text-sm);
+  }
+
+  .recent-list li a {
+    color: var(--slate-800);
+    text-decoration: none;
+    font-family: var(--font-mono);
+  }
+
+  .recent-list li span {
+    color: var(--slate-500);
+  }
+
+  .empty {
+    margin: 0;
+    color: var(--slate-500);
+    border: 1px dashed var(--slate-300);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    background: var(--slate-50);
+  }
+
+  @media (max-width: 960px) {
     .page {
       padding: var(--spacing-xl);
     }
 
-    .page-header {
-      flex-direction: column;
-      gap: var(--spacing-lg);
+    .stats-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .header-right {
-      width: 100%;
-      justify-content: flex-start;
+    .entry-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 680px) {
+    .hero {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .stats-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .recent-list li {
+      grid-template-columns: 1fr;
     }
   }
 </style>

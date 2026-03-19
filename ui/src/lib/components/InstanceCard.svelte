@@ -1,6 +1,7 @@
 <script lang="ts">
   import StatusBadge from "./StatusBadge.svelte";
   import { api } from "$lib/api/client";
+  import { t } from "$lib/i18n/index.svelte";
 
   let {
     component = "",
@@ -25,6 +26,7 @@
   async function start(e: Event) {
     e.preventDefault();
     e.stopPropagation();
+    if (loading || localStatus === "starting" || localStatus === "restarting") return;
     loading = true;
     localStatus = "starting";
     try {
@@ -40,6 +42,7 @@
   async function stop(e: Event) {
     e.preventDefault();
     e.stopPropagation();
+    if (loading || localStatus === "stopping") return;
     loading = true;
     localStatus = "stopping";
     try {
@@ -55,7 +58,11 @@
   async function remove(e: Event) {
     e.preventDefault();
     e.stopPropagation();
-    if (!confirm(`确认删除实例 ${component}/${name} 吗？此操作不可撤销。`)) return;
+    if (loading || localStatus === "starting" || localStatus === "stopping") return;
+    const confirmMsg = t("instanceCard.confirmDelete")
+      .replace("{component}", component)
+      .replace("{name}", name);
+    if (!confirm(confirmMsg)) return;
     loading = true;
     try {
       await api.deleteInstance(component, name);
@@ -78,45 +85,57 @@
   };
 </script>
 
-<a href="/instances/{component}/{name}" class="instance-card">
-  <div class="accent-bar {colorMap[component] || 'indigo'}"></div>
+<article class="instance-card">
+  <a href="/instances/{component}/{name}" class="card-link">
+    <div class="accent-bar {colorMap[component] || 'indigo'}"></div>
 
-  <div class="card-top">
-    <div class="icon-box {colorMap[component] || 'indigo'}">
-      {iconMap[component] || "◈"}
+    <div class="card-top">
+      <div class="icon-box {colorMap[component] || 'indigo'}">
+        {iconMap[component] || "◈"}
+      </div>
+      <StatusBadge status={localStatus} />
     </div>
-    <StatusBadge status={localStatus} />
-  </div>
 
-  <h3 class="card-name">{name}</h3>
+    <h3 class="card-name">{name}</h3>
 
-  <div class="card-meta">
-    <span class="component-tag">{component}</span>
-    <span class="version">{displayVersion}</span>
-  </div>
-
-  {#if localStatus === "running" && port > 0}
-    <div class="gateway-info">
-      <span class="gateway-label">网关:</span>
-      <code class="gateway-addr">127.0.0.1:{port}</code>
+    <div class="card-meta">
+      <span class="component-tag">{component}</span>
+      <span class="version">{displayVersion}</span>
     </div>
-  {/if}
+
+    {#if localStatus === "running" && port > 0}
+      <div class="gateway-info">
+        <span class="gateway-label">{t("instanceCard.gateway")}:</span>
+        <code class="gateway-addr">127.0.0.1:{port}</code>
+      </div>
+    {/if}
+  </a>
 
   <div class="card-actions">
     {#if localStatus === "running" || localStatus === "stopping"}
-      <button class="btn-stop" onclick={stop} disabled={loading}>
-        {loading ? "停止中..." : "停止"}
+      <button class="btn-stop" onclick={stop} disabled={loading || localStatus === "stopping"}>
+        {loading || localStatus === "stopping" ? t("instanceCard.stopping") : t("instanceCard.stop")}
       </button>
     {:else}
-      <button class="btn-start" onclick={start} disabled={loading}>
-        {loading ? "启动中..." : "启动"}
+      <button
+        class="btn-start"
+        onclick={start}
+        disabled={loading || localStatus === "starting" || localStatus === "restarting"}
+      >
+        {loading || localStatus === "starting" || localStatus === "restarting"
+          ? t("instanceCard.starting")
+          : t("instanceCard.start")}
       </button>
     {/if}
-    <button class="btn-delete" onclick={remove} disabled={loading}>
-      删除
+    <button
+      class="btn-delete"
+      onclick={remove}
+      disabled={loading || localStatus === "starting" || localStatus === "stopping"}
+    >
+      {t("instanceCard.delete")}
     </button>
   </div>
-</a>
+</article>
 
 <style>
   .instance-card {
@@ -130,8 +149,6 @@
     border: 1px solid var(--slate-200);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
-    text-decoration: none;
-    color: inherit;
     transition: all var(--transition-base);
     overflow: hidden;
   }
@@ -163,6 +180,14 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
+  }
+
+  .card-link {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    text-decoration: none;
+    color: inherit;
   }
 
   .icon-box {

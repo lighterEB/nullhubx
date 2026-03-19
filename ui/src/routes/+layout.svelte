@@ -4,15 +4,22 @@
   import TopBar from '$lib/components/TopBar.svelte';
   import StatusBar from '$lib/components/StatusBar.svelte';
   import { redirectToPreferredOrigin } from '$lib/nullhubxAccess';
+  import { subscribeStatus } from '$lib/statusStore';
 
   let { children } = $props();
 
   // Run redirect check in background - don't block initial render
   onMount(() => {
+    const unsubscribeStatus = subscribeStatus();
+
     // Delay redirect check to let page render first
     setTimeout(() => {
       void redirectToPreferredOrigin(window.location);
     }, 100);
+
+    return () => {
+      unsubscribeStatus();
+    };
   });
 </script>
 

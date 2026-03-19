@@ -1,5 +1,6 @@
 import zhCN from './zh-CN';
 import enUS from './en-US';
+import { setErrorLocale } from '$lib/api/errorMessages';
 
 export type Locale = 'zh-CN' | 'en-US';
 export type Dictionary = typeof zhCN;
@@ -18,6 +19,8 @@ export const i18n = {
   },
   set locale(value: Locale) {
     currentLocale = value;
+    // 同步更新 API 错误消息语言
+    setErrorLocale(value);
   },
   get dict() {
     return dictionaries[currentLocale];

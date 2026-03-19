@@ -1,18 +1,17 @@
 <script lang="ts">
   import { page } from "$app/stores";
   import { onMount, onDestroy } from "svelte";
-  import { subscribeStatus, hubConnected } from "$lib/statusStore";
+  import { hubConnected } from "$lib/statusStore";
   import { t, i18n, type Locale } from "$lib/i18n/index.svelte";
 
   let currentPath = $derived($page.url.pathname);
-  let unsubscribe: (() => void) | null = null;
   let showLangMenu = $state(false);
 
   let navItems = $derived([
-    { href: "/", label: t("nav.overview") },
-    { href: "/agents", label: t("nav.agents") },
-    { href: "/connections", label: t("nav.connections") },
-    { href: "/hub", label: t("nav.hub") },
+    { href: "/", label: t("nav.dashboard") },
+    { href: "/instances", label: t("nav.instances") },
+    { href: "/resources", label: t("nav.resources") },
+    { href: "/orchestration", label: t("nav.orchestration") },
     { href: "/settings", label: t("nav.settings") }
   ]);
 
@@ -39,7 +38,6 @@
   }
 
   onMount(() => {
-    unsubscribe = subscribeStatus();
     // Restore locale from localStorage
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('nullhubx-locale') as Locale | null;
@@ -47,10 +45,6 @@
         i18n.locale = saved;
       }
     }
-  });
-
-  onDestroy(() => {
-    unsubscribe?.();
   });
 </script>
 
@@ -72,7 +66,7 @@
   <div class="topbar-right">
     <div class="live-sync">
       <span class="sync-dot" class:pulse-dot={$hubConnected}></span>
-      <span class="sync-label">LIVE SYNC</span>
+      <span class="sync-label">{t("topbar.liveSync")}</span>
     </div>
 
     <!-- Language Switcher -->
@@ -265,6 +259,15 @@
 
   .pulse-dot {
     animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+    }
+    50% {
+      box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+    }
   }
 
   @media (max-width: 1080px) {

@@ -1,10 +1,24 @@
 export default {
   nav: {
-    overview: '大盘图表',
+    overview: '总览',
+    dashboard: '总览',
+    instances: '实例',
+    resources: '资源',
+    orchestration: '编排',
     agents: '数字员工',
     connections: '连接中心',
     hub: '应用市场',
     settings: '系统设置'
+  },
+  topbar: {
+    liveSync: '实时同步'
+  },
+  statusBar: {
+    instances: '实例',
+    running: '运行中',
+    connectionError: '连接异常',
+    operational: '系统正常',
+    idle: '系统空闲'
   },
   common: {
     loading: '加载中...',
@@ -27,6 +41,38 @@ export default {
     noData: '暂无数据',
     comingSoon: '即将推出'
   },
+  status: {
+    running: '运行中',
+    stopped: '已停止',
+    starting: '启动中',
+    stopping: '停止中',
+    failed: '失败',
+    restarting: '重启中',
+    unknown: '未知'
+  },
+  instanceCard: {
+    confirmDelete: '确认删除实例 {component}/{name} 吗？此操作不可撤销。',
+    stopping: '停止中...',
+    starting: '启动中...',
+    stop: '停止',
+    start: '启动',
+    delete: '删除',
+    gateway: '网关',
+    version: '版本'
+  },
+  configEditor: {
+    notFound: '未找到配置，已使用空对象初始化',
+    invalidJson: 'JSON 无效，修复后再切换到可视化模式',
+    saving: '保存中...',
+    saved: '配置已保存',
+    savedAndRestarting: '配置已保存，实例正在重启',
+    save: '保存',
+    saveAndRestart: '保存并重启',
+    uiMode: '可视化',
+    rawMode: '原始 JSON',
+    switchToUi: '切换到可视化模式',
+    switchToRaw: '切换到原始模式'
+  },
   hub: {
     title: '应用市场',
     subtitle: '安装和管理 NullClaw 生态组件',
@@ -40,7 +86,9 @@ export default {
     instances: '个实例',
     import: '导入',
     importing: '导入中...',
-    notify: '通知我'
+    notify: '通知我',
+    importFailed: '导入失败：{error}',
+    installNewComponent: '安装新组件'
   },
   settings: {
     title: '系统设置',
@@ -68,7 +116,8 @@ export default {
     disableAutostart: '禁用自启动',
     saving: '保存中...',
     saveSettings: '保存设置',
-    settingsSaved: '设置已保存'
+    settingsSaved: '设置已保存',
+    error: '错误：{message}'
   },
   connections: {
     title: '连接中心',
@@ -98,12 +147,78 @@ export default {
     bindings: '绑定',
     channels: '渠道'
   },
-  status: {
-    online: '在线',
-    offline: '离线',
-    starting: '启动中',
-    stopping: '停止中',
-    error: '错误',
-    unknown: '未知'
+  instances: {
+    title: '实例工作区',
+    subtitle: '按组件分组管理实例，执行启动/停止/重启/更新',
+    allComponents: '全部组件',
+    installNew: '安装新组件',
+    instanceList: '实例列表',
+    searchPlaceholder: '搜索 组件/实例',
+    emptyState: '暂无实例。可前往应用市场安装组件。',
+    running: '运行中',
+    total: '总计'
+  },
+  orchestration: {
+    title: '编排中心',
+    subtitle: '面向 NullBoiler / NullTickets 的编排入口',
+    unavailable: '编排后端暂不可用',
+    unavailableHint: '未检测到 NullBoiler 实例，编排中心暂不可用。',
+    hint: '请先在实例中完成 NullBoiler/NullTickets 的安装与集成，再回到此页。',
+    workflows: '工作流',
+    runs: '运行记录',
+    workflowCount: '工作流数量',
+    runCount: '运行记录数量',
+    refreshing: '刷新中...',
+    refresh: '刷新'
+  },
+  instanceDetail: {
+    confirmDelete: '确认删除实例 {component}/{name} 吗？此操作不可撤销。',
+    deleting: '删除中...',
+    delete: '删除实例',
+    starting: '启动中...',
+    start: '启动',
+    stopping: '停止中...',
+    stop: '停止',
+    restarting: '重启中...',
+    restart: '重启',
+    updating: '更新中...',
+    update: '检查更新',
+    saveDefaults: '保存默认值',
+    savingDefaults: '保存中...',
+    defaultsSaved: '默认值已保存',
+    launchDialog: {
+      start: '启动',
+      restart: '重启',
+      launchMode: '启动模式',
+      verbose: '详细日志',
+      persistDefaults: '保存为默认值',
+      cancel: '取消'
+    },
+    tabs: {
+      overview: '总览',
+      agents: '代理',
+      config: '配置',
+      logs: '日志',
+      usage: '用量',
+      history: '历史',
+      memory: '记忆',
+      skills: '技能',
+      integration: '集成'
+    },
+    statusLabels: {
+      running: '运行中',
+      stopped: '已停止',
+      starting: '启动中',
+      stopping: '停止中',
+      failed: '失败',
+      restarting: '重启中',
+      unknown: '未知'
+    }
+  },
+  error: {
+    requestFailed: '请求失败',
+    timeout: '请求超时（{seconds}s）：{path}',
+    statusFetchFailed: '状态拉取失败：{error}',
+    loadFailed: '加载失败：{error}'
   }
 };

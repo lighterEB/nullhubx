@@ -34,11 +34,11 @@
 
   const serviceButtonLabel = $derived.by(() => {
     if (serviceLoading) {
-      if (serviceAction === "install") return "Enabling...";
-      if (serviceAction === "uninstall") return "Disabling...";
-      return "Checking...";
+      if (serviceAction === "install") return "启用中...";
+      if (serviceAction === "uninstall") return "停用中...";
+      return "检查中...";
     }
-    return service.registered ? "Disable Autostart" : "Enable Autostart";
+    return service.registered ? "禁用开机自启" : "启用开机自启";
   });
 
   onMount(async () => {
@@ -73,11 +73,11 @@
       const data = await api.serviceStatus();
       applyServiceStatus(data);
       if (data?.status === "error" && showErrorMessage) {
-        setMessage(data?.message || "Failed to load service status", "error");
+        setMessage(data?.message || "加载服务状态失败", "error");
       }
     } catch (e) {
-      applyServiceStatus({ status: "error", message: (e as Error).message || "Failed to load service status" });
-      if (showErrorMessage) setMessage(`Error: ${(e as Error).message}`, "error");
+      applyServiceStatus({ status: "error", message: (e as Error).message || "加载服务状态失败" });
+      if (showErrorMessage) setMessage(`错误：${(e as Error).message}`, "error");
     } finally {
       serviceLoading = false;
       serviceAction = null;
@@ -92,13 +92,13 @@
       const data = enabling ? await api.serviceInstall() : await api.serviceUninstall();
       applyServiceStatus(data);
       if (data?.status === "error") {
-        setMessage(data?.message || "Failed to update service", "error");
+        setMessage(data?.message || "更新服务状态失败", "error");
         return;
       }
       await refreshServiceStatus(false);
-      setMessage(data?.message || (enabling ? "Service enabled" : "Service disabled"));
+      setMessage(data?.message || (enabling ? "服务已启用" : "服务已停用"));
     } catch (e) {
-      setMessage(`Error: ${(e as Error).message}`, "error");
+      setMessage(`错误：${(e as Error).message}`, "error");
     } finally {
       serviceLoading = false;
       serviceAction = null;
@@ -110,9 +110,9 @@
     try {
       const { access, ...payload } = settings;
       await api.putSettings(payload);
-      setMessage("Settings saved");
+      setMessage("设置已保存");
     } catch (e) {
-      setMessage(`Error: ${(e as Error).message}`, "error");
+      setMessage(`错误：${(e as Error).message}`, "error");
     } finally {
       saving = false;
     }
@@ -120,19 +120,19 @@
 </script>
 
 <svelte:head>
-  <title>Settings - NullHubX</title>
+  <title>系统设置 - NullHubX</title>
 </svelte:head>
 
 <div class="page">
   <header class="page-header">
     <div class="header-left">
       <div class="breadcrumb">
-        <span class="breadcrumb-item">System</span>
+        <span class="breadcrumb-item">系统</span>
         <span class="breadcrumb-sep">/</span>
-        <span class="breadcrumb-item active">Settings</span>
+        <span class="breadcrumb-item active">设置</span>
       </div>
-      <h1>SYSTEM <span class="highlight">SETTINGS</span></h1>
-      <p class="subtitle">Configure NullHubX server and service preferences</p>
+      <h1>系统 <span class="highlight">设置</span></h1>
+      <p class="subtitle">配置 NullHubX 服务器与服务偏好</p>
     </div>
   </header>
 
@@ -151,63 +151,63 @@
 
   <div class="settings-grid">
     <section class="settings-section">
-      <h2>Server</h2>
+      <h2>服务器</h2>
       <div class="field">
-        <label for="settings-port">Port</label>
+        <label for="settings-port">端口</label>
         <input id="settings-port" type="number" bind:value={settings.port} />
-        <p class="hint">The port NullHubX listens on</p>
+        <p class="hint">NullHubX 监听端口</p>
       </div>
       <div class="field">
-        <label for="settings-host">Host</label>
+        <label for="settings-host">主机地址</label>
         <input id="settings-host" type="text" bind:value={settings.host} />
-        <p class="hint">Bind address (use 0.0.0.0 for all interfaces)</p>
+        <p class="hint">绑定地址（0.0.0.0 表示监听所有网卡）</p>
       </div>
     </section>
 
     <section class="settings-section">
-      <h2>Security</h2>
+      <h2>安全</h2>
       <div class="field">
-        <label for="settings-auth-token">Auth Token</label>
-        <input id="settings-auth-token" type="password" bind:value={settings.auth_token} placeholder="Leave empty to disable" />
-        <p class="hint">Set a token to enable remote access authentication</p>
+        <label for="settings-auth-token">认证令牌</label>
+        <input id="settings-auth-token" type="password" bind:value={settings.auth_token} placeholder="留空表示关闭认证" />
+        <p class="hint">设置后可启用远程访问认证</p>
       </div>
     </section>
 
     <section class="settings-section">
-      <h2>Updates</h2>
+      <h2>更新</h2>
       <label class="toggle-field">
         <input type="checkbox" bind:checked={settings.auto_update_check} />
         <span class="toggle-slider"></span>
-        <span class="toggle-label">Auto-check for updates</span>
+        <span class="toggle-label">自动检查更新</span>
       </label>
     </section>
 
     <section class="settings-section">
-      <h2>Service</h2>
-      <p class="section-hint">Register NullHubX as a system service for automatic startup</p>
+      <h2>服务</h2>
+      <p class="section-hint">将 NullHubX 注册为系统服务以支持开机自启</p>
 
       <div class="service-panel">
         <div class="service-row">
-          <span class="service-label">Autostart</span>
+          <span class="service-label">开机自启</span>
           <span class="service-badge" class:active={service.registered}>
-            {service.registered ? "Enabled" : "Disabled"}
+            {service.registered ? "已启用" : "已禁用"}
           </span>
         </div>
         <div class="service-row">
-          <span class="service-label">Runtime</span>
+          <span class="service-label">运行状态</span>
           <span class="service-badge" class:active={service.running}>
-            {service.running ? "Running" : "Stopped"}
+            {service.running ? "运行中" : "已停止"}
           </span>
         </div>
         {#if service.service_type}
           <div class="service-detail">
-            <span class="service-label">Service Type</span>
+            <span class="service-label">服务类型</span>
             <code>{service.service_type}</code>
           </div>
         {/if}
         {#if service.unit_path}
           <div class="service-detail">
-            <span class="service-label">Unit Path</span>
+            <span class="service-label">单元路径</span>
             <code>{service.unit_path}</code>
           </div>
         {/if}
@@ -216,7 +216,7 @@
             {serviceButtonLabel}
           </button>
           <button class="btn-secondary" onclick={() => refreshServiceStatus()} disabled={serviceLoading}>
-            Refresh
+            刷新
           </button>
         </div>
       </div>
@@ -224,7 +224,7 @@
 
     <div class="actions-bar">
       <button class="btn-save" onclick={save} disabled={saving}>
-        {saving ? "Saving..." : "Save Settings"}
+        {saving ? "保存中..." : "保存设置"}
       </button>
     </div>
   </div>

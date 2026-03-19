@@ -1,6 +1,13 @@
 import { createOrchestrationApi } from '$lib/api/orchestration';
+import { formatTimeoutError } from './errorMessages';
 
 const BASE = '/api';
+const REQUEST_TIMEOUT_MS = 30000;
+const STATUS_TIMEOUT_MS = 8000;
+
+type RequestOptions = RequestInit & {
+  timeoutMs?: number;
+};
 
 function withQuery(path: string, params: Record<string, string | number | boolean | null | undefined>): string {
   const search = new URLSearchParams();
@@ -20,16 +27,27 @@ type InstanceStartOptions = {
   verbose?: boolean;
 };
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
+async function request<T>(path: string, options?: RequestOptions): Promise<T> {
+  const timeoutMs = options?.timeoutMs ?? REQUEST_TIMEOUT_MS;
+  const { timeoutMs: _timeoutMs, ...fetchOptions } = options ?? {};
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
-  
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let res: Response;
+
   try {
-    const res = await fetch(`${BASE}${path}`, {
-      headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal,
-      ...options
-    });
+    try {
+      res = await fetch(`${BASE}${path}`, {
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        ...fetchOptions
+      });
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw new Error(formatTimeoutError(timeoutMs, path));
+      }
+      throw err;
+    }
+
     if (!res.ok) {
       const body = await res.json().catch(() => null);
       const errMsg =
@@ -50,11 +68,12 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  getStatus: () => request<any>('/status'),
+  getStatus: () => request<any>('/status', { timeoutMs: STATUS_TIMEOUT_MS }),
   getGlobalUsage: (window: '24h' | '7d' | '30d' | 'all' = '24h') =>
     request<any>(`/usage?window=${window}`),
   getComponents: () => request<any>('/components'),
   getInstances: () => request<any>('/instances'),
+  getInstance: (c: string, n: string) => request<any>(`/instances/${c}/${n}`),
   getWizard: (component: string) => request<any>(`/wizard/${component}`),
   getVersions: (component: string) => request<any>(`/wizard/${component}/versions`),
   getWizardModels: (component: string, provider: string, apiKey = '') =>

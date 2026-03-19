@@ -1,10 +1,24 @@
 export default {
   nav: {
     overview: 'Overview',
+    dashboard: 'Dashboard',
+    instances: 'Instances',
+    resources: 'Resources',
+    orchestration: 'Orchestration',
     agents: 'Agents',
     connections: 'Connections',
     hub: 'Hub',
     settings: 'Settings'
+  },
+  topbar: {
+    liveSync: 'Live Sync'
+  },
+  statusBar: {
+    instances: 'Instances',
+    running: 'running',
+    connectionError: 'Connection Error',
+    operational: 'System Operational',
+    idle: 'System Idle'
   },
   common: {
     loading: 'Loading...',
@@ -27,6 +41,38 @@ export default {
     noData: 'No data',
     comingSoon: 'Coming Soon'
   },
+  status: {
+    running: 'Running',
+    stopped: 'Stopped',
+    starting: 'Starting',
+    stopping: 'Stopping',
+    failed: 'Failed',
+    restarting: 'Restarting',
+    unknown: 'Unknown'
+  },
+  instanceCard: {
+    confirmDelete: 'Are you sure you want to delete instance {component}/{name}? This action cannot be undone.',
+    stopping: 'Stopping...',
+    starting: 'Starting...',
+    stop: 'Stop',
+    start: 'Start',
+    delete: 'Delete',
+    gateway: 'Gateway',
+    version: 'Version'
+  },
+  configEditor: {
+    notFound: 'Configuration not found, initialized with empty object',
+    invalidJson: 'Invalid JSON, fix it before switching to UI mode',
+    saving: 'Saving...',
+    saved: 'Configuration saved',
+    savedAndRestarting: 'Configuration saved, instance is restarting',
+    save: 'Save',
+    saveAndRestart: 'Save & Restart',
+    uiMode: 'UI Mode',
+    rawMode: 'Raw JSON',
+    switchToUi: 'Switch to UI Mode',
+    switchToRaw: 'Switch to Raw Mode'
+  },
   hub: {
     title: 'Hub',
     subtitle: 'Install and manage NullClaw ecosystem components',
@@ -40,7 +86,9 @@ export default {
     instances: 'instances',
     import: 'Import',
     importing: 'Importing...',
-    notify: 'Notify me'
+    notify: 'Notify me',
+    importFailed: 'Import failed: {error}',
+    installNewComponent: 'Install New Component'
   },
   settings: {
     title: 'Settings',
@@ -68,7 +116,8 @@ export default {
     disableAutostart: 'Disable Autostart',
     saving: 'Saving...',
     saveSettings: 'Save Settings',
-    settingsSaved: 'Settings saved'
+    settingsSaved: 'Settings saved',
+    error: 'Error: {message}'
   },
   connections: {
     title: 'Connections',
@@ -98,12 +147,78 @@ export default {
     bindings: 'Bindings',
     channels: 'Channels'
   },
-  status: {
-    online: 'Online',
-    offline: 'Offline',
-    starting: 'Starting',
-    stopping: 'Stopping',
-    error: 'Error',
-    unknown: 'Unknown'
+  instances: {
+    title: 'Instances Workspace',
+    subtitle: 'Manage instances grouped by component, start/stop/restart/update',
+    allComponents: 'All Components',
+    installNew: 'Install New Component',
+    instanceList: 'Instance List',
+    searchPlaceholder: 'Search component/instance',
+    emptyState: 'No instances. Go to Hub to install components.',
+    running: 'Running',
+    total: 'Total'
+  },
+  orchestration: {
+    title: 'Orchestration',
+    subtitle: 'Orchestration entry for NullBoiler / NullTickets',
+    unavailable: 'Orchestration Backend Unavailable',
+    unavailableHint: 'No NullBoiler instance detected, orchestration is temporarily unavailable.',
+    hint: 'Please complete NullBoiler/NullTickets installation and integration in instances first, then return to this page.',
+    workflows: 'Workflows',
+    runs: 'Runs',
+    workflowCount: 'Workflow Count',
+    runCount: 'Run Count',
+    refreshing: 'Refreshing...',
+    refresh: 'Refresh'
+  },
+  instanceDetail: {
+    confirmDelete: 'Are you sure you want to delete instance {component}/{name}? This action cannot be undone.',
+    deleting: 'Deleting...',
+    delete: 'Delete Instance',
+    starting: 'Starting...',
+    start: 'Start',
+    stopping: 'Stopping...',
+    stop: 'Stop',
+    restarting: 'Restarting...',
+    restart: 'Restart',
+    updating: 'Updating...',
+    update: 'Check for Updates',
+    saveDefaults: 'Save Defaults',
+    savingDefaults: 'Saving...',
+    defaultsSaved: 'Defaults saved',
+    launchDialog: {
+      start: 'Start',
+      restart: 'Restart',
+      launchMode: 'Launch Mode',
+      verbose: 'Verbose Logs',
+      persistDefaults: 'Save as Defaults',
+      cancel: 'Cancel'
+    },
+    tabs: {
+      overview: 'Overview',
+      agents: 'Agents',
+      config: 'Configuration',
+      logs: 'Logs',
+      usage: 'Usage',
+      history: 'History',
+      memory: 'Memory',
+      skills: 'Skills',
+      integration: 'Integration'
+    },
+    statusLabels: {
+      running: 'Running',
+      stopped: 'Stopped',
+      starting: 'Starting',
+      stopping: 'Stopping',
+      failed: 'Failed',
+      restarting: 'Restarting',
+      unknown: 'Unknown'
+    }
+  },
+  error: {
+    requestFailed: 'Request Failed',
+    timeout: 'Request timeout ({seconds}s): {path}',
+    statusFetchFailed: 'Status fetch failed: {error}',
+    loadFailed: 'Load failed: {error}'
   }
 };

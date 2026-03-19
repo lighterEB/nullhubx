@@ -4,6 +4,7 @@
   import ConfigEditorUI from "./ConfigEditorUI.svelte";
   import StructuredConfigEditor from "./StructuredConfigEditor.svelte";
   import { supportsStructuredConfig } from "./componentConfigSchemas";
+  import { t } from "$lib/i18n/index.svelte";
 
   let {
     component = "",
@@ -42,7 +43,7 @@
     } catch (e) {
       configObj = {};
       configText = "{}";
-      message = "未找到配置，已使用空对象初始化";
+      message = t("configEditor.notFound");
       error = false;
     }
     loaded = true;
@@ -56,7 +57,7 @@
       try {
         configObj = JSON.parse(configText);
       } catch (e) {
-        message = "JSON 无效，修复后再切换到可视化模式";
+        message = t("configEditor.invalidJson");
         error = true;
         return;
       }
@@ -89,10 +90,10 @@
       saved = true;
 
       if (restartAfterSave) {
+        message = t("configEditor.savedAndRestarting");
         await api.restartInstance(component, name);
-        message = "配置已保存，实例正在重启";
       } else {
-        message = "配置已保存";
+        message = t("configEditor.saved");
       }
 
       error = false;
@@ -100,9 +101,9 @@
     } catch (e) {
       const err = (e as Error).message;
       if (saved && restartAfterSave) {
-        message = `配置已保存，但重启失败：${err}`;
+        message = `${t("configEditor.saved")}，${t("common.restart")}：${err}`;
       } else {
-        message = `错误：${err}`;
+        message = `${t("common.error")}：${err}`;
       }
       error = true;
     } finally {
@@ -117,20 +118,20 @@
   <div class="editor-header">
     {#if supportsUi}
       <div class="mode-toggle">
-        <button class="mode-btn" class:active={mode === 'ui'} onclick={() => switchMode('ui')}>可视化</button>
-        <button class="mode-btn" class:active={mode === 'raw'} onclick={() => switchMode('raw')}>原始</button>
+        <button class="mode-btn" class:active={mode === 'ui'} onclick={() => switchMode('ui')}>{t("configEditor.uiMode")}</button>
+        <button class="mode-btn" class:active={mode === 'raw'} onclick={() => switchMode('raw')}>{t("configEditor.rawMode")}</button>
       </div>
     {:else}
       <div class="mode-toggle">
-        <button class="mode-btn active">原始</button>
+        <button class="mode-btn active">{t("configEditor.rawMode")}</button>
       </div>
     {/if}
     <div class="action-buttons">
       <button class="save-btn" onclick={() => save()} disabled={busy}>
-        {action === "save" ? "保存中..." : "保存"}
+        {action === "save" ? t("common.saving") : t("common.save")}
       </button>
       <button class="save-btn secondary" onclick={() => save(true)} disabled={busy}>
-        {action === "save-restart" ? "重启中..." : "保存并重启"}
+        {action === "save-restart" ? t("common.restarting") : t("configEditor.saveAndRestart")}
       </button>
     </div>
   </div>

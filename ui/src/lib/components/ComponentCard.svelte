@@ -73,30 +73,30 @@
   </div>
 </div>
 {:else}
-<a href="/hub/{name}" class="component-card featured">
-  <div class="accent-bar {colorMap[name] || 'indigo'}"></div>
+<article class="component-card featured">
+  <a href="/hub/{name}" class="card-link">
+    <div class="accent-bar {colorMap[name] || 'indigo'}"></div>
 
-  <div class="card-top">
-    <div class="icon-box {colorMap[name] || 'indigo'}">
-      {iconMap[name] || "◈"}
+    <div class="card-top">
+      <div class="icon-box {colorMap[name] || 'indigo'}">
+        {iconMap[name] || "◈"}
+      </div>
+      <div class="badges">
+        {#if imported}
+          <span class="import-badge">IMPORTED</span>
+        {:else if standalone}
+          <span class="instance-badge">STANDALONE</span>
+        {:else if installed}
+          <span class="instance-badge">{instanceCount} instance{instanceCount !== 1 ? "s" : ""}</span>
+        {:else}
+          <span class="import-badge">AVAILABLE</span>
+        {/if}
+      </div>
     </div>
-    <div class="badges">
-      {#if imported}
-        <span class="import-badge">IMPORTED</span>
-      {:else if standalone}
-        <button class="import-btn" onclick={handleImport} disabled={importing}>
-          {importing ? "..." : "IMPORT"}
-        </button>
-      {:else if installed}
-        <span class="instance-badge">{instanceCount} instance{instanceCount !== 1 ? "s" : ""}</span>
-      {:else}
-        <span class="import-badge">AVAILABLE</span>
-      {/if}
-    </div>
-  </div>
 
-  <h3 class="card-name">{displayName}</h3>
-  <p class="card-description">{description}</p>
+    <h3 class="card-name">{displayName}</h3>
+    <p class="card-description">{description}</p>
+  </a>
 
   <div class="card-footer">
     <div class="tag-row">
@@ -105,9 +105,7 @@
       <span class="tag">v2.4.1</span>
     </div>
     {#if !installed && !standalone}
-      <button class="btn-install" onclick={(e) => { e.preventDefault(); }}>
-        Install →
-      </button>
+      <span class="btn-install passive">Install →</span>
     {:else if standalone && !imported}
       <button class="btn-install" onclick={handleImport} disabled={importing}>
         {importing ? "Importing..." : "Import →"}
@@ -119,7 +117,7 @@
       </div>
     {/if}
   </div>
-</a>
+</article>
 {/if}
 
 <style>
@@ -180,6 +178,14 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
+  }
+
+  .card-link {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    text-decoration: none;
+    color: inherit;
   }
 
   .icon-box {
@@ -334,6 +340,11 @@
     border-radius: var(--radius-md);
     cursor: pointer;
     transition: all var(--transition-fast);
+  }
+
+  .btn-install.passive {
+    cursor: default;
+    user-select: none;
   }
 
   .btn-install:hover:not(:disabled) {

@@ -1,16 +1,19 @@
 <script lang="ts">
+  import { t } from "$lib/i18n/index.svelte";
+
   let { status = "stopped" } = $props();
 
-  const statusConfig: Record<string, { bg: string; color: string; text: string }> = {
-    running: { bg: "rgba(16, 185, 129, 0.12)", color: "var(--emerald-500)", text: "运行中" },
-    stopped: { bg: "var(--slate-100)", color: "var(--slate-500)", text: "已停止" },
-    starting: { bg: "rgba(99, 102, 241, 0.12)", color: "var(--indigo-500)", text: "启动中" },
-    stopping: { bg: "rgba(99, 102, 241, 0.12)", color: "var(--indigo-500)", text: "停止中" },
-    failed: { bg: "rgba(239, 68, 68, 0.12)", color: "var(--red-500)", text: "失败" },
-    restarting: { bg: "rgba(245, 158, 11, 0.12)", color: "var(--amber-500)", text: "重启中" },
+  const statusConfig: Record<string, { bg: string; color: string; textKey: string }> = {
+    running: { bg: "rgba(16, 185, 129, 0.12)", color: "var(--emerald-500)", textKey: "status.running" },
+    stopped: { bg: "var(--slate-100)", color: "var(--slate-500)", textKey: "status.stopped" },
+    starting: { bg: "rgba(99, 102, 241, 0.12)", color: "var(--indigo-500)", textKey: "status.starting" },
+    stopping: { bg: "rgba(99, 102, 241, 0.12)", color: "var(--indigo-500)", textKey: "status.stopping" },
+    failed: { bg: "rgba(239, 68, 68, 0.12)", color: "var(--red-500)", textKey: "status.failed" },
+    restarting: { bg: "rgba(245, 158, 11, 0.12)", color: "var(--amber-500)", textKey: "status.restarting" },
   };
 
   let config = $derived(statusConfig[status] || statusConfig.stopped);
+  let statusText = $derived(t(config.textKey));
 </script>
 
 <span
@@ -19,7 +22,7 @@
   style="--bg: {config.bg}; --color: {config.color}"
 >
   <span class="dot" class:pulse={status === "running"}></span>
-  {config.text}
+  {statusText}
 </span>
 
 <style>

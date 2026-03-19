@@ -1,32 +1,23 @@
 <script lang="ts">
-  import { onMount, onDestroy } from "svelte";
-  import { subscribeStatus, runningCount, hubVersion, statusError } from "$lib/statusStore";
+  import { runningCount, hubVersion, statusError } from "$lib/statusStore";
+  import { t } from "$lib/i18n/index.svelte";
 
-  let unsubscribe: (() => void) | null = null;
   let error = $derived($statusError !== null);
-
-  onMount(() => {
-    unsubscribe = subscribeStatus();
-  });
-
-  onDestroy(() => {
-    unsubscribe?.();
-  });
 </script>
 
 <footer class="statusbar">
   <div class="statusbar-left">
     <span class="status-item">NULLHUBX <span class="status-value">v{$hubVersion}</span></span>
     <span class="divider">|</span>
-    <span class="status-item">INSTANCES <span class="status-value">{$runningCount} running</span></span>
+    <span class="status-item">{t("statusBar.instances")} <span class="status-value">{$runningCount} {t("statusBar.running")}</span></span>
   </div>
   <div class="statusbar-right">
     {#if error}
-      <span class="status-error">CONNECTION ERROR</span>
+      <span class="status-error">{t("statusBar.connectionError")}</span>
     {:else if $runningCount > 0}
-      <span class="status-nominal">SYS OPERATIONAL</span>
+      <span class="status-nominal">{t("statusBar.operational")}</span>
     {:else}
-      <span class="status-idle">SYS IDLE</span>
+      <span class="status-idle">{t("statusBar.idle")}</span>
     {/if}
   </div>
 </footer>
