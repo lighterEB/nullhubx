@@ -605,7 +605,7 @@ pub fn installUiModule(
 }
 
 /// Build a UI module from a local sibling repository.
-/// Looks for ../{module_name}/ relative to CWD, runs `npm run build:module`,
+/// Looks for ../{module_name}/ relative to CWD, runs `bun run build:module`
 /// and copies the dist/ output to dest_dir.
 fn buildLocalUiModule(allocator: std.mem.Allocator, module_name: []const u8, dest_dir: []const u8) bool {
     const module_dir = findLocalUiModuleDir(allocator, module_name) orelse return false;
@@ -636,10 +636,14 @@ fn buildLocalUiModuleFromDir(allocator: std.mem.Allocator, module_dir: []const u
     const module_dir_z = allocator.dupeZ(u8, module_dir) catch return false;
     defer allocator.free(module_dir_z);
 
-    // Run npm run build:module
+    if (!commandExists(allocator, "bun")) {
+        std.debug.print("UI module build requires bun in PATH.\n", .{});
+        return false;
+    }
+
     const build_result = std.process.Child.run(.{
         .allocator = allocator,
-        .argv = &.{ "npm", "run", "build:module" },
+        .argv = &.{ "bun", "run", "build:module" },
         .cwd = module_dir_z,
     }) catch return false;
     defer allocator.free(build_result.stdout);
@@ -696,6 +700,16 @@ pub fn syncLocalUiModules(allocator: std.mem.Allocator, p: paths_mod.Paths) void
             }
         }
     }
+}
+
+fn commandExists(allocator: std.mem.Allocator, cmd: []const u8) bool {
+    const result = std.process.Child.run(.{
+        .allocator = allocator,
+        .argv = &.{ "sh", "-c", "command -v $1", "_", cmd },
+    }) catch return false;
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+    return result.term.Exited == 0;
 }
 
 /// Write content to a file at an absolute path, creating the file if needed.

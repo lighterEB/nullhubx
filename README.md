@@ -74,7 +74,7 @@ zig build
 
 ### 构建依赖
 
-- `npm` 或 `bun` - 构建 Svelte UI
+- `bun` - 构建 Svelte UI
 
 当缺少依赖时，nullhubx 会尝试通过系统包管理器自动安装。
 
@@ -130,8 +130,7 @@ zig build test
 前端开发：
 
 ```bash
-cd ui && npm run dev
-# 或使用 bun
+cd ui && bun install
 cd ui && bun run dev
 ```
 

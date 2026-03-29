@@ -35,12 +35,10 @@ jobs:
         with:
           version: 0.15.2
 
-      - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: ui/package-lock.json
+          bun-version-file: ui/package.json
 
       - name: Cache .zig-cache
         uses: actions/cache@v4
@@ -67,8 +65,8 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           cd ui
-          npm ci
-          npm run build
+          bun install --frozen-lockfile
+          bun run build
 
       - name: Job summary
         if: always()

@@ -40,7 +40,7 @@
 执行：
 
 ```bash
-cd ui && npm run build
+cd ui && bun run build
 ```
 
 结果：通过。

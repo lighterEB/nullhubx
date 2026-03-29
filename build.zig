@@ -33,10 +33,9 @@ pub fn build(b: *std.Build) void {
     const app_version = b.option([]const u8, "version", "Version string embedded in the binary") orelse "dev";
     const embed_ui = b.option(bool, "embed-ui", "Embed the Svelte UI into the binary") orelse true;
     const build_ui = b.option(bool, "build-ui", "Build the UI before embedding it") orelse embed_ui;
-    const package_manager = b.option([]const u8, "package-manager", "Package manager to use (npm, bun, or auto)") orelse "auto";
 
     if (embed_ui) {
-        if (build_ui) ensureUiBuildReady(b, package_manager);
+        if (build_ui) ensureUiBuildReady(b);
         ensureUiBuildExists();
     }
 
@@ -93,41 +92,20 @@ fn createUiAssetsModule(b: *std.Build, embed_ui: bool) *std.Build.Module {
     return b.createModule(.{ .root_source_file = b.path(GeneratedUiAssetsPath) });
 }
 
-fn ensureUiBuildReady(b: *std.Build, package_manager: []const u8) void {
-    const pm = detectPackageManager(b.allocator, package_manager);
-    const is_bun = std.mem.eql(u8, pm, "bun");
+fn ensureUiBuildReady(b: *std.Build) void {
+    if (!commandExists(b.allocator, "bun")) {
+        std.debug.panic("bun is required to build the embedded UI; please install bun and retry", .{});
+    }
+
+    if (!pathExists("ui/bun.lock")) {
+        std.debug.panic("ui/bun.lock is missing; run `bun install` in `ui/` and commit the lockfile", .{});
+    }
 
     if (!pathExists("ui/node_modules")) {
-        if (is_bun) {
-            runCommandOrPanic(b.allocator, &.{ "sh", "-c", "cd ui && bun install" });
-        } else {
-            runCommandOrPanic(b.allocator, &.{ "sh", "-c", "cd ui && npm install" });
-        }
+        runCommandOrPanic(b.allocator, &.{ "sh", "-c", "cd ui && bun install --frozen-lockfile" });
     }
 
-    if (is_bun) {
-        runCommandOrPanic(b.allocator, &.{ "sh", "-c", "cd ui && bun run build" });
-    } else {
-        runCommandOrPanic(b.allocator, &.{ "sh", "-c", "cd ui && npm run build" });
-    }
-}
-
-fn detectPackageManager(allocator: std.mem.Allocator, preference: []const u8) []const u8 {
-    // If user explicitly specified npm or bun, use that
-    if (std.mem.eql(u8, preference, "npm")) {
-        if (commandExists(allocator, "npm")) return "npm";
-        std.debug.panic("npm was requested but not found in PATH", .{});
-    }
-    if (std.mem.eql(u8, preference, "bun")) {
-        if (commandExists(allocator, "bun")) return "bun";
-        std.debug.panic("bun was requested but not found in PATH", .{});
-    }
-
-    // Auto-detect: prefer bun, fallback to npm
-    if (commandExists(allocator, "bun")) return "bun";
-    if (commandExists(allocator, "npm")) return "npm";
-
-    std.debug.panic("No package manager found. Please install bun or npm.", .{});
+    runCommandOrPanic(b.allocator, &.{ "sh", "-c", "cd ui && bun run build" });
 }
 
 fn commandExists(allocator: std.mem.Allocator, cmd: []const u8) bool {
@@ -142,7 +120,7 @@ fn commandExists(allocator: std.mem.Allocator, cmd: []const u8) bool {
 
 fn ensureUiBuildExists() void {
     if (!pathExists("ui/build")) {
-        std.debug.panic("embedded UI assets are missing; run `npm --prefix ui run build` or build with -Dbuild-ui=true", .{});
+        std.debug.panic("embedded UI assets are missing; run `bun --cwd ui run build` or build with -Dbuild-ui=true", .{});
     }
 }
 

@@ -35,7 +35,7 @@
 
 ```bash
 python3 tools/nullclaw_config_catalog.py
-cd ui && npm run build
+cd ui && bun run build
 ```
 
 结果：
