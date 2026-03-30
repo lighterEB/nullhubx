@@ -508,14 +508,26 @@ def derive_leaf_paths(paths: set[str]) -> set[str]:
     return leafs
 
 
+def extract_schema_field_paths(body: str) -> set[str]:
+    return set(re.findall(r"\{\s*key:\s*'([^']+)'", body)) | set(re.findall(r"path:\s*'([^']+)'", body))
+
+
 def extract_ui_paths() -> tuple[set[str], list[str]]:
     text = UI_SCHEMA_TS.read_text(encoding='utf-8')
 
-    static_match = re.search(r"export const staticSections:\s*SectionDef\[\]\s*=\s*\[(.*?)]\s*;", text, re.S)
+    static_match = re.search(
+        r"const rawStaticSections:\s*SectionDef\[\]\s*=\s*\[(.*?)]\s*;\s*export const staticSections",
+        text,
+        re.S,
+    )
     static_body = static_match.group(1) if static_match else ''
-    static_paths = set(re.findall(r"\{\s*key:\s*'([^']+)'", static_body))
+    static_paths = extract_schema_field_paths(static_body)
 
-    channel_match = re.search(r"export const channelSchemas: Record<string, ChannelSchema> = \{(.*?)\n\};", text, re.S)
+    channel_match = re.search(
+        r"const rawChannelSchemas\s*=\s*\{(.*?)\}\s*satisfies Record<string, ChannelSchema>;",
+        text,
+        re.S,
+    )
     if not channel_match:
         return static_paths, []
 
@@ -530,19 +542,29 @@ def extract_ui_paths() -> tuple[set[str], list[str]]:
         entry = em.group(2)
         channels.append(channel)
         has_accounts = bool(re.search(r"hasAccounts:\s*true", entry))
-        keys = re.findall(r"\{\s*key:\s*'([^']+)'", entry)
+        keys = extract_schema_field_paths(entry)
 
         if channel == 'cli':
             ui_paths.add('channels.cli')
             continue
 
         for key in keys:
+            if key.startswith('channels.'):
+                ui_paths.add(key)
+                continue
             if has_accounts:
                 ui_paths.add(f"channels.{channel}.accounts.<account>.{key}")
             else:
                 ui_paths.add(f"channels.{channel}.{key}")
 
     return ui_paths, sorted(set(channels))
+
+
+def is_generic_map_leaf(path: str, map_prefix: str) -> bool:
+    if not path.startswith(map_prefix):
+        return False
+    suffix = path[len(map_prefix):]
+    return bool(suffix) and '[*]' not in suffix
 
 
 def add_entry(entries: dict[str, CatalogEntry], field: LeafField) -> None:
@@ -634,8 +656,29 @@ def main() -> None:
     CATALOG_JSON.write_text(json.dumps(catalog_payload, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 
     catalog_paths = {f['path'] for f in catalog_payload['leaf_fields']}
-    matched = sorted(catalog_paths & ui_paths)
-    missing = sorted(catalog_paths - ui_paths)
+    matched_paths = set(catalog_paths & ui_paths)
+    missing_paths = set(catalog_paths - ui_paths)
+
+    generic_map_prefixes = [
+        'channels.external.accounts.<account>.transport.env.',
+    ]
+    generic_map_markers = [
+        (
+            'channels.external.accounts.<account>.transport.env[*].key',
+            'channels.external.accounts.<account>.transport.env[*].value',
+        ),
+    ]
+
+    for key_marker, value_marker in generic_map_markers:
+        if key_marker not in ui_paths or value_marker not in ui_paths:
+            continue
+        for prefix in generic_map_prefixes:
+            covered = {path for path in missing_paths if is_generic_map_leaf(path, prefix)}
+            matched_paths.update(covered)
+            missing_paths.difference_update(covered)
+
+    matched = sorted(matched_paths)
+    missing = sorted(missing_paths)
 
     by_top: dict[str, int] = defaultdict(int)
     by_top_missing: dict[str, int] = defaultdict(int)

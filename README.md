@@ -61,6 +61,12 @@ zig build
 
 浏览器将自动打开 [http://nullhubx.localhost:19800](http://nullhubx.localhost:19800)。
 
+如果你在无桌面环境或服务器环境启动，只运行：
+
+```bash
+./zig-out/bin/nullhubx serve --port 19800
+```
+
 本地访问地址：
 
 - `http://nullhubx.local:19800` (mDNS/Bonjour)
@@ -82,7 +88,8 @@ zig build
 
 ```
 nullhubx                          # 启动服务器并打开浏览器
-nullhubx serve [--port N]         # 启动服务器（不打开浏览器）
+nullhubx serve [--port N]         # 启动服务器（默认不打开浏览器）
+nullhubx serve [--port N] --open  # 启动服务器并自动打开浏览器
 nullhubx version | -v | --version # 显示版本号
 
 nullhubx install <component>      # 终端安装向导

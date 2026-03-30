@@ -5,6 +5,7 @@
   import StatusBar from '$lib/components/StatusBar.svelte';
   import { redirectToPreferredOrigin } from '$lib/nullhubxAccess';
   import { subscribeStatus } from '$lib/statusStore';
+  import ToastContainer from '$lib/components/ToastContainer.svelte';
 
   let { children } = $props();
 
@@ -25,6 +26,7 @@
 
 <div class="app-layout">
   <TopBar />
+  <ToastContainer />
   <main class="content">
     {@render children()}
   </main>

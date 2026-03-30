@@ -2,13 +2,13 @@
   import StatusBadge from "./StatusBadge.svelte";
   import { api } from "$lib/api/client";
   import { t } from "$lib/i18n/index.svelte";
+  import { toast } from "$lib/toastStore.svelte";
 
   let {
     component = "",
     name = "",
     version = "",
     status = "stopped",
-    autoStart = false,
     port = 0,
     onAction = () => {},
   } = $props();
@@ -32,8 +32,9 @@
     try {
       await api.startInstance(component, name);
       onAction();
-    } catch {
+    } catch (err) {
       localStatus = "stopped";
+      toast.error(err instanceof Error ? err.message : t("error.requestFailed"));
     } finally {
       loading = false;
     }
@@ -48,8 +49,9 @@
     try {
       await api.stopInstance(component, name);
       onAction();
-    } catch {
+    } catch (err) {
       localStatus = "running";
+      toast.error(err instanceof Error ? err.message : t("error.requestFailed"));
     } finally {
       loading = false;
     }
@@ -67,6 +69,8 @@
     try {
       await api.deleteInstance(component, name);
       onAction();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("error.requestFailed"));
     } finally {
       loading = false;
     }
@@ -113,12 +117,12 @@
 
   <div class="card-actions">
     {#if localStatus === "running" || localStatus === "stopping"}
-      <button class="btn-stop" onclick={stop} disabled={loading || localStatus === "stopping"}>
+      <button class="control-btn secondary btn-stop" onclick={stop} disabled={loading || localStatus === "stopping"}>
         {loading || localStatus === "stopping" ? t("instanceCard.stopping") : t("instanceCard.stop")}
       </button>
     {:else}
       <button
-        class="btn-start"
+        class="control-btn primary btn-start"
         onclick={start}
         disabled={loading || localStatus === "starting" || localStatus === "restarting"}
       >
@@ -128,7 +132,7 @@
       </button>
     {/if}
     <button
-      class="btn-delete"
+      class="control-btn danger btn-delete"
       onclick={remove}
       disabled={loading || localStatus === "starting" || localStatus === "stopping"}
     >
@@ -145,18 +149,19 @@
     gap: var(--spacing-md);
     padding: var(--spacing-xl);
     padding-left: calc(var(--spacing-xl) + 3px);
-    background: white;
-    border: 1px solid var(--slate-200);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(245, 249, 255, 0.74));
+    border: 1px solid rgba(141, 154, 178, 0.2);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
     transition: all var(--transition-base);
     overflow: hidden;
+    backdrop-filter: blur(18px);
   }
 
   .instance-card:hover {
     transform: translateY(-3px);
-    box-shadow: var(--shadow-md);
-    border-color: var(--indigo-200);
+    box-shadow: var(--shadow-md), 0 0 0 1px rgba(34, 211, 238, 0.08);
+    border-color: rgba(34, 211, 238, 0.24);
   }
 
   .accent-bar {
@@ -191,16 +196,17 @@
   }
 
   .icon-box {
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 18px;
     border-radius: var(--radius-md);
-    background: var(--indigo-50);
-    border: 1px solid var(--indigo-200);
-    color: var(--indigo-500);
+    background: rgba(34, 211, 238, 0.08);
+    border: 1px solid rgba(34, 211, 238, 0.18);
+    color: var(--cyan-600);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
   }
 
   .icon-box.violet {
@@ -216,11 +222,11 @@
   }
 
   .card-name {
-    font-family: var(--font-mono);
+    font-family: var(--font-display);
     font-size: var(--text-lg);
-    font-weight: 700;
+    font-weight: 600;
     color: var(--slate-900);
-    letter-spacing: 2px;
+    letter-spacing: -0.02em;
     margin: 0;
   }
 
@@ -232,38 +238,38 @@
 
   .component-tag {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 500;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--radius-sm);
-    background: var(--indigo-50);
-    color: var(--indigo-500);
-    border: 1px solid var(--indigo-200);
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(34, 211, 238, 0.08);
+    color: var(--cyan-600);
+    border: 1px solid rgba(34, 211, 238, 0.18);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.06em;
   }
 
   .version {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
-    color: var(--slate-400);
+    color: var(--slate-500);
   }
 
   .gateway-info {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    padding: var(--spacing-sm) var(--spacing-md);
-    background: rgba(6, 182, 212, 0.08);
-    border: 1px solid rgba(6, 182, 212, 0.15);
+    padding: 10px 12px;
+    background: rgba(34, 211, 238, 0.07);
+    border: 1px solid rgba(34, 211, 238, 0.16);
     border-radius: var(--radius-md);
   }
 
   .gateway-label {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
-    color: var(--slate-500);
-    letter-spacing: 0.5px;
+    color: var(--slate-600);
+    letter-spacing: 0.04em;
   }
 
   .gateway-addr {
@@ -280,68 +286,17 @@
     margin-top: auto;
   }
 
-  .btn-start, .btn-stop {
+  .btn-start,
+  .btn-stop {
     flex: 1;
-    padding: var(--spacing-sm) var(--spacing-md);
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    font-weight: 600;
-    letter-spacing: 1px;
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-  }
-
-  .btn-start {
-    background: var(--emerald-600);
-    color: white;
-    border: none;
-  }
-
-  .btn-start:hover:not(:disabled) {
-    background: var(--emerald-700);
-    box-shadow: 0 10px 20px rgba(16, 185, 129, 0.2);
-    transform: translateY(-1px);
   }
 
   .btn-stop {
-    background: var(--red-600);
-    color: white;
-    border: none;
-  }
-
-  .btn-stop:hover:not(:disabled) {
-    background: var(--red-700);
-  }
-
-  .btn-start:disabled, .btn-stop:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
+    background: rgba(255, 255, 255, 0.84);
   }
 
   .btn-delete {
-    padding: var(--spacing-sm) var(--spacing-md);
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    font-weight: 600;
-    letter-spacing: 1px;
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    border: 1px solid var(--red-300);
-    background: white;
-    color: var(--red-600);
-    transition: all var(--transition-fast);
-  }
-
-  .btn-delete:hover:not(:disabled) {
-    background: var(--red-50);
-    border-color: var(--red-500);
-  }
-
-  .btn-delete:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    min-width: 92px;
   }
 
   @media (max-width: 640px) {

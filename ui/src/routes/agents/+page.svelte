@@ -5,12 +5,12 @@
 <div class="page-container">
   <header class="page-header">
     <h1>{t('nav.agents')}</h1>
-    <p class="subtitle">管理您的专属数字员工和 AI 助手</p>
+    <p class="subtitle">{t('agents.subtitle')}</p>
   </header>
 
   <div class="content">
     <div class="empty-state">
-      <p>这里将展示配置好的 Agents。</p>
+      <p>{t('agents.noAgents')}</p>
     </div>
   </div>
 </div>

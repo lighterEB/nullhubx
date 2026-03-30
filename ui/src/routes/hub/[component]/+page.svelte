@@ -2,11 +2,32 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import WizardRenderer from '$lib/components/WizardRenderer.svelte';
-  import { api } from '$lib/api/client';
+  import {
+    api,
+    type WizardOptionPayload,
+    type WizardPayload,
+    type WizardStepPayload,
+  } from '$lib/api/client';
+  import { t } from '$lib/i18n/index.svelte';
 
   let componentName = $derived($page.params.component);
-  let wizardData = $state<any>(null);
+  let wizardData = $state<WizardPayload | null>(null);
   let wizardError = $state('');
+  const wizardSteps = $derived(
+    (wizardData?.wizard?.steps || wizardData?.steps || [])
+      .filter((step: WizardStepPayload) => step.id !== 'gateway_port' && step.id !== 'port')
+      .map((step: WizardStepPayload) => ({
+        ...step,
+        title: step.title ?? step.id,
+        type: step.type ?? 'text',
+        options: Array.isArray(step.options)
+          ? step.options.map((option: WizardOptionPayload) => ({
+              ...option,
+              label: option.label ?? option.value,
+            }))
+          : undefined,
+      })),
+  );
 
   $effect(() => {
     const comp = componentName;
@@ -25,19 +46,19 @@
 </script>
 
 <svelte:head>
-  <title>Install {componentName} - NullHubX</title>
+  <title>{t('wizardPage.title').replace('{component}', componentName)} - NullHubX</title>
 </svelte:head>
 
 <div class="wizard-page">
   <aside class="wizard-sidebar">
     <a href="/hub" class="back-link">
       <span class="back-icon">←</span>
-      <span>All Components</span>
+      <span>{t('wizardPage.allComponents')}</span>
     </a>
 
     <div class="component-info">
       <h1 class="component-name">{componentName}</h1>
-      <p class="component-desc">Installation Wizard</p>
+      <p class="component-desc">{t('wizardPage.installationWizard')}</p>
     </div>
 
     <hr class="divider" />
@@ -45,12 +66,12 @@
     <nav class="wizard-nav">
       <div class="nav-item active">
         <span class="nav-icon">⚙</span>
-        <span class="nav-label">Setup</span>
+        <span class="nav-label">{t('wizardPage.setup')}</span>
       </div>
     </nav>
 
     <div class="sidebar-footer">
-      <p class="help-text">Need help? Check the documentation.</p>
+      <p class="help-text">{t('wizardPage.helpText')}</p>
     </div>
   </aside>
 
@@ -58,20 +79,20 @@
     {#if wizardError}
       <div class="wizard-error">
         <div class="error-icon">⚠</div>
-        <h2>Unable to Load Wizard</h2>
+        <h2>{t('wizardPage.unableToLoad')}</h2>
         <p>{wizardError}</p>
-        <button class="back-btn" onclick={() => goto('/hub')}>Back to Components</button>
+        <button class="back-btn" onclick={() => goto('/hub')}>{t('wizardPage.backToComponents')}</button>
       </div>
     {:else if wizardData}
       <WizardRenderer
         component={componentName}
-        steps={(wizardData?.wizard?.steps || wizardData?.steps || []).filter((s: any) => s.id !== 'gateway_port' && s.id !== 'port')}
+        steps={wizardSteps}
         onComplete={() => goto('/')}
       />
     {:else}
       <div class="loading-state">
         <div class="loading-spinner"></div>
-        <p>Loading wizard...</p>
+        <p>{t('wizardPage.loading')}</p>
       </div>
     {/if}
   </main>

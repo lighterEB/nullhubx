@@ -93,6 +93,7 @@
         {/if}
       </div>
     {:else}
+      <!-- eslint-disable-next-line svelte/no-at-html-tags -->
       <pre class="json-pre">{@html highlighted}</pre>
     {/if}
   </div>
@@ -103,50 +104,59 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: 4px;
+    background:
+      linear-gradient(180deg, rgba(7, 12, 22, 0.94), rgba(10, 17, 31, 0.92)),
+      radial-gradient(circle at top right, rgba(34, 211, 238, 0.08), transparent 36%);
+    border: 1px solid rgba(96, 165, 250, 0.14);
+    border-radius: var(--radius-xl);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
   }
+
   .inspector-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 0.625rem 1rem;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+    border-bottom: 1px solid rgba(96, 165, 250, 0.12);
     font-size: 0.8125rem;
-    color: var(--accent);
+    color: var(--cyan-300);
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.08em;
     font-weight: 700;
   }
+
   .diff-toggle {
     padding: 0.25rem 0.625rem;
-    border: 1px solid var(--border);
-    border-radius: 2px;
-    background: transparent;
-    color: var(--fg-dim);
+    border: 1px solid rgba(96, 165, 250, 0.16);
+    border-radius: 999px;
+    background: rgba(7, 12, 22, 0.84);
+    color: rgba(148, 163, 184, 0.78);
     font-size: 0.6875rem;
     font-family: var(--font-mono);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.06em;
     cursor: pointer;
     transition: all 0.15s ease;
   }
+
   .diff-toggle:hover {
-    background: var(--bg-hover);
-    color: var(--fg);
+    border-color: rgba(34, 211, 238, 0.22);
+    color: var(--shell-text);
   }
+
   .diff-toggle.active {
-    color: var(--accent);
-    border-color: var(--accent-dim);
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
-    text-shadow: var(--text-glow);
+    color: var(--cyan-300);
+    border-color: rgba(34, 211, 238, 0.28);
+    background: rgba(34, 211, 238, 0.14);
+    box-shadow: 0 0 18px rgba(34, 211, 238, 0.12);
   }
+
   .inspector-body {
     flex: 1;
     overflow: auto;
     padding: 1rem;
   }
+
   .json-pre {
     margin: 0;
     white-space: pre-wrap;
@@ -154,50 +164,58 @@
     font-family: var(--font-mono);
     font-size: 0.8125rem;
     line-height: 1.6;
-    color: var(--fg);
+    color: rgba(226, 232, 240, 0.88);
   }
-  :global(.json-key) { color: var(--accent); }
-  :global(.json-string) { color: var(--success); }
-  :global(.json-number) { color: var(--warning); }
-  :global(.json-boolean) { color: var(--accent); }
-  :global(.json-null) { color: var(--fg-dim); }
+
+  :global(.json-key) { color: var(--cyan-300); }
+  :global(.json-string) { color: #86efac; }
+  :global(.json-number) { color: #fbbf24; }
+  :global(.json-boolean) { color: #c084fc; }
+  :global(.json-null) { color: rgba(148, 163, 184, 0.78); }
 
   .diff-view {
     font-family: var(--font-mono);
     font-size: 0.8125rem;
     line-height: 1.6;
   }
+
   .diff-section {
     margin-bottom: 0.75rem;
   }
+
   .diff-label {
     display: block;
     font-size: 0.6875rem;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--fg-dim);
+    letter-spacing: 0.08em;
+    color: rgba(148, 163, 184, 0.72);
     margin-bottom: 0.25rem;
     font-weight: 700;
   }
+
   .diff-line {
     padding: 0.125rem 0.5rem;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
   }
+
   .diff-section.added .diff-line,
   .diff-line.new {
-    color: var(--success);
-    background: color-mix(in srgb, var(--success) 8%, transparent);
-    border-left: 2px solid var(--success);
+    color: #86efac;
+    background: rgba(22, 101, 52, 0.18);
+    border-left: 2px solid rgba(34, 197, 94, 0.44);
   }
+
   .diff-section.removed .diff-line,
   .diff-line.old {
-    color: var(--error);
-    background: color-mix(in srgb, var(--error) 8%, transparent);
-    border-left: 2px solid var(--error);
+    color: #fda4af;
+    background: rgba(159, 18, 57, 0.18);
+    border-left: 2px solid rgba(244, 63, 94, 0.42);
   }
-  .diff-section.changed .diff-label { color: var(--warning); }
+
+  .diff-section.changed .diff-label { color: #fbbf24; }
+
   .no-diff {
-    color: var(--fg-dim);
+    color: rgba(148, 163, 184, 0.72);
     text-align: center;
     padding: 2rem;
     font-style: italic;

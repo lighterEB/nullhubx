@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { api } from "$lib/api/client";
+  import {
+    api,
+    type HistoryMessagePayload,
+    type HistorySessionPayload,
+  } from "$lib/api/client";
+  import { t } from "$lib/i18n/index.svelte";
   import {
     describeInstanceCliError,
     isInstanceCliError,
@@ -80,6 +85,31 @@
     }
   }
 
+  function translate(key: string, replacements: Record<string, string | number> = {}): string {
+    let message = t(key);
+    for (const [name, value] of Object.entries(replacements)) {
+      message = message.replace(`{${name}}`, String(value));
+    }
+    return message;
+  }
+
+  function normalizeSession(session: HistorySessionPayload): HistorySession {
+    return {
+      session_id: typeof session.session_id === "string" ? session.session_id : "",
+      message_count: typeof session.message_count === "number" ? session.message_count : 0,
+      first_message_at: typeof session.first_message_at === "string" ? session.first_message_at : "",
+      last_message_at: typeof session.last_message_at === "string" ? session.last_message_at : "",
+    };
+  }
+
+  function normalizeMessage(message: HistoryMessagePayload): HistoryMessage {
+    return {
+      role: typeof message.role === "string" ? message.role : "user",
+      content: typeof message.content === "string" ? message.content : "",
+      created_at: typeof message.created_at === "string" ? message.created_at : "",
+    };
+  }
+
   async function loadSessions(force = false, requestedOffset = sessionsOffset) {
     if (!active || !component || !name) return;
     const contextKey = instanceKey;
@@ -106,12 +136,12 @@
         messagesTotal = 0;
         messagesOffset = 0;
         loadedMessagesKey = "";
-        sessionsError = describeInstanceCliError(result, "历史记录不可用。");
+        sessionsError = describeInstanceCliError(result, t("historyPanel.unavailable"));
         loadedSessionsKey = nextKey;
         return;
       }
 
-      sessions = Array.isArray(result?.sessions) ? result.sessions : [];
+      sessions = Array.isArray(result?.sessions) ? result.sessions.map(normalizeSession) : [];
       sessionsTotal = Number(result?.total || sessions.length || 0);
       sessionsOffset = Number(result?.offset ?? requestedOffset);
       loadedSessionsKey = nextKey;
@@ -135,7 +165,7 @@
       sessions = [];
       sessionsTotal = 0;
       sessionsOffset = requestedOffset;
-      sessionsError = (error as Error).message || "Failed to load history.";
+      sessionsError = (error as Error).message || t("historyPanel.loadFailed");
     } finally {
       if (req === sessionRequestSeq && contextKey === instanceKey) {
         sessionsLoading = false;
@@ -189,12 +219,12 @@
           messagesTotal = Number(session.message_count || 0);
           messagesOffset = 0;
         }
-        messagesError = describeInstanceCliError(result, "历史记录不可用。");
+        messagesError = describeInstanceCliError(result, t("historyPanel.unavailable"));
         loadedMessagesKey = `${instanceKey}:${session.session_id}:${session.message_count}`;
         return;
       }
 
-      const nextMessages = Array.isArray(result?.messages) ? result.messages : [];
+      const nextMessages = Array.isArray(result?.messages) ? result.messages.map(normalizeMessage) : [];
       const nextTotal = Number(result?.total || session.message_count || nextMessages.length || 0);
       if (mode === "prepend") {
         messages = [...nextMessages, ...messages];
@@ -210,7 +240,7 @@
       if (mode === "replace") {
         messages = [];
       }
-      messagesError = (error as Error).message || "Failed to load session messages.";
+      messagesError = (error as Error).message || t("historyPanel.loadMessagesFailed");
     } finally {
       if (req === messageRequestSeq && contextKey === instanceKey) {
         messagesLoading = false;
@@ -269,25 +299,25 @@
 <div class="history-panel">
   <div class="panel-toolbar">
     <div>
-      <h2>对话历史</h2>
-      <p>该实例保存的会话与消息记录。</p>
+      <h2>{t("historyPanel.title")}</h2>
+      <p>{t("historyPanel.subtitle")}</p>
     </div>
     <button class="toolbar-btn" onclick={refreshHistory} disabled={sessionsLoading || messagesLoading}>
-      刷新
+      {t("historyPanel.refresh")}
     </button>
   </div>
 
   {#if sessionsError}
     <div class="panel-state warning">{sessionsError}</div>
   {:else if sessionsLoading && sessions.length === 0}
-    <div class="panel-state">正在加载会话...</div>
+    <div class="panel-state">{t("historyPanel.loadingSessions")}</div>
   {:else if sessions.length === 0}
-    <div class="panel-state">暂无对话历史。</div>
+    <div class="panel-state">{t("historyPanel.empty")}</div>
   {:else}
     <div class="history-grid">
       <aside class="session-list">
         <div class="session-list-header">
-          <span>会话</span>
+          <span>{t("historyPanel.sessions")}</span>
           <span>
             {#if sessions.length > 0}
               {visibleSessionStart}-{visibleSessionEnd} / {sessionsTotal}
@@ -298,10 +328,10 @@
         </div>
         <div class="session-page-controls">
           <button class="toolbar-btn small" onclick={showNewerSessions} disabled={!canShowNewerSessions}>
-            更新
+            {t("historyPanel.newer")}
           </button>
           <button class="toolbar-btn small" onclick={showOlderSessions} disabled={!canShowOlderSessions}>
-            更早
+            {t("historyPanel.earlier")}
           </button>
         </div>
         {#each sessions as session}
@@ -312,7 +342,7 @@
           >
             <div class="session-id">{session.session_id}</div>
             <div class="session-meta">
-              <span>{session.message_count} 条</span>
+              <span>{translate("historyPanel.messageCount", { count: session.message_count })}</span>
               <span>{formatTimestamp(session.last_message_at)}</span>
             </div>
           </button>
@@ -321,22 +351,26 @@
 
       <section class="message-pane">
         {#if !selectedSession}
-          <div class="panel-state">请选择会话以查看消息。</div>
+          <div class="panel-state">{t("historyPanel.selectSession")}</div>
         {:else}
           <div class="message-header">
             <div>
               <div class="message-title">{selectedSession.session_id}</div>
               <div class="message-subtitle">
                 {#if messages.length > 0}
-                  显示 {messagesOffset + 1}-{messagesOffset + messages.length} / {messagesTotal}
+                  {translate("historyPanel.showingRange", {
+                    start: messagesOffset + 1,
+                    end: messagesOffset + messages.length,
+                    total: messagesTotal,
+                  })}
                 {:else}
-                  共 {messagesTotal} 条消息
+                  {translate("historyPanel.totalMessages", { total: messagesTotal })}
                 {/if}
               </div>
             </div>
             {#if canLoadOlder}
               <button class="toolbar-btn" onclick={loadOlderMessages} disabled={olderMessagesLoading}>
-                {olderMessagesLoading ? "加载中..." : "加载更早"}
+                {olderMessagesLoading ? t("historyPanel.loadingOlder") : t("historyPanel.loadOlder")}
               </button>
             {/if}
           </div>
@@ -344,9 +378,9 @@
           {#if messagesError}
             <div class="panel-state warning">{messagesError}</div>
           {:else if messagesLoading}
-            <div class="panel-state">正在加载消息...</div>
+            <div class="panel-state">{t("historyPanel.loadingMessages")}</div>
           {:else if messages.length === 0}
-            <div class="panel-state">该会话暂无消息。</div>
+            <div class="panel-state">{t("historyPanel.emptySession")}</div>
           {:else}
             <div class="message-list">
               {#each visibleMessages as message}
@@ -370,90 +404,106 @@
   .history-panel {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: var(--spacing-lg);
   }
+
   .panel-toolbar {
     display: flex;
     justify-content: space-between;
-    gap: 1rem;
+    gap: var(--spacing-lg);
     align-items: flex-start;
   }
+
   .panel-toolbar h2 {
     margin: 0;
     font-size: 1.1rem;
-    color: var(--accent);
+    color: var(--slate-900);
   }
+
   .panel-toolbar p {
     margin: 0.25rem 0 0;
-    color: var(--fg-dim);
+    color: var(--slate-600);
     font-size: 0.875rem;
   }
+
   .toolbar-btn {
-    padding: 0.55rem 0.9rem;
-    border: 1px solid var(--accent-dim);
-    background: var(--bg-surface);
-    color: var(--accent);
-    border-radius: 2px;
+    padding: 0.6rem 0.95rem;
+    border: 1px solid rgba(141, 154, 178, 0.22);
+    background: rgba(255, 255, 255, 0.74);
+    color: var(--slate-700);
+    border-radius: 999px;
     font-size: 0.78rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.08em;
     cursor: pointer;
   }
+
   .toolbar-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
+
   .panel-state {
     padding: 1.5rem;
-    border: 1px dashed color-mix(in srgb, var(--border) 75%, transparent);
-    background: color-mix(in srgb, var(--bg-surface) 82%, transparent);
-    color: var(--fg-dim);
-    border-radius: 4px;
+    border: 1px dashed rgba(116, 136, 173, 0.32);
+    background: rgba(255, 255, 255, 0.58);
+    color: var(--slate-500);
+    border-radius: var(--radius-lg);
     text-align: center;
   }
+
   .panel-state.warning {
-    border-color: color-mix(in srgb, var(--warning, #f59e0b) 50%, transparent);
-    color: var(--warning, #f59e0b);
-    background: color-mix(in srgb, var(--warning, #f59e0b) 8%, transparent);
+    border-color: rgba(245, 158, 11, 0.22);
+    color: var(--amber-700);
+    background: rgba(255, 251, 235, 0.86);
   }
+
   .history-grid {
     display: grid;
     grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
-    gap: 1rem;
+    gap: var(--spacing-lg);
   }
+
   .session-list,
   .message-pane {
-    border: 1px solid var(--border);
-    background: var(--bg-surface);
-    border-radius: 4px;
+    border: 1px solid rgba(141, 154, 178, 0.18);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(245, 249, 255, 0.72));
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
   }
+
   .session-list {
     display: flex;
     flex-direction: column;
     max-height: 720px;
     overflow: auto;
   }
+
   .session-list-header {
     display: flex;
     justify-content: space-between;
-    padding: 0.9rem 1rem;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-    color: var(--accent-dim);
+    padding: 0.95rem 1rem;
+    border-bottom: 1px solid rgba(141, 154, 178, 0.16);
+    color: var(--slate-500);
     font-size: 0.78rem;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.08em;
+    font-weight: 600;
   }
+
   .session-page-controls {
     display: flex;
     gap: 0.5rem;
     padding: 0.75rem 1rem;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    border-bottom: 1px solid rgba(141, 154, 178, 0.16);
   }
+
   .toolbar-btn.small {
     padding: 0.45rem 0.7rem;
     font-size: 0.72rem;
   }
+
   .session-item {
     display: flex;
     flex-direction: column;
@@ -462,71 +512,85 @@
     text-align: left;
     background: transparent;
     border: none;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-    color: var(--fg);
+    border-bottom: 1px solid rgba(141, 154, 178, 0.14);
+    color: var(--slate-800);
     cursor: pointer;
   }
+
   .session-item:hover,
   .session-item.active {
-    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    background: rgba(34, 211, 238, 0.08);
   }
+
   .session-id {
     font-family: var(--font-mono);
     font-size: 0.78rem;
     word-break: break-all;
   }
+
   .session-meta {
     display: flex;
     justify-content: space-between;
     gap: 0.75rem;
-    color: var(--fg-dim);
+    color: var(--slate-500);
     font-size: 0.75rem;
   }
+
   .message-pane {
     display: flex;
     flex-direction: column;
     min-height: 480px;
   }
+
   .message-header {
     display: flex;
     justify-content: space-between;
-    gap: 1rem;
+    gap: var(--spacing-lg);
     align-items: flex-start;
     padding: 1rem 1.2rem;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    border-bottom: 1px solid rgba(141, 154, 178, 0.16);
   }
+
   .message-title {
     font-family: var(--font-mono);
     font-size: 0.85rem;
     word-break: break-all;
+    color: var(--slate-900);
   }
+
   .message-subtitle {
     margin-top: 0.25rem;
-    color: var(--fg-dim);
+    color: var(--slate-500);
     font-size: 0.78rem;
   }
+
   .message-list {
     display: flex;
     flex-direction: column;
-    gap: 0.9rem;
+    gap: var(--spacing-md);
     padding: 1.2rem;
   }
+
   .message-card {
     padding: 0.95rem 1rem;
-    border-radius: 4px;
-    border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-    background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(141, 154, 178, 0.16);
+    background: rgba(255, 255, 255, 0.7);
   }
+
   .message-card.user {
-    border-color: color-mix(in srgb, var(--accent-dim) 55%, transparent);
+    border-color: rgba(34, 211, 238, 0.18);
   }
+
   .message-card.assistant {
-    border-color: color-mix(in srgb, var(--success, #22c55e) 45%, transparent);
+    border-color: rgba(16, 185, 129, 0.18);
   }
+
   .message-card.system,
   .message-card.tool {
-    border-color: color-mix(in srgb, var(--warning, #f59e0b) 45%, transparent);
+    border-color: rgba(245, 158, 11, 0.18);
   }
+
   .message-card header {
     display: flex;
     justify-content: space-between;
@@ -534,9 +598,10 @@
     margin-bottom: 0.65rem;
     font-size: 0.76rem;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--fg-dim);
+    letter-spacing: 0.08em;
+    color: var(--slate-500);
   }
+
   .message-card pre {
     margin: 0;
     white-space: pre-wrap;
@@ -544,7 +609,7 @@
     font-family: var(--font-mono);
     font-size: 0.82rem;
     line-height: 1.55;
-    color: var(--fg);
+    color: var(--slate-800);
   }
 
   @media (max-width: 900px) {

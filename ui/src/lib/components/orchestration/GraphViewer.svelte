@@ -210,49 +210,62 @@
     width: 100%;
     height: 100%;
     overflow: auto;
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: 4px;
+    padding: 1rem;
+    background:
+      linear-gradient(180deg, rgba(7, 12, 22, 0.94), rgba(10, 17, 31, 0.92)),
+      radial-gradient(circle at top right, rgba(34, 211, 238, 0.08), transparent 36%);
+    border: 1px solid rgba(96, 165, 250, 0.14);
+    border-radius: var(--radius-xl);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
   }
+
   .dag-svg {
     width: 100%;
     height: auto;
-    min-height: 200px;
+    min-height: 240px;
   }
+
   .edge-line {
-    stroke: var(--fg-dim);
+    stroke: rgba(148, 163, 184, 0.6);
     stroke-width: 1.5;
     opacity: 0.6;
   }
+
   .terminal-node {
-    fill: color-mix(in srgb, var(--node-fill) 25%, var(--bg-surface));
+    fill: color-mix(in srgb, var(--node-fill) 18%, rgba(7, 12, 22, 0.96));
     stroke: var(--node-fill);
     stroke-width: 2;
+    filter: drop-shadow(0 0 12px color-mix(in srgb, var(--node-fill) 26%, transparent));
   }
+
   .terminal-label {
-    fill: var(--fg-dim);
+    fill: rgba(191, 219, 254, 0.7);
     font-size: 10px;
     font-family: var(--font-mono);
     text-anchor: middle;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.08em;
   }
+
   .node-rect {
-    fill: var(--bg-surface);
+    fill: rgba(12, 20, 35, 0.9);
     stroke: var(--node-stroke);
     stroke-width: 2;
     transition: stroke 0.3s ease;
+    filter: drop-shadow(0 12px 30px rgba(2, 8, 23, 0.34));
   }
+
   .type-label {
     font-size: 11px;
     font-family: var(--font-mono);
     font-weight: 700;
     dominant-baseline: middle;
   }
+
   .node-label {
-    fill: var(--fg);
+    fill: var(--shell-text);
     font-size: 11px;
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     dominant-baseline: middle;
   }
 </style>

@@ -8,24 +8,28 @@
 export type ErrorTemplate = {
   timeout: (seconds: number, path: string) => string;
   requestFailed: string;
+  networkFailed: string;
 };
 
 // 默认使用英文模板（作为 fallback）
 let currentTemplates: ErrorTemplate = {
   timeout: (seconds, path) => `Request timeout (${seconds}s): ${path}`,
   requestFailed: 'Request Failed',
+  networkFailed: 'Network request failed',
 };
 
 // 中文模板
 const zhTemplates: ErrorTemplate = {
   timeout: (seconds, path) => `请求超时（${seconds}s）：${path}`,
   requestFailed: '请求失败',
+  networkFailed: '网络请求失败',
 };
 
 // 英文模板
 const enTemplates: ErrorTemplate = {
   timeout: (seconds, path) => `Request timeout (${seconds}s): ${path}`,
   requestFailed: 'Request Failed',
+  networkFailed: 'Network request failed',
 };
 
 /**
@@ -49,4 +53,11 @@ export function formatTimeoutError(timeoutMs: number, path: string): string {
  */
 export function getRequestFailedMessage(): string {
   return currentTemplates.requestFailed;
+}
+
+/**
+ * 获取网络请求失败消息
+ */
+export function getNetworkFailedMessage(): string {
+  return currentTemplates.networkFailed;
 }

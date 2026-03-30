@@ -1,11 +1,14 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { api } from "$lib/api/client";
+  import { api, type SavedChannel, type SavedProvider } from "$lib/api/client";
+  import { t } from "$lib/i18n/index.svelte";
 
   let loading = $state(true);
   let error = $state("");
-  let providers = $state<any[]>([]);
-  let channels = $state<any[]>([]);
+  let providers = $state<SavedProvider[]>([]);
+  let channels = $state<SavedChannel[]>([]);
+  const validatedProviders = $derived(providers.filter((provider) => provider.last_validation_ok).length);
+  const validatedChannels = $derived(channels.filter((channel) => Boolean(channel.validated_at)).length);
 
   async function load() {
     loading = true;
@@ -18,7 +21,7 @@
       providers = providerData?.providers || [];
       channels = channelData?.channels || [];
     } catch (e) {
-      error = e instanceof Error ? e.message : "加载失败";
+      error = e instanceof Error ? e.message : t('common.error');
     } finally {
       loading = false;
     }
@@ -30,55 +33,88 @@
 </script>
 
 <svelte:head>
-  <title>资源中心 - NullHubX</title>
+  <title>{t('connections.title')} - NullHubX</title>
 </svelte:head>
 
-<div class="page">
-  <header class="page-header">
-    <div>
-      <h1>资源中心</h1>
-      <p>统一管理全局共享资源：模型服务商与通讯渠道</p>
+<div class="page-shell connections-page">
+  <section class="section-shell hero-shell">
+    <div class="page-hero">
+      <div class="page-title-group">
+        <span class="page-kicker">NullHubX</span>
+        <h1 class="page-title">{t('connections.title')}</h1>
+        <p class="page-subtitle">{t('connections.subtitle')}</p>
+      </div>
+      <div class="page-actions">
+        <button class="control-btn primary" onclick={load} disabled={loading}>
+          {loading ? t('common.loading') : t('common.refresh')}
+        </button>
+      </div>
     </div>
-    <button class="refresh-btn" onclick={load} disabled={loading}>
-      {loading ? "刷新中..." : "刷新"}
-    </button>
-  </header>
+
+    <div class="metrics-grid">
+      <article class="metric-card">
+        <span class="metric-label">{t('connections.providers')}</span>
+        <strong class="metric-value">{providers.length}</strong>
+        <p class="metric-meta">{t('connections.providersDesc')}</p>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">{t('connections.validationStatus')}</span>
+        <strong class="metric-value">{validatedProviders}</strong>
+        <p class="metric-meta">{t('connections.validationPassed')}</p>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">{t('connections.channels')}</span>
+        <strong class="metric-value">{channels.length}</strong>
+        <p class="metric-meta">{t('connections.channelsDesc')}</p>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">{t('connections.lastValidated')}</span>
+        <strong class="metric-value">{validatedChannels}</strong>
+        <p class="metric-meta">{t('connections.validated')}</p>
+      </article>
+    </div>
+  </section>
 
   {#if error}
-    <div class="error-banner">加载失败：{error}</div>
+    <div class="feedback-banner error-banner">{t('error.loadFailed').replace('{error}', error)}</div>
   {/if}
 
-  <section class="card">
-    <div class="card-title-row">
-      <h2>模型服务商</h2>
-      <span>{providers.length} 条</span>
+  <section class="section-shell">
+    <div class="section-heading-row">
+      <div class="section-heading">
+        <span class="section-kicker">{t('nav.resources')}</span>
+        <h2 class="section-title">{t('connections.providers')}</h2>
+        <p class="section-subtitle">{t('connections.providersDesc')}</p>
+      </div>
+      <span class="surface-chip">{providers.length}</span>
     </div>
+
     {#if providers.length === 0}
-      <p class="empty">暂无已保存模型服务商。可在安装向导中验证后自动入库。</p>
+      <p class="empty-panel">{t('common.noData')}</p>
     {:else}
-      <div class="table-wrap">
-        <table>
+      <div class="table-shell">
+        <table class="data-table">
           <thead>
             <tr>
-              <th>名称</th>
-              <th>提供商</th>
-              <th>默认模型</th>
-              <th>验证状态</th>
+              <th>{t('connections.nameLabel')}</th>
+              <th>{t('connections.providerLabel')}</th>
+              <th>{t('connections.defaultModel')}</th>
+              <th>{t('connections.validationStatus')}</th>
             </tr>
           </thead>
           <tbody>
-            {#each providers as p}
+            {#each providers as provider}
               <tr>
-                <td>{p.name}</td>
-                <td>{p.provider}</td>
-                <td>{p.model || "-"}</td>
+                <td class="mono-cell">{provider.name}</td>
+                <td><span class="surface-chip type-chip">{provider.provider}</span></td>
+                <td class="mono-cell">{provider.model || "-"}</td>
                 <td>
-                  {#if p.last_validation_ok}
-                    <span class="ok">通过</span>
-                  {:else if p.last_validation_at}
-                    <span class="bad">失败</span>
+                  {#if provider.last_validation_ok}
+                    <span class="table-status ok">{t('connections.validationPassed')}</span>
+                  {:else if provider.last_validation_at}
+                    <span class="table-status bad">{t('connections.validationFailed')}</span>
                   {:else}
-                    <span class="dim">未校验</span>
+                    <span class="table-status pending">{t('connections.validationPending')}</span>
                   {/if}
                 </td>
               </tr>
@@ -89,31 +125,36 @@
     {/if}
   </section>
 
-  <section class="card">
-    <div class="card-title-row">
-      <h2>通讯渠道</h2>
-      <span>{channels.length} 条</span>
+  <section class="section-shell">
+    <div class="section-heading-row">
+      <div class="section-heading">
+        <span class="section-kicker">{t('nav.resources')}</span>
+        <h2 class="section-title">{t('connections.channels')}</h2>
+        <p class="section-subtitle">{t('connections.channelsDesc')}</p>
+      </div>
+      <span class="surface-chip">{channels.length}</span>
     </div>
+
     {#if channels.length === 0}
-      <p class="empty">暂无已保存渠道。可在安装向导中验证后自动入库。</p>
+      <p class="empty-panel">{t('common.noData')}</p>
     {:else}
-      <div class="table-wrap">
-        <table>
+      <div class="table-shell">
+        <table class="data-table">
           <thead>
             <tr>
-              <th>名称</th>
-              <th>渠道类型</th>
-              <th>账号</th>
-              <th>最近验证</th>
+              <th>{t('connections.nameLabel')}</th>
+              <th>{t('connections.channelType')}</th>
+              <th>{t('connections.accountLabel')}</th>
+              <th>{t('connections.lastValidated')}</th>
             </tr>
           </thead>
           <tbody>
-            {#each channels as c}
+            {#each channels as channel}
               <tr>
-                <td>{c.name}</td>
-                <td>{c.channel_type}</td>
-                <td>{c.account}</td>
-                <td>{c.validated_at || "未验证"}</td>
+                <td class="mono-cell">{channel.name}</td>
+                <td><span class="surface-chip type-chip">{channel.channel_type}</span></td>
+                <td class="mono-cell">{channel.account}</td>
+                <td class="mono-cell">{channel.validated_at || t('connections.validationPending')}</td>
               </tr>
             {/each}
           </tbody>
@@ -124,140 +165,60 @@
 </div>
 
 <style>
-  .page {
-    max-width: 1240px;
-    margin: 0 auto;
-    padding: var(--spacing-3xl);
+  .hero-shell {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-xl);
   }
 
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    gap: var(--spacing-lg);
-  }
-
-  h1 {
-    margin: 0;
-    font-family: var(--font-mono);
-    font-size: var(--text-2xl);
-    color: var(--slate-900);
-  }
-
-  .page-header p {
-    margin: var(--spacing-xs) 0 0 0;
-    color: var(--slate-500);
-  }
-
-  .refresh-btn {
-    border: 1px solid var(--indigo-500);
-    background: var(--indigo-600);
-    color: white;
-    border-radius: var(--radius-md);
-    padding: 0.55rem 0.9rem;
-    cursor: pointer;
-  }
-
-  .refresh-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .error-banner {
-    padding: 0.75rem 1rem;
-    border: 1px solid var(--red-200);
-    background: var(--red-50);
-    border-radius: var(--radius-md);
-    color: var(--red-700);
-  }
-
-  .card {
-    border: 1px solid var(--slate-200);
+  .feedback-banner {
+    padding: var(--spacing-md) var(--spacing-lg);
     border-radius: var(--radius-lg);
-    background: white;
-    padding: var(--spacing-xl);
+    border: 1px solid rgba(244, 63, 94, 0.16);
+    background: rgba(255, 241, 245, 0.82);
+    color: var(--red-700);
+    box-shadow: var(--shadow-sm);
   }
 
-  .card-title-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--spacing-md);
-  }
-
-  h2 {
-    margin: 0;
-    font-size: var(--text-lg);
-    color: var(--slate-800);
-  }
-
-  .card-title-row span {
-    color: var(--slate-500);
+  .mono-cell {
     font-family: var(--font-mono);
+  }
+
+  .type-chip {
+    text-transform: uppercase;
+  }
+
+  .table-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 999px;
     font-size: var(--text-xs);
-  }
-
-  .empty {
-    margin: 0;
-    color: var(--slate-500);
-    padding: var(--spacing-md);
-    border: 1px dashed var(--slate-300);
-    border-radius: var(--radius-md);
-    background: var(--slate-50);
-  }
-
-  .table-wrap {
-    overflow: auto;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    min-width: 720px;
-  }
-
-  th, td {
-    text-align: left;
-    padding: 0.55rem 0.5rem;
-    border-bottom: 1px solid var(--slate-200);
-    font-size: var(--text-sm);
-  }
-
-  th {
-    color: var(--slate-500);
     font-weight: 600;
-    background: var(--slate-50);
+    letter-spacing: 0.04em;
   }
 
-  td {
-    color: var(--slate-800);
-  }
-
-  .ok {
+  .table-status.ok {
+    background: rgba(16, 185, 129, 0.12);
     color: var(--emerald-700);
-    font-weight: 600;
+    border: 1px solid rgba(16, 185, 129, 0.18);
   }
 
-  .bad {
+  .table-status.bad {
+    background: rgba(244, 63, 94, 0.1);
     color: var(--red-600);
-    font-weight: 600;
+    border: 1px solid rgba(244, 63, 94, 0.16);
   }
 
-  .dim {
+  .table-status.pending {
+    background: rgba(255, 255, 255, 0.82);
     color: var(--slate-500);
+    border: 1px solid rgba(141, 154, 178, 0.18);
   }
 
   @media (max-width: 780px) {
-    .page {
-      padding: var(--spacing-xl);
-    }
-
-    .page-header {
-      flex-direction: column;
-      align-items: stretch;
+    .type-chip {
+      white-space: nowrap;
     }
   }
 </style>

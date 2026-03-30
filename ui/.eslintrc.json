@@ -1,10 +1,6 @@
 {
   "root": true,
   "parser": "@typescript-eslint/parser",
-  "parserOptions": {
-    "project": "./tsconfig.json",
-    "tsconfigRootDir": "."
-  },
   "plugins": [
     "@typescript-eslint",
     "svelte"
@@ -31,7 +27,6 @@
       "disallowTypeAnnotations": false
     }],
     "svelte/no-at-html-tags": "error",
-    "svelte/require-event-dispatcher": "error",
     "svelte/require-store-callbacks-use-set-param": "error",
     "svelte/valid-compile": "error",
     "no-console": ["warn", { "allow": ["warn", "error"] }]
@@ -45,7 +40,7 @@
   },
   "overrides": [
     {
-      "files": ["*.svelte"],
+      "files": ["**/*.svelte"],
       "parser": "svelte-eslint-parser",
       "parserOptions": {
         "parser": "@typescript-eslint/parser",

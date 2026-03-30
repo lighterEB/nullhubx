@@ -20,29 +20,33 @@
     gap: 0.5rem;
     font-size: 0.6875rem;
     font-family: var(--font-mono);
-    color: var(--fg-dim);
+    color: rgba(148, 163, 184, 0.72);
   }
+
   .progress-label {
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.06em;
     white-space: nowrap;
   }
+
   .progress-track {
     flex: 1;
     min-width: 40px;
     height: 6px;
-    background: var(--bg-hover);
-    border-radius: 2px;
+    background: rgba(12, 20, 35, 0.84);
+    border-radius: 999px;
     overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+    border: 1px solid rgba(96, 165, 250, 0.14);
   }
+
   .progress-fill {
     height: 100%;
-    background: var(--accent);
-    border-radius: 1px;
+    background: linear-gradient(90deg, rgba(34, 211, 238, 0.92), rgba(59, 130, 246, 0.84));
+    border-radius: 999px;
     transition: width 0.3s ease;
-    box-shadow: 0 0 4px var(--accent);
+    box-shadow: 0 0 14px rgba(34, 211, 238, 0.2);
   }
+
   .progress-text {
     white-space: nowrap;
     min-width: 2.5em;

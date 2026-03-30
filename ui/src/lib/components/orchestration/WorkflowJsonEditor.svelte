@@ -38,15 +38,18 @@
     flex-direction: column;
     height: 100%;
   }
+
   .json-editor {
     flex: 1;
     width: 100%;
     min-height: 300px;
     padding: 1rem;
-    background: var(--bg-surface);
-    color: var(--fg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
+    background:
+      linear-gradient(180deg, rgba(7, 12, 22, 0.94), rgba(10, 17, 31, 0.92)),
+      radial-gradient(circle at top right, rgba(34, 211, 238, 0.06), transparent 36%);
+    color: rgba(226, 232, 240, 0.88);
+    border: 1px solid rgba(96, 165, 250, 0.14);
+    border-radius: var(--radius-xl);
     font-family: var(--font-mono);
     font-size: 0.8125rem;
     line-height: 1.6;
@@ -55,23 +58,25 @@
     transition: border-color 0.2s ease;
     tab-size: 2;
   }
+
   .json-editor:focus {
-    border-color: var(--accent-dim);
-    box-shadow: 0 0 8px var(--border-glow);
+    border-color: rgba(34, 211, 238, 0.26);
+    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12);
   }
+
   .json-editor.invalid {
-    border-color: var(--error);
-    box-shadow: 0 0 8px color-mix(in srgb, var(--error) 30%, transparent);
+    border-color: rgba(244, 63, 94, 0.34);
+    box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.12);
   }
+
   .error-line {
     padding: 0.375rem 0.75rem;
     font-size: 0.75rem;
     font-family: var(--font-mono);
-    color: var(--error);
-    background: color-mix(in srgb, var(--error) 8%, transparent);
-    border: 1px solid color-mix(in srgb, var(--error) 30%, transparent);
+    color: #fda4af;
+    background: rgba(159, 18, 57, 0.16);
+    border: 1px solid rgba(244, 63, 94, 0.28);
     border-top: none;
-    border-radius: 0 0 4px 4px;
-    text-shadow: 0 0 4px var(--error);
+    border-radius: 0 0 var(--radius-xl) var(--radius-xl);
   }
 </style>

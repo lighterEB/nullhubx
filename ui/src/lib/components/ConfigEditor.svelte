@@ -3,7 +3,7 @@
   import { api } from "$lib/api/client";
   import ConfigEditorUI from "./ConfigEditorUI.svelte";
   import StructuredConfigEditor from "./StructuredConfigEditor.svelte";
-  import { supportsStructuredConfig } from "./componentConfigSchemas";
+  import { getConfigUiKind } from "./configSchemaRegistry";
   import { t } from "$lib/i18n/index.svelte";
 
   let {
@@ -22,9 +22,8 @@
   let message = $state("");
   let error = $state(false);
   let loaded = $state(false);
-  let supportsUi = $derived(
-    component === "nullclaw" || supportsStructuredConfig(component),
-  );
+  let configUiKind = $derived(getConfigUiKind(component));
+  let supportsUi = $derived(configUiKind !== "raw");
   let busy = $derived(action !== null);
 
   $effect(() => {
@@ -127,10 +126,10 @@
       </div>
     {/if}
     <div class="action-buttons">
-      <button class="save-btn" onclick={() => save()} disabled={busy}>
+      <button class="control-btn primary save-btn" onclick={() => save()} disabled={busy}>
         {action === "save" ? t("common.saving") : t("common.save")}
       </button>
-      <button class="save-btn secondary" onclick={() => save(true)} disabled={busy}>
+      <button class="control-btn warning save-btn secondary" onclick={() => save(true)} disabled={busy}>
         {action === "save-restart" ? t("common.restarting") : t("configEditor.saveAndRestart")}
       </button>
     </div>
@@ -141,7 +140,7 @@
   {#if loaded}
     {#if supportsUi && mode === 'ui'}
       <div class="ui-content">
-        {#if component === 'nullclaw'}
+        {#if configUiKind === 'nullclaw'}
           <ConfigEditorUI bind:config={configObj} onchange={onUiChange} />
         {:else}
           <StructuredConfigEditor {component} bind:config={configObj} onchange={onUiChange} />
@@ -157,148 +156,127 @@
   .config-editor {
     display: flex;
     flex-direction: column;
+    gap: var(--spacing-md);
   }
+
   .editor-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.5rem 0;
-    margin-bottom: 0.5rem;
+    padding: var(--spacing-lg);
     gap: 1rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(141, 154, 178, 0.18);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(244, 248, 255, 0.76));
+    box-shadow: var(--shadow-sm);
+    backdrop-filter: blur(16px);
   }
+
   .mode-toggle {
     display: flex;
-    gap: 0;
+    gap: var(--spacing-xs);
+    padding: 4px;
+    border-radius: 999px;
+    border: 1px solid rgba(141, 154, 178, 0.16);
+    background: rgba(255, 255, 255, 0.42);
   }
+
   .action-buttons {
     display: flex;
     gap: 0.75rem;
     flex-wrap: wrap;
     justify-content: flex-end;
   }
+
   .mode-btn {
-    padding: 0.5rem 1rem;
-    border: 1px solid var(--border);
-    background: var(--bg-surface);
-    color: var(--fg-dim);
-    font-size: 0.8125rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    padding: 10px 14px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--slate-600);
+    font-size: var(--text-sm);
+    font-family: var(--font-sans);
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    border-radius: 999px;
+    transition: all var(--transition-fast);
   }
-  .mode-btn:first-child {
-    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-  }
-  .mode-btn:last-child {
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-    border-left: none;
-  }
+
   .mode-btn:hover {
-    background: var(--bg-hover);
-    border-color: var(--accent-dim);
-    color: var(--fg);
+    color: var(--slate-900);
+    background: rgba(34, 211, 238, 0.08);
   }
+
   .mode-btn.active {
-    background: color-mix(in srgb, var(--accent) 15%, transparent);
-    border-color: var(--accent);
-    color: var(--accent);
-
-    box-shadow: inset 0 0 5px color-mix(in srgb, var(--accent) 30%, transparent);
+    background: linear-gradient(135deg, rgba(34, 211, 238, 0.12), rgba(139, 92, 246, 0.08));
+    border-color: rgba(34, 211, 238, 0.18);
+    color: var(--cyan-600);
+    box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.08);
   }
+
   .save-btn {
-    padding: 0.5rem 1.25rem;
-    background: color-mix(in srgb, var(--accent) 15%, transparent);
-    color: var(--accent);
-    border: 1px solid var(--accent);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-size: 0.8125rem;
-    font-family: var(--font-mono);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    transition: all 0.2s ease;
-    box-shadow: inset 0 0 8px color-mix(in srgb, var(--accent) 30%, transparent);
+    min-width: 124px;
   }
-  .save-btn:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--accent) 30%, transparent);
-    box-shadow: 0 0 10px var(--border-glow), inset 0 0 10px color-mix(in srgb, var(--accent) 50%, transparent);
 
-  }
-  .save-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    box-shadow: none;
-    border-color: var(--border);
-    color: var(--fg-dim);
-  }
-  .save-btn.secondary {
-    background: color-mix(in srgb, var(--warning, #f59e0b) 12%, transparent);
-    color: var(--warning, #f59e0b);
-    border-color: color-mix(in srgb, var(--warning, #f59e0b) 65%, var(--border));
-    box-shadow: inset 0 0 8px color-mix(in srgb, var(--warning, #f59e0b) 25%, transparent);
-  }
-  .save-btn.secondary:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--warning, #f59e0b) 24%, transparent);
-    box-shadow: 0 0 10px color-mix(in srgb, var(--warning, #f59e0b) 20%, transparent),
-      inset 0 0 10px color-mix(in srgb, var(--warning, #f59e0b) 40%, transparent);
-  }
   .ui-content {
     max-height: 600px;
     overflow-y: auto;
     padding-right: 0.25rem;
   }
+
   .ui-content::-webkit-scrollbar {
     width: 6px;
   }
+
   .ui-content::-webkit-scrollbar-track {
     background: transparent;
   }
+
   .ui-content::-webkit-scrollbar-thumb {
     background: var(--border);
     border-radius: 3px;
   }
+
   .ui-content::-webkit-scrollbar-thumb:hover {
     background: var(--accent-dim);
   }
+
   .raw-editor {
     flex: 1;
     min-height: 400px;
-    background: var(--bg-surface);
+    background: rgba(255, 255, 255, 0.78);
     color: var(--fg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 1rem;
+    border: 1px solid rgba(141, 154, 178, 0.18);
+    border-radius: var(--radius-lg);
+    padding: 1rem 1.1rem;
     font-family: var(--font-mono);
     font-size: 0.875rem;
     resize: none;
     line-height: 1.6;
     outline: none;
-    transition: all 0.2s ease;
-    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08);
+    transition: all var(--transition-fast);
+    box-shadow: var(--shadow-sm);
+    backdrop-filter: blur(16px);
   }
+
   .raw-editor:focus {
-    border-color: var(--accent);
-    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08), 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+    border-color: rgba(34, 211, 238, 0.24);
+    box-shadow: var(--focus-ring);
   }
+
   .message {
-    padding: 0.75rem 1rem;
-    margin-bottom: 0.75rem;
-    border-radius: var(--radius-sm);
-    font-size: 0.8125rem;
-    font-family: var(--font-mono);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    background: color-mix(in srgb, var(--success, #22c55e) 15%, transparent);
-    color: var(--success, #22c55e);
-    border: 1px solid color-mix(in srgb, var(--success, #22c55e) 30%, transparent);
+    padding: 12px 14px;
+    border-radius: var(--radius-md);
+    background: rgba(16, 185, 129, 0.08);
+    color: var(--emerald-600);
+    border: 1px solid rgba(16, 185, 129, 0.16);
+    font-size: var(--text-sm);
+    box-shadow: var(--shadow-sm);
   }
+
   .message.error {
-    background: color-mix(in srgb, var(--error) 15%, transparent);
-    color: var(--error);
-    border-color: color-mix(in srgb, var(--error) 30%, transparent);
+    background: rgba(244, 63, 94, 0.08);
+    color: var(--red-600);
+    border-color: rgba(244, 63, 94, 0.16);
   }
 
   @media (max-width: 900px) {

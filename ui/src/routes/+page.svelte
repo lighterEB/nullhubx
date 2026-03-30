@@ -1,8 +1,12 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { status, statusError, instanceCount, runningCount, subscribeStatus, refreshStatus } from "$lib/statusStore";
+  import { t } from "$lib/i18n/index.svelte";
+  import StatusBadge from "$lib/components/StatusBadge.svelte";
+  import type { InstanceInfo, InstancesPayload } from "$lib/api/client";
 
   let unsubscribe: (() => void) | null = null;
+  const managementEntryCount = 5;
 
   onMount(() => {
     unsubscribe = subscribeStatus();
@@ -16,14 +20,14 @@
 
   const recentInstances = $derived.by(() => {
     const rows: Array<{ component: string; name: string; status: string; version: string }> = [];
-    const groups = $status?.instances || {};
+    const groups: InstancesPayload = $status?.instances || {};
     for (const [component, instances] of Object.entries(groups)) {
-      for (const [name, info] of Object.entries(instances as Record<string, any>)) {
+      for (const [name, info] of Object.entries(instances) as Array<[string, InstanceInfo]>) {
         rows.push({
           component,
           name,
-          status: (info as any)?.status || "stopped",
-          version: (info as any)?.version || "-",
+          status: info?.status || "stopped",
+          version: info?.version || "-",
         });
       }
     }
@@ -33,74 +37,122 @@
 </script>
 
 <svelte:head>
-  <title>总览 - NullHubX</title>
+  <title>{t('nav.overview')} - NullHubX</title>
 </svelte:head>
 
-<div class="page">
-  <header class="hero">
-    <div>
-      <h1>NullHubX 总览</h1>
-      <p>后端驱动的多实例管理入口：先看状态，再进工作区。</p>
+<div class="page-shell overview-page">
+  <section class="section-shell hero-shell">
+    <div class="page-hero">
+      <div class="page-title-group">
+        <span class="page-kicker">NullHubX</span>
+        <h1 class="page-title">{t('overview.title')}</h1>
+        <p class="page-subtitle">{t('overview.subtitle')}</p>
+      </div>
+      <div class="page-actions">
+        <button class="control-btn primary" onclick={refreshStatus}>{t('overview.refreshStatus')}</button>
+      </div>
     </div>
-    <button class="refresh-btn" onclick={refreshStatus}>刷新状态</button>
-  </header>
+
+    <div class="metrics-grid">
+      <article class="metric-card">
+        <span class="metric-label">{t('overview.componentCount')}</span>
+        <strong class="metric-value">{componentCount}</strong>
+        <p class="metric-meta">{t('hub.title')}</p>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">{t('overview.instanceTotal')}</span>
+        <strong class="metric-value">{$instanceCount}</strong>
+        <p class="metric-meta">{t('instances.title')}</p>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">{t('overview.runningInstances')}</span>
+        <strong class="metric-value">{$runningCount}</strong>
+        <p class="metric-meta">{t('statusBar.operational')}</p>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">{t('overview.managementEntries')}</span>
+        <strong class="metric-value">{managementEntryCount}</strong>
+        <p class="metric-meta">{t('nav.settings')} / {t('nav.resources')}</p>
+      </article>
+    </div>
+  </section>
 
   {#if $statusError}
-    <div class="error-banner">状态拉取失败：{$statusError}</div>
+    <div class="feedback-banner error-banner">{t('error.statusFetchFailed').replace('{error}', $statusError)}</div>
   {/if}
 
-  <section class="stats-grid">
-    <article class="stat-card">
-      <span>组件数量</span>
-      <strong>{componentCount}</strong>
-    </article>
-    <article class="stat-card">
-      <span>实例总数</span>
-      <strong>{$instanceCount}</strong>
-    </article>
-    <article class="stat-card">
-      <span>运行中实例</span>
-      <strong>{$runningCount}</strong>
-    </article>
-    <article class="stat-card">
-      <span>管理入口</span>
-      <strong>5</strong>
-    </article>
-  </section>
-
-  <section class="entry-grid">
-    <a class="entry-card" href="/instances">
-      <h2>实例工作区</h2>
-      <p>按组件分组管理实例，执行启动/停止/重启/更新。</p>
-    </a>
-    <a class="entry-card" href="/resources">
-      <h2>资源中心</h2>
-      <p>集中管理全局 Providers 与 Channels 共享资源。</p>
-    </a>
-    <a class="entry-card" href="/orchestration">
-      <h2>编排中心</h2>
-      <p>查看编排工作流与运行记录，联动 NullBoiler/NullTickets。</p>
-    </a>
-    <a class="entry-card" href="/hub">
-      <h2>应用市场</h2>
-      <p>安装或导入组件实例，补齐运行依赖。</p>
-    </a>
-  </section>
-
-  <section class="recent-card">
-    <div class="recent-header">
-      <h2>最近实例</h2>
-      <a href="/instances">进入实例页</a>
+  <section class="section-shell">
+    <div class="section-heading-row">
+      <div class="section-heading">
+        <span class="section-kicker">NullHubX</span>
+        <h2 class="section-title">{t('overview.managementEntries')}</h2>
+      </div>
+      <span class="surface-chip">{managementEntryCount}</span>
     </div>
+
+    <div class="entry-grid">
+      <a class="entry-card" href="/instances">
+        <span class="entry-icon">◎</span>
+        <div class="entry-copy">
+          <span class="surface-chip entry-path">/instances</span>
+          <h3>{t('instances.title')}</h3>
+          <p>{t('instances.subtitle')}</p>
+        </div>
+        <span class="entry-cta">→</span>
+      </a>
+      <a class="entry-card" href="/connections">
+        <span class="entry-icon">⌘</span>
+        <div class="entry-copy">
+          <span class="surface-chip entry-path">/connections</span>
+          <h3>{t('connections.title')}</h3>
+          <p>{t('connections.subtitle')}</p>
+        </div>
+        <span class="entry-cta">→</span>
+      </a>
+      <a class="entry-card" href="/orchestration">
+        <span class="entry-icon">◇</span>
+        <div class="entry-copy">
+          <span class="surface-chip entry-path">/orchestration</span>
+          <h3>{t('orchestration.title')}</h3>
+          <p>{t('orchestration.subtitle')}</p>
+        </div>
+        <span class="entry-cta">→</span>
+      </a>
+      <a class="entry-card" href="/hub">
+        <span class="entry-icon">⬡</span>
+        <div class="entry-copy">
+          <span class="surface-chip entry-path">/hub</span>
+          <h3>{t('hub.title')}</h3>
+          <p>{t('hub.subtitle')}</p>
+        </div>
+        <span class="entry-cta">→</span>
+      </a>
+    </div>
+  </section>
+
+  <section class="section-shell">
+    <div class="section-heading-row">
+      <div class="section-heading">
+        <span class="section-kicker">{t('nav.instances')}</span>
+        <h2 class="section-title">{t('overview.recentInstances')}</h2>
+      </div>
+      <a class="control-btn secondary recent-link" href="/instances">{t('overview.enterInstances')}</a>
+    </div>
+
     {#if recentInstances.length === 0}
-      <p class="empty">暂无实例。可前往应用市场安装组件。</p>
+      <p class="empty-panel">{t('overview.emptyState')}</p>
     {:else}
       <ul class="recent-list">
         {#each recentInstances as row}
-          <li>
-            <a href={`/instances/${row.component}/${row.name}`}>{row.component}/{row.name}</a>
-            <span>{row.status}</span>
-            <span>{row.version}</span>
+          <li class="recent-row">
+            <div class="recent-main">
+              <a href={`/instances/${row.component}/${row.name}`}>{row.component}/{row.name}</a>
+              <span class="recent-component">{row.component}</span>
+            </div>
+            <div class="recent-meta">
+              <StatusBadge status={row.status} />
+              <span class="surface-chip recent-version">{row.version}</span>
+            </div>
           </li>
         {/each}
       </ul>
@@ -109,74 +161,19 @@
 </div>
 
 <style>
-  .page {
-    max-width: 1240px;
-    margin: 0 auto;
-    padding: var(--spacing-3xl);
+  .hero-shell {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-xl);
   }
 
-  .hero {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    gap: var(--spacing-lg);
-  }
-
-  h1 {
-    margin: 0;
-    font-family: var(--font-mono);
-    font-size: 2rem;
-    color: var(--slate-900);
-  }
-
-  .hero p {
-    margin: var(--spacing-xs) 0 0 0;
-    color: var(--slate-500);
-  }
-
-  .refresh-btn {
-    border: 1px solid var(--indigo-500);
-    background: var(--indigo-600);
-    color: white;
-    border-radius: var(--radius-md);
-    padding: 0.55rem 0.9rem;
-    cursor: pointer;
-  }
-
-  .error-banner {
-    padding: 0.75rem 1rem;
-    border: 1px solid var(--red-200);
-    background: var(--red-50);
-    border-radius: var(--radius-md);
-    color: var(--red-700);
-  }
-
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: var(--spacing-md);
-  }
-
-  .stat-card {
-    border: 1px solid var(--slate-200);
+  .feedback-banner {
+    padding: var(--spacing-md) var(--spacing-lg);
     border-radius: var(--radius-lg);
-    background: white;
-    padding: var(--spacing-lg);
-  }
-
-  .stat-card span {
-    color: var(--slate-500);
-    font-size: var(--text-sm);
-  }
-
-  .stat-card strong {
-    margin-top: var(--spacing-xs);
-    display: block;
-    color: var(--slate-900);
-    font-size: 1.6rem;
+    border: 1px solid rgba(244, 63, 94, 0.16);
+    background: rgba(255, 241, 245, 0.82);
+    color: var(--red-700);
+    box-shadow: var(--shadow-sm);
   }
 
   .entry-grid {
@@ -186,123 +183,146 @@
   }
 
   .entry-card {
-    border: 1px solid var(--slate-200);
-    border-radius: var(--radius-lg);
-    background: white;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: var(--spacing-lg);
+    align-items: flex-start;
     padding: var(--spacing-lg);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(141, 154, 178, 0.18);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(242, 248, 255, 0.7));
     text-decoration: none;
     color: inherit;
-    transition: all var(--transition-fast);
+    transition: all var(--transition-base);
   }
 
   .entry-card:hover {
-    border-color: var(--indigo-300);
     transform: translateY(-2px);
+    border-color: rgba(34, 211, 238, 0.26);
+    box-shadow: var(--shadow-md), 0 0 0 1px rgba(34, 211, 238, 0.08);
   }
 
-  .entry-card h2 {
-    margin: 0;
-    color: var(--slate-800);
-    font-size: var(--text-lg);
-  }
-
-  .entry-card p {
-    margin: var(--spacing-sm) 0 0 0;
-    color: var(--slate-500);
-    line-height: 1.45;
-  }
-
-  .recent-card {
-    border: 1px solid var(--slate-200);
-    border-radius: var(--radius-lg);
-    background: white;
-    padding: var(--spacing-xl);
-  }
-
-  .recent-header {
-    display: flex;
-    justify-content: space-between;
+  .entry-icon {
+    width: 44px;
+    height: 44px;
+    display: inline-flex;
     align-items: center;
-    margin-bottom: var(--spacing-md);
-  }
-
-  .recent-header h2 {
-    margin: 0;
-    color: var(--slate-800);
+    justify-content: center;
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(24, 34, 56, 0.94));
+    color: var(--shell-text);
+    box-shadow: var(--glow-cyan);
     font-size: var(--text-lg);
   }
 
-  .recent-header a {
-    color: var(--indigo-600);
-    text-decoration: none;
-    font-size: var(--text-sm);
-  }
-
-  .recent-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
+  .entry-copy {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
   }
 
-  .recent-list li {
-    border: 1px solid var(--slate-200);
-    border-radius: var(--radius-md);
-    padding: 0.55rem 0.7rem;
-    display: grid;
-    grid-template-columns: minmax(0, 1.5fr) 0.8fr 0.7fr;
-    gap: var(--spacing-sm);
-    align-items: center;
-    font-size: var(--text-sm);
+  .entry-path {
+    width: fit-content;
   }
 
-  .recent-list li a {
-    color: var(--slate-800);
-    text-decoration: none;
-    font-family: var(--font-mono);
-  }
-
-  .recent-list li span {
-    color: var(--slate-500);
-  }
-
-  .empty {
+  .entry-copy h3 {
     margin: 0;
+    color: var(--slate-900);
+    font-size: var(--text-lg);
+  }
+
+  .entry-copy p {
+    margin: 0;
+    color: var(--slate-600);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+  }
+
+  .entry-cta {
+    align-self: center;
+    color: var(--cyan-600);
+    font-family: var(--font-mono);
+    font-size: var(--text-lg);
+    font-weight: 600;
+  }
+
+  .recent-link {
+    width: fit-content;
+  }
+
+  .recent-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+  }
+
+  .recent-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-lg);
+    padding: 0.9rem 1rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(141, 154, 178, 0.16);
+    background: rgba(255, 255, 255, 0.64);
+  }
+
+  .recent-main {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .recent-main a {
+    color: var(--slate-900);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    text-decoration: none;
+    word-break: break-all;
+  }
+
+  .recent-main a:hover {
+    color: var(--cyan-600);
+  }
+
+  .recent-component {
     color: var(--slate-500);
-    border: 1px dashed var(--slate-300);
-    border-radius: var(--radius-md);
-    padding: var(--spacing-md);
-    background: var(--slate-50);
+    font-size: var(--text-xs);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .recent-meta {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+  }
+
+  .recent-version {
+    min-width: 72px;
+    justify-content: center;
   }
 
   @media (max-width: 960px) {
-    .page {
-      padding: var(--spacing-xl);
-    }
-
-    .stats-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
     .entry-grid {
       grid-template-columns: 1fr;
     }
   }
 
   @media (max-width: 680px) {
-    .hero {
+    .recent-row {
       flex-direction: column;
       align-items: stretch;
     }
 
-    .stats-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .recent-list li {
-      grid-template-columns: 1fr;
+    .recent-meta {
+      justify-content: flex-start;
     }
   }
 </style>

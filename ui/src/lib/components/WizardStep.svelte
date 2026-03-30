@@ -1,4 +1,11 @@
 <script lang="ts">
+  type StepOption = {
+    value: string;
+    label: string;
+    description?: string;
+    recommended?: boolean;
+  };
+
   let {
     step,
     value = "",
@@ -9,12 +16,7 @@
       title: string;
       description?: string;
       type: string;
-      options?: Array<{
-        value: string;
-        label: string;
-        description?: string;
-        recommended?: boolean;
-      }>;
+      options?: StepOption[];
       required?: boolean;
       default_value?: string;
     };
@@ -35,7 +37,7 @@
   let filteredOptions = $derived(
     isSearchable && searchQuery
       ? (step.options || []).filter(
-          (o) =>
+          (o: StepOption) =>
             o.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
             o.value.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (o.description || "")
@@ -46,7 +48,7 @@
   );
 
   let selectedOption = $derived(
-    (step.options || []).find((o) => o.value === value),
+    (step.options || []).find((o: StepOption) => o.value === value),
   );
   let selectedLabel = $derived(
     selectedOption
@@ -147,9 +149,9 @@
           class="option-btn chip"
           class:selected
           onclick={() => {
-            const vals = value ? value.split(",").filter(Boolean) : [];
+            const vals: string[] = value ? value.split(",").filter(Boolean) : [];
             if (selected)
-              onchange(vals.filter((v) => v !== option.value).join(","));
+              onchange(vals.filter((v: string) => v !== option.value).join(","));
             else onchange([...vals, option.value].join(","));
           }}
         >

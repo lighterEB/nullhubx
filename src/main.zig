@@ -314,6 +314,9 @@ fn openBrowser(allocator: std.mem.Allocator, host: []const u8, port: u16, access
         .windows => std.process.Child.init(&.{ "cmd", "/c", "start", "", urls.browser_open_url }, allocator),
         else => std.process.Child.init(&.{ "xdg-open", urls.browser_open_url }, allocator),
     };
+    child.stdin_behavior = .Ignore;
+    child.stdout_behavior = .Ignore;
+    child.stderr_behavior = .Ignore;
     _ = child.spawnAndWait() catch return;
 }
 

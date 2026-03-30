@@ -4,29 +4,33 @@ import { api } from './api/client';
 /**
  * Global status store - singleton pattern
  * Deduplicates API calls across components
- * 
+ *
  * Polling strategy:
- * - Start polling immediately on first subscription
- * - Keep polling across route changes for smoother UX
- * - Stop polling only when ALL subscribers are gone
+ * - Adaptive interval with exponential backoff on failures
+ * - Pauses when page is not visible (saves battery & bandwidth)
+ * - Resumes when page becomes visible again
+ * - Stops only when ALL subscribers are gone
  */
 
-const REFRESH_INTERVAL = 3000; // 3 seconds
-const MIN_REFRESH_GAP = 500; // Minimum gap between manual refreshes
+const BASE_REFRESH_INTERVAL = 5000; // 5 seconds base
+const MAX_REFRESH_INTERVAL = 30000; // 30 seconds max on repeated failures
+const MIN_REFRESH_GAP = 800; // Minimum gap between manual refreshes
 const STATUS_RETRY_DELAY_MS = 200;
 const STATUS_MAX_ATTEMPTS = 2;
 
 let lastFetch = 0;
-let pendingRequest: Promise<any> | null = null;
+let pendingRequest: Promise<GlobalStatus> | null = null;
 let intervalId: ReturnType<typeof setInterval> | null = null;
 let subscriberCount = 0;
 let consecutiveStatusFailures = 0;
 let isPolling = false;
 let hasInitialData = false;
 let unsubscribeTimeout: ReturnType<typeof setTimeout> | null = null;
+let currentRefreshInterval = BASE_REFRESH_INTERVAL;
 
 // Svelte stores
-export const status = writable<any>(null);
+import type { GlobalStatus, InstanceInfo, InstancesPayload } from './api/client';
+export const status = writable<GlobalStatus | null>(null);
 export const statusError = writable<string | null>(null);
 export const isLoading = writable(false);
 
@@ -45,7 +49,7 @@ function isTransientStatusError(err: unknown): boolean {
   );
 }
 
-async function fetchStatusWithRetry(): Promise<any> {
+async function fetchStatusWithRetry(): Promise<GlobalStatus> {
   let lastErr: unknown = null;
   for (let attempt = 1; attempt <= STATUS_MAX_ATTEMPTS; attempt++) {
     try {
@@ -63,7 +67,7 @@ async function fetchStatusWithRetry(): Promise<any> {
   throw lastErr;
 }
 
-async function fetchStatus(): Promise<any> {
+async function fetchStatus(): Promise<GlobalStatus> {
   // Deduplicate concurrent requests
   if (pendingRequest) {
     return pendingRequest;
@@ -81,17 +85,19 @@ async function fetchStatus(): Promise<any> {
 
   try {
     const result = await pendingRequest;
-    const previous = get(status) ?? {};
+    const previous = get(status);
     status.set({
-      ...previous,
+      ...(previous ?? {}),
       ...result,
-      instances: result?.instances ?? previous?.instances ?? {},
+      instances: result.instances ?? previous?.instances ?? {},
     });
     consecutiveStatusFailures = 0;
     statusError.set(null);
     hasInitialData = true;
     lastFetch = now;
-    return get(status);
+    // Reset interval on success
+    currentRefreshInterval = BASE_REFRESH_INTERVAL;
+    return get(status) ?? result;
   } catch (e) {
     consecutiveStatusFailures += 1;
     const hasCachedStatus = Boolean(get(status));
@@ -99,6 +105,18 @@ async function fetchStatus(): Promise<any> {
       statusError.set((e as Error).message);
     } else {
       statusError.set(null);
+    }
+    // Exponential backoff: 5s -> 10s -> 20s -> 30s (max)
+    currentRefreshInterval = Math.min(
+      currentRefreshInterval * 1.5,
+      MAX_REFRESH_INTERVAL
+    );
+    // Reconfigure interval with new timing
+    if (intervalId && isPolling) {
+      clearInterval(intervalId);
+      intervalId = setInterval(() => {
+        fetchStatus().catch(() => {});
+      }, currentRefreshInterval);
     }
     throw e;
   } finally {
@@ -116,7 +134,29 @@ function startPolling() {
 
   intervalId = setInterval(() => {
     fetchStatus().catch(() => {});
-  }, REFRESH_INTERVAL);
+  }, currentRefreshInterval);
+
+  // Pause polling when page is not visible
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+}
+
+function handleVisibilityChange() {
+  if (document.hidden) {
+    // Page is hidden - pause polling to save resources
+    if (intervalId) {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+  } else {
+    // Page is visible again - resume polling
+    if (isPolling && subscriberCount > 0) {
+      intervalId = setInterval(() => {
+        fetchStatus().catch(() => {});
+      }, currentRefreshInterval);
+      // Fresh fetch on resume
+      fetchStatus().catch(() => {});
+    }
+  }
 }
 
 function stopPolling() {
@@ -126,6 +166,7 @@ function stopPolling() {
   }
   isPolling = false;
   hasInitialData = false;
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
 }
 
 function scheduleStopPolling() {
@@ -180,17 +221,19 @@ export async function refreshStatus() {
 // Derived stores
 export const instanceCount = derived(status, ($status) => {
   let count = 0;
-  for (const instances of Object.values($status?.instances || {})) {
-    count += Object.keys(instances as Record<string, any>).length;
+  const groups: InstancesPayload = $status?.instances ?? {};
+  for (const instances of Object.values(groups)) {
+    count += Object.keys(instances).length;
   }
   return count;
 });
 
 export const runningCount = derived(status, ($status) => {
   let count = 0;
-  for (const instances of Object.values($status?.instances || {})) {
-    for (const inst of Object.values(instances as Record<string, any>)) {
-      if ((inst as any).status === "running") count++;
+  const groups: InstancesPayload = $status?.instances ?? {};
+  for (const instances of Object.values(groups)) {
+    for (const inst of Object.values(instances) as InstanceInfo[]) {
+      if (inst.status === "running") count++;
     }
   }
   return count;

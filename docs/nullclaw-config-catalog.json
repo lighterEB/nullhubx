@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "generated_at": "2026-03-18T14:50:30.191951+00:00",
+  "generated_at": "2026-03-30T06:53:15.338876+00:00",
   "source_priority": [
     "/home/huspc/projects/nullclaw/src/config_types.zig",
     "/home/huspc/projects/nullclaw/src/config_parse.zig",
@@ -62,10 +62,12 @@
     "telegram",
     "web",
     "webhook",
+    "wechat",
+    "wecom",
     "whatsapp"
   ],
-  "enum_count": 14,
-  "struct_count": 92,
+  "enum_count": 15,
+  "struct_count": 94,
   "leaf_fields": [
     {
       "path": "a2a.description",
@@ -309,6 +311,21 @@
       ],
       "defaults": [
         "true"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "agent.timezone",
+      "types": [
+        "string",
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig",
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"UTC\""
       ],
       "enum_values": []
     },
@@ -3332,6 +3349,158 @@
       "enum_values": []
     },
     {
+      "path": "channels.wechat.accounts.<account>.account_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.wechat.accounts.<account>.allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.wechat.accounts.<account>.app_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.wechat.accounts.<account>.app_secret",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.wechat.accounts.<account>.callback_token",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
+      "path": "channels.wechat.accounts.<account>.encoding_aes_key",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.wecom.accounts.<account>.account_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "\"default\""
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.wecom.accounts.<account>.allow_from",
+      "types": [
+        "array"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "&.{}"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.wecom.accounts.<account>.callback_token",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.wecom.accounts.<account>.corp_id",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.wecom.accounts.<account>.encoding_aes_key",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [
+        "null"
+      ],
+      "enum_values": []
+    },
+    {
+      "path": "channels.wecom.accounts.<account>.webhook_url",
+      "types": [
+        "string"
+      ],
+      "sources": [
+        "config_types.zig"
+      ],
+      "defaults": [],
+      "enum_values": []
+    },
+    {
       "path": "channels.whatsapp.accounts.<account>.access_token",
       "types": [
         "string"
@@ -3768,14 +3937,27 @@
     {
       "path": "diagnostics.otel_endpoint",
       "types": [
-        "string"
+        "string",
+        "unknown"
       ],
       "sources": [
+        "config_parse.zig",
         "config_types.zig"
       ],
       "defaults": [
         "null"
       ],
+      "enum_values": []
+    },
+    {
+      "path": "diagnostics.otel_headers",
+      "types": [
+        "unknown"
+      ],
+      "sources": [
+        "config_parse.zig"
+      ],
+      "defaults": [],
       "enum_values": []
     },
     {
@@ -3803,9 +3985,11 @@
     {
       "path": "diagnostics.otel_service_name",
       "types": [
-        "string"
+        "string",
+        "unknown"
       ],
       "sources": [
+        "config_parse.zig",
         "config_types.zig"
       ],
       "defaults": [
@@ -6102,11 +6286,9 @@
     {
       "path": "reliability.model_fallbacks",
       "types": [
-        "array",
         "unknown"
       ],
       "sources": [
-        "config.example.json",
         "config_parse.zig"
       ],
       "defaults": [],
@@ -6118,6 +6300,7 @@
         "array"
       ],
       "sources": [
+        "config.example.json",
         "config_types.zig"
       ],
       "defaults": [],
@@ -6129,6 +6312,7 @@
         "string"
       ],
       "sources": [
+        "config.example.json",
         "config_types.zig"
       ],
       "defaults": [],

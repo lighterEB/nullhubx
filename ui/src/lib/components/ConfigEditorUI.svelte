@@ -1,5 +1,16 @@
 <script lang="ts">
+  import {
+    getFieldPath,
+    getFieldReadPaths,
+    getFieldValue,
+    type ConfigFieldDef
+  } from './configSchemaContract';
   import { channelSchemas, staticSections } from './configSchemas';
+  import KeyValueEditor from './config-editors/KeyValueEditor.svelte';
+  import ObjectListEditor from './config-editors/ObjectListEditor.svelte';
+  import MemoryConfigModule from './config-modules/MemoryConfigModule.svelte';
+  import PeripheralsConfigModule from './config-modules/PeripheralsConfigModule.svelte';
+  import { t } from '$lib/i18n/index.svelte';
 
   let { config = $bindable({}), onchange = () => {} }: {
     config: any;
@@ -8,6 +19,8 @@
 
   let openSections = $state<Record<string, boolean>>({});
   let addChannelOpen = $state(false);
+  let drafts = $state<Record<string, string>>({});
+  let fieldErrors = $state<Record<string, string>>({});
 
   function toggle(key: string) {
     openSections[key] = !openSections[key];
@@ -29,8 +42,41 @@
     return clone;
   }
 
+  function removePath(obj: any, path: string): any {
+    const clone = JSON.parse(JSON.stringify(obj ?? {}));
+    const keys = path.split('.');
+    let cur = clone;
+    for (let i = 0; i < keys.length - 1; i++) {
+      if (cur[keys[i]] === undefined || cur[keys[i]] === null) return clone;
+      cur = cur[keys[i]];
+    }
+    delete cur[keys[keys.length - 1]];
+    return clone;
+  }
+
+  function removePaths(obj: any, paths: string[]): any {
+    let next = obj;
+    for (const path of paths) {
+      next = removePath(next, path);
+    }
+    return next;
+  }
+
   function updateField(path: string, value: any) {
     config = setPath(config, path, value);
+    onchange();
+  }
+
+  function updateSchemaField(field: ConfigFieldDef, value: unknown) {
+    const primaryPath = fieldPath(field);
+    const legacyPaths = getFieldReadPaths(field).filter((path) => path !== primaryPath);
+    const baseConfig = removePaths(config, legacyPaths);
+    config = setPath(baseConfig, primaryPath, value);
+    onchange();
+  }
+
+  function clearSchemaField(field: ConfigFieldDef) {
+    config = removePaths(config, getFieldReadPaths(field));
     onchange();
   }
 
@@ -54,9 +100,9 @@
       const defaults: Record<string, any> = { account_id: 'default' };
       for (const f of schema.fields) {
         if (f.default !== undefined) {
-          const parts = f.key.split('.');
+          const parts = fieldPath(f).split('.');
           if (parts.length === 1) {
-            defaults[f.key] = f.default;
+            defaults[parts[0]] = f.default;
           } else {
             let cur: any = defaults;
             for (let i = 0; i < parts.length - 1; i++) {
@@ -71,7 +117,7 @@
     } else {
       const defaults: Record<string, any> = {};
       for (const f of schema.fields) {
-        if (f.default !== undefined) defaults[f.key] = f.default;
+        if (f.default !== undefined) defaults[fieldPath(f)] = f.default;
       }
       updateField(`channels.${type}`, defaults);
     }
@@ -99,10 +145,47 @@
     return `cfg-${path.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
   }
 
+  function fieldPath(field: ConfigFieldDef): string {
+    return getFieldPath(field);
+  }
+
+  function fieldValue(field: ConfigFieldDef): any {
+    return getFieldValue(config, field);
+  }
+
+  function displayJson(path: string, value: any, fallback: unknown): string {
+    if (drafts[path] !== undefined) return drafts[path];
+    if (value === undefined) {
+      return JSON.stringify(fallback ?? {}, null, 2);
+    }
+    return JSON.stringify(value, null, 2);
+  }
+
+  function updateSchemaJson(field: ConfigFieldDef, raw: string) {
+    const path = fieldPath(field);
+    drafts[path] = raw;
+    if (!raw.trim()) {
+      delete fieldErrors[path];
+      clearSchemaField(field);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      delete fieldErrors[path];
+      updateSchemaField(field, parsed);
+    } catch {
+      fieldErrors[path] = 'Invalid JSON';
+    }
+  }
+
   let availableChannels = $derived(
     Object.entries(channelSchemas)
       .filter(([key]) => !configuredChannels.includes(key))
       .map(([key, schema]) => ({ key, label: schema.label }))
+  );
+
+  let standardSections = $derived(
+    staticSections.slice(1).filter((section) => section.key !== 'peripherals' && section.group !== 'memory')
   );
 </script>
 
@@ -116,18 +199,47 @@
     {#if openSections['models']}
       <div class="accordion-body">
         {#each staticSections[0].fields as field}
-          {@const value = getPath(config, field.key)}
-          {@const inputId = fieldId(field.key)}
+          {@const path = fieldPath(field)}
+          {@const value = fieldValue(field)}
+          {@const inputId = fieldId(path)}
           {#if field.type === 'toggle'}
             <label class="toggle-field">
               <input
                 id={inputId}
                 type="checkbox"
                 checked={!!value}
-                onchange={(e) => updateField(field.key, e.currentTarget.checked)}
+                onchange={(e) => updateSchemaField(field, e.currentTarget.checked)}
               />
               <span>{field.label}</span>
             </label>
+          {:else if field.editorKind === 'object-list'}
+            <div class="field">
+              <div class="field-title">{field.label}</div>
+              <ObjectListEditor
+                value={value}
+                fields={field.itemFields ?? []}
+                addLabel={field.addLabel}
+                emptyLabel={field.emptyLabel}
+                onchange={(nextValue) => updateSchemaField(field, nextValue)}
+              />
+              {#if field.hint}
+                <p class="hint">{field.hint}</p>
+              {/if}
+            </div>
+          {:else if field.editorKind === 'key-value'}
+            <div class="field">
+              <div class="field-title">{field.label}</div>
+              <KeyValueEditor
+                value={value}
+                fields={field.itemFields ?? []}
+                addLabel={field.addLabel}
+                emptyLabel={field.emptyLabel}
+                onchange={(nextValue) => updateSchemaField(field, nextValue)}
+              />
+              {#if field.hint}
+                <p class="hint">{field.hint}</p>
+              {/if}
+            </div>
           {:else if field.type === 'number'}
             <div class="field">
               <label for={inputId}>{field.label}</label>
@@ -138,7 +250,7 @@
                 step={field.step}
                 min={field.min}
                 max={field.max}
-                oninput={(e) => updateField(field.key, Number(e.currentTarget.value))}
+                oninput={(e) => updateSchemaField(field, Number(e.currentTarget.value))}
               />
               {#if field.hint}
                 <p class="hint">{field.hint}</p>
@@ -151,7 +263,7 @@
                 id={inputId}
                 type="text"
                 value={value ?? ''}
-                oninput={(e) => updateField(field.key, e.currentTarget.value)}
+                oninput={(e) => updateSchemaField(field, e.currentTarget.value)}
               />
               {#if field.hint}
                 <p class="hint">{field.hint}</p>
@@ -164,7 +276,7 @@
                 id={inputId}
                 type="password"
                 value={value ?? ''}
-                oninput={(e) => updateField(field.key, e.currentTarget.value)}
+                oninput={(e) => updateSchemaField(field, e.currentTarget.value)}
               />
               {#if field.hint}
                 <p class="hint">{field.hint}</p>
@@ -173,7 +285,7 @@
           {:else if field.type === 'select'}
             <div class="field">
               <label for={inputId}>{field.label}</label>
-              <select id={inputId} onchange={(e) => updateField(field.key, e.currentTarget.value)}>
+              <select id={inputId} onchange={(e) => updateSchemaField(field, e.currentTarget.value)}>
                 {#each field.options ?? [] as opt}
                   <option value={opt} selected={value === opt}>{opt}</option>
                 {/each}
@@ -188,11 +300,40 @@
               <textarea
                 id={inputId}
                 value={parseList(value)}
-                oninput={(e) => updateField(field.key, toList(e.currentTarget.value))}
+                oninput={(e) => updateSchemaField(field, toList(e.currentTarget.value))}
                 rows="3"
               ></textarea>
               {#if field.hint}
                 <p class="hint">{field.hint}</p>
+              {/if}
+            </div>
+          {:else if field.type === 'textarea'}
+            <div class="field">
+              <label for={inputId}>{field.label}</label>
+              <textarea
+                id={inputId}
+                rows={field.rows ?? 4}
+                value={value ?? field.default ?? ''}
+                oninput={(e) => updateSchemaField(field, e.currentTarget.value)}
+              ></textarea>
+              {#if field.hint}
+                <p class="hint">{field.hint}</p>
+              {/if}
+            </div>
+          {:else if field.type === 'json'}
+            <div class="field">
+              <label for={inputId}>{field.label}</label>
+              <textarea
+                id={inputId}
+                rows={field.rows ?? 6}
+                value={displayJson(path, value, field.default)}
+                oninput={(e) => updateSchemaJson(field, e.currentTarget.value)}
+              ></textarea>
+              {#if field.hint}
+                <p class="hint">{field.hint}</p>
+              {/if}
+              {#if fieldErrors[path]}
+                <p class="error">{fieldErrors[path]}</p>
               {/if}
             </div>
           {/if}
@@ -249,7 +390,7 @@
   </div>
 
   <!-- Channels heading -->
-  <div class="channels-heading">渠道</div>
+  <div class="channels-heading">{t('configEditorUi.channelsHeading')}</div>
 
   <!-- Configured channels -->
   {#each configuredChannels as channelType}
@@ -266,7 +407,7 @@
             onclick={(e) => { e.stopPropagation(); removeChannel(channelType); }}
           >&#10005;</button>
         </div>
-        {#if openSections[`channel-${channelType}`]}
+    {#if openSections[`channel-${channelType}`]}
           <div class="accordion-body">
             {#if channelType === 'cli'}
               <p class="cli-note">CLI channel enabled</p>
@@ -274,7 +415,7 @@
               {#each getChannelAccounts(channelType) as accountId}
                 <div class="account-label">Account: {accountId}</div>
                 {#each schema.fields as field}
-                  {@const path = `channels.${channelType}.accounts.${accountId}.${field.key}`}
+                  {@const path = `channels.${channelType}.accounts.${accountId}.${fieldPath(field)}`}
                   {@const value = getPath(config, path)}
                   {@const inputId = fieldId(path)}
                   {#if field.type === 'toggle'}
@@ -286,6 +427,34 @@
                       />
                       <span>{field.label}</span>
                     </label>
+                  {:else if field.editorKind === 'object-list'}
+                    <div class="field">
+                      <div class="field-title">{field.label}</div>
+                      <ObjectListEditor
+                        value={value}
+                        fields={field.itemFields ?? []}
+                        addLabel={field.addLabel}
+                        emptyLabel={field.emptyLabel}
+                        onchange={(nextValue) => updateField(path, nextValue)}
+                      />
+                      {#if field.hint}
+                        <p class="hint">{field.hint}</p>
+                      {/if}
+                    </div>
+                  {:else if field.editorKind === 'key-value'}
+                    <div class="field">
+                      <div class="field-title">{field.label}</div>
+                      <KeyValueEditor
+                        value={value}
+                        fields={field.itemFields ?? []}
+                        addLabel={field.addLabel}
+                        emptyLabel={field.emptyLabel}
+                        onchange={(nextValue) => updateField(path, nextValue)}
+                      />
+                      {#if field.hint}
+                        <p class="hint">{field.hint}</p>
+                      {/if}
+                    </div>
                   {:else if field.type === 'number'}
                     <div class="field">
                       <label for={inputId}>{field.label}</label>
@@ -358,7 +527,7 @@
               {/each}
             {:else}
               {#each schema.fields as field}
-                {@const path = `channels.${channelType}.${field.key}`}
+                {@const path = `channels.${channelType}.${fieldPath(field)}`}
                 {@const value = getPath(config, path)}
                 {@const inputId = fieldId(path)}
                 {#if field.type === 'toggle'}
@@ -370,6 +539,34 @@
                     />
                     <span>{field.label}</span>
                   </label>
+                {:else if field.editorKind === 'object-list'}
+                  <div class="field">
+                    <div class="field-title">{field.label}</div>
+                    <ObjectListEditor
+                      value={value}
+                      fields={field.itemFields ?? []}
+                      addLabel={field.addLabel}
+                      emptyLabel={field.emptyLabel}
+                      onchange={(nextValue) => updateField(path, nextValue)}
+                    />
+                    {#if field.hint}
+                      <p class="hint">{field.hint}</p>
+                    {/if}
+                  </div>
+                {:else if field.editorKind === 'key-value'}
+                  <div class="field">
+                    <div class="field-title">{field.label}</div>
+                    <KeyValueEditor
+                      value={value}
+                      fields={field.itemFields ?? []}
+                      addLabel={field.addLabel}
+                      emptyLabel={field.emptyLabel}
+                      onchange={(nextValue) => updateField(path, nextValue)}
+                    />
+                    {#if field.hint}
+                      <p class="hint">{field.hint}</p>
+                    {/if}
+                  </div>
                 {:else if field.type === 'number'}
                   <div class="field">
                     <label for={inputId}>{field.label}</label>
@@ -449,7 +646,7 @@
   <!-- Add Channel button + dropdown -->
   <div class="add-channel" class:open={addChannelOpen}>
     <button class="add-channel-btn" onclick={() => addChannelOpen = !addChannelOpen}>
-      + 添加渠道
+      + {t('configEditorUi.addChannel')}
     </button>
     {#if addChannelOpen}
       <div class="add-channel-dropdown">
@@ -457,13 +654,16 @@
           <button onclick={() => addChannel(ch.key)}>{ch.label}</button>
         {/each}
         {#if availableChannels.length === 0}
-          <button disabled>渠道已全部配置</button>
+          <button disabled>{t('configEditorUi.allChannelsConfigured')}</button>
         {/if}
       </div>
     {/if}
   </div>
 
-  {#each staticSections.slice(1) as section}
+  <MemoryConfigModule bind:config={config} onchange={onchange} />
+  <PeripheralsConfigModule bind:config={config} onchange={onchange} />
+
+  {#each standardSections as section}
     <div class="section">
       <button class="accordion-header" onclick={() => toggle(section.key)}>
         <span class="accordion-arrow" class:open={openSections[section.key]}>&#9654;</span>
@@ -472,17 +672,46 @@
       {#if openSections[section.key]}
         <div class="accordion-body">
           {#each section.fields as field}
-            {@const value = getPath(config, field.key)}
-            {@const inputId = fieldId(field.key)}
+            {@const path = fieldPath(field)}
+            {@const value = fieldValue(field)}
+            {@const inputId = fieldId(path)}
             {#if field.type === 'toggle'}
               <label class="toggle-field">
                 <input
                   type="checkbox"
                   checked={!!value}
-                  onchange={(e) => updateField(field.key, e.currentTarget.checked)}
+                  onchange={(e) => updateSchemaField(field, e.currentTarget.checked)}
                 />
                 <span>{field.label}</span>
               </label>
+            {:else if field.editorKind === 'object-list'}
+              <div class="field">
+                <div class="field-title">{field.label}</div>
+                <ObjectListEditor
+                  value={value}
+                  fields={field.itemFields ?? []}
+                  addLabel={field.addLabel}
+                  emptyLabel={field.emptyLabel}
+                  onchange={(nextValue) => updateSchemaField(field, nextValue)}
+                />
+                {#if field.hint}
+                  <p class="hint">{field.hint}</p>
+                {/if}
+              </div>
+            {:else if field.editorKind === 'key-value'}
+              <div class="field">
+                <div class="field-title">{field.label}</div>
+                <KeyValueEditor
+                  value={value}
+                  fields={field.itemFields ?? []}
+                  addLabel={field.addLabel}
+                  emptyLabel={field.emptyLabel}
+                  onchange={(nextValue) => updateSchemaField(field, nextValue)}
+                />
+                {#if field.hint}
+                  <p class="hint">{field.hint}</p>
+                {/if}
+              </div>
             {:else if field.type === 'number'}
               <div class="field">
                 <label for={inputId}>{field.label}</label>
@@ -493,7 +722,7 @@
                   step={field.step}
                   min={field.min}
                   max={field.max}
-                  oninput={(e) => updateField(field.key, Number(e.currentTarget.value))}
+                  oninput={(e) => updateSchemaField(field, Number(e.currentTarget.value))}
                 />
                 {#if field.hint}
                   <p class="hint">{field.hint}</p>
@@ -506,7 +735,7 @@
                   id={inputId}
                   type="text"
                   value={value ?? ''}
-                  oninput={(e) => updateField(field.key, e.currentTarget.value)}
+                  oninput={(e) => updateSchemaField(field, e.currentTarget.value)}
                 />
                 {#if field.hint}
                   <p class="hint">{field.hint}</p>
@@ -519,7 +748,7 @@
                   id={inputId}
                   type="password"
                   value={value ?? ''}
-                  oninput={(e) => updateField(field.key, e.currentTarget.value)}
+                  oninput={(e) => updateSchemaField(field, e.currentTarget.value)}
                 />
                 {#if field.hint}
                   <p class="hint">{field.hint}</p>
@@ -528,7 +757,7 @@
             {:else if field.type === 'select'}
               <div class="field">
                 <label for={inputId}>{field.label}</label>
-                <select id={inputId} onchange={(e) => updateField(field.key, e.currentTarget.value)}>
+                <select id={inputId} onchange={(e) => updateSchemaField(field, e.currentTarget.value)}>
                   {#each field.options ?? [] as opt}
                     <option value={opt} selected={value === opt}>{opt}</option>
                   {/each}
@@ -543,11 +772,40 @@
                 <textarea
                   id={inputId}
                   value={parseList(value)}
-                  oninput={(e) => updateField(field.key, toList(e.currentTarget.value))}
+                  oninput={(e) => updateSchemaField(field, toList(e.currentTarget.value))}
                   rows="3"
                 ></textarea>
                 {#if field.hint}
                   <p class="hint">{field.hint}</p>
+                {/if}
+              </div>
+            {:else if field.type === 'textarea'}
+              <div class="field">
+                <label for={inputId}>{field.label}</label>
+                <textarea
+                  id={inputId}
+                  rows={field.rows ?? 4}
+                  value={value ?? field.default ?? ''}
+                  oninput={(e) => updateSchemaField(field, e.currentTarget.value)}
+                ></textarea>
+                {#if field.hint}
+                  <p class="hint">{field.hint}</p>
+                {/if}
+              </div>
+            {:else if field.type === 'json'}
+              <div class="field">
+                <label for={inputId}>{field.label}</label>
+                <textarea
+                  id={inputId}
+                  rows={field.rows ?? 6}
+                  value={displayJson(path, value, field.default)}
+                  oninput={(e) => updateSchemaJson(field, e.currentTarget.value)}
+                ></textarea>
+                {#if field.hint}
+                  <p class="hint">{field.hint}</p>
+                {/if}
+                {#if fieldErrors[path]}
+                  <p class="error">{fieldErrors[path]}</p>
                 {/if}
               </div>
             {/if}
@@ -562,13 +820,15 @@
   .config-ui {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: var(--spacing-md);
   }
 
   .section {
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--bg-surface);
+    border: 1px solid rgba(141, 154, 178, 0.18);
+    border-radius: var(--radius-lg);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(244, 248, 255, 0.72));
+    box-shadow: var(--shadow-sm);
+    backdrop-filter: blur(16px);
   }
 
   .accordion-header {
@@ -576,47 +836,46 @@
     align-items: center;
     gap: 0.75rem;
     width: 100%;
-    padding: 0.875rem 1rem;
+    padding: 1rem 1.1rem;
     background: none;
     border: none;
     cursor: pointer;
-    color: var(--accent);
-    font-size: 0.8125rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    transition: all 0.2s ease;
+    color: var(--slate-900);
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    transition: all var(--transition-fast);
   }
   .accordion-header:hover {
-    background: color-mix(in srgb, var(--accent) 5%, transparent);
-
+    background: rgba(34, 211, 238, 0.05);
   }
 
   .accordion-arrow {
     font-size: 0.625rem;
-    transition: transform 0.2s ease;
-    color: var(--accent-dim);
+    transition: transform var(--transition-fast);
+    color: var(--cyan-600);
   }
   .accordion-arrow.open {
     transform: rotate(90deg);
   }
 
   .accordion-body {
-    padding: 0 1rem 1rem;
-    border-top: 1px dashed color-mix(in srgb, var(--border) 50%, transparent);
+    padding: 0 1.1rem 1.1rem;
+    border-top: 1px solid rgba(141, 154, 178, 0.16);
   }
 
   .field {
     margin-bottom: 1rem;
   }
-  .field label {
+  .field label,
+  .field-title {
     display: block;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--fg-dim);
-    margin-bottom: 0.375rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--slate-700);
+    margin-bottom: 0.4rem;
+    letter-spacing: -0.01em;
   }
   .field input[type="text"],
   .field input[type="number"],
@@ -624,23 +883,23 @@
   .field select,
   .field textarea {
     width: 100%;
-    padding: 0.5rem 0.75rem;
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    padding: 0.65rem 0.8rem;
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(141, 154, 178, 0.22);
+    border-radius: var(--radius-md);
     color: var(--fg);
     font-size: 0.875rem;
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     outline: none;
-    transition: all 0.2s ease;
-    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
+    transition: all var(--transition-fast);
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
     box-sizing: border-box;
   }
   .field input:focus,
   .field select:focus,
   .field textarea:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 8px var(--border-glow);
+    border-color: rgba(34, 211, 238, 0.24);
+    box-shadow: var(--focus-ring);
   }
   .field textarea {
     resize: vertical;
@@ -656,27 +915,37 @@
     align-items: center;
     gap: 0.75rem;
     cursor: pointer;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.9rem;
+    padding: 0.75rem 0.85rem;
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.56);
+    border: 1px solid rgba(141, 154, 178, 0.16);
   }
   .toggle-field input[type="checkbox"] {
     width: 1.25rem;
     height: 1.25rem;
     accent-color: var(--accent);
     cursor: pointer;
-    filter: drop-shadow(0 0 4px var(--accent-dim));
   }
   .toggle-field span {
-    font-size: 0.8125rem;
-    color: var(--fg);
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    font-size: 0.875rem;
+    color: var(--slate-800);
+    letter-spacing: -0.01em;
   }
 
   .hint {
     font-size: 0.75rem;
-    color: var(--fg-dim);
+    color: var(--slate-500);
     margin-top: 0.25rem;
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
+    line-height: 1.45;
+  }
+
+  .error {
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--red-600);
+    line-height: 1.45;
   }
 
   .channel-header {
@@ -692,29 +961,28 @@
   }
 
   .remove-btn {
-    padding: 0.25rem 0.5rem;
-    background: none;
-    border: 1px solid color-mix(in srgb, var(--error) 30%, transparent);
-    border-radius: var(--radius-sm);
-    color: var(--error);
+    padding: 0.45rem 0.65rem;
+    background: rgba(244, 63, 94, 0.08);
+    border: 1px solid rgba(244, 63, 94, 0.18);
+    border-radius: var(--radius-md);
+    color: var(--red-600);
     font-size: 0.75rem;
     cursor: pointer;
-    opacity: 0.6;
-    transition: all 0.2s ease;
+    opacity: 0.75;
+    transition: all var(--transition-fast);
   }
   .remove-btn:hover {
     opacity: 1;
-    background: color-mix(in srgb, var(--error) 10%, transparent);
-    box-shadow: 0 0 5px var(--error);
+    box-shadow: 0 10px 24px rgba(225, 29, 72, 0.12);
   }
 
   .channels-heading {
-    font-size: 0.875rem;
-    font-weight: 700;
-    color: var(--accent-dim);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin: 1rem 0 0.5rem;
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    font-weight: 600;
+    color: var(--slate-900);
+    letter-spacing: -0.02em;
+    margin: 0.5rem 0 0;
   }
 
   .add-channel {
@@ -725,66 +993,63 @@
     margin-bottom: 0.75rem;
   }
   .add-channel-btn {
-    padding: 0.5rem 1rem;
-    background: color-mix(in srgb, var(--accent) 10%, transparent);
-    color: var(--accent);
-    border: 1px dashed var(--accent-dim);
-    border-radius: var(--radius-sm);
+    padding: 0.8rem 1rem;
+    background: rgba(34, 211, 238, 0.08);
+    color: var(--cyan-600);
+    border: 1px dashed rgba(34, 211, 238, 0.26);
+    border-radius: var(--radius-md);
     cursor: pointer;
-    font-size: 0.8125rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    transition: all 0.2s ease;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    transition: all var(--transition-fast);
     width: 100%;
   }
   .add-channel-btn:hover {
-    background: color-mix(in srgb, var(--accent) 20%, transparent);
-    border-color: var(--accent);
-
+    background: rgba(34, 211, 238, 0.12);
+    border-color: rgba(34, 211, 238, 0.32);
   }
 
   .add-channel-dropdown {
     position: relative;
     z-index: 10;
-    background: var(--bg-surface);
-    border: 1px solid var(--accent);
-    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(34, 211, 238, 0.22);
+    border-radius: var(--radius-md);
     max-height: 300px;
     overflow-y: auto;
     margin-top: 0.25rem;
     box-shadow: var(--shadow-md);
+    backdrop-filter: blur(16px);
   }
   .add-channel-dropdown button {
     display: block;
     width: 100%;
-    padding: 0.625rem 1rem;
+    padding: 0.7rem 1rem;
     background: none;
     border: none;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
-    color: var(--fg);
-    font-size: 0.8125rem;
+    border-bottom: 1px solid rgba(141, 154, 178, 0.16);
+    color: var(--slate-700);
+    font-size: var(--text-sm);
     text-align: left;
     cursor: pointer;
-    font-family: var(--font-mono);
-    transition: all 0.15s ease;
+    font-family: var(--font-sans);
+    transition: all var(--transition-fast);
   }
   .add-channel-dropdown button:hover {
-    background: color-mix(in srgb, var(--accent) 15%, transparent);
-    color: var(--accent);
+    background: rgba(34, 211, 238, 0.08);
+    color: var(--slate-900);
   }
   .add-channel-dropdown button:last-child {
     border-bottom: none;
   }
 
   .account-label {
-    font-size: 0.6875rem;
-    color: var(--accent-dim);
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    font-size: 0.75rem;
+    color: var(--cyan-600);
+    letter-spacing: 0.05em;
     margin: 0.75rem 0 0.5rem;
     padding-bottom: 0.25rem;
-    border-bottom: 1px dashed color-mix(in srgb, var(--border) 30%, transparent);
+    border-bottom: 1px dashed rgba(141, 154, 178, 0.18);
   }
 
   .provider-row {
@@ -792,18 +1057,15 @@
   }
   .provider-name {
     font-size: 0.75rem;
-    color: var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 0.25rem;
-    font-weight: 700;
+    color: var(--slate-700);
+    letter-spacing: 0.04em;
+    margin-bottom: 0.35rem;
+    font-weight: 600;
   }
 
   .cli-note {
-    font-size: 0.8125rem;
-    color: var(--fg-dim);
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    font-size: var(--text-sm);
+    color: var(--slate-600);
     padding: 0.5rem 0;
   }
 

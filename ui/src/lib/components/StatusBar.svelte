@@ -33,10 +33,12 @@
     align-items: center;
     justify-content: space-between;
     padding: 0 var(--spacing-5xl);
-    background: white;
-    border-top: 1px solid var(--slate-200);
-    z-index: 100;
+    background: linear-gradient(180deg, rgba(10, 16, 29, 0.95), rgba(7, 12, 22, 0.98));
+    border-top: 1px solid var(--shell-border);
+    box-shadow: 0 -10px 32px rgba(9, 16, 29, 0.2);
+    z-index: 120;
     overflow: hidden;
+    backdrop-filter: blur(18px);
   }
 
   .statusbar-left {
@@ -47,20 +49,20 @@
 
   .status-item {
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 500;
-    color: var(--slate-400);
-    letter-spacing: 1px;
+    color: var(--shell-muted);
+    letter-spacing: 0.08em;
   }
 
   .status-value {
-    color: var(--slate-600);
+    color: var(--shell-text);
     font-weight: 600;
   }
 
   .divider {
-    color: var(--slate-200);
-    font-size: 9px;
+    color: rgba(123, 138, 167, 0.6);
+    font-size: 10px;
   }
 
   .statusbar-right {
@@ -70,26 +72,28 @@
 
   .status-nominal {
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 600;
     color: var(--emerald-600);
-    letter-spacing: 1px;
+    letter-spacing: 0.08em;
+    text-shadow: 0 0 14px rgba(16, 185, 129, 0.28);
   }
 
   .status-idle {
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 600;
     color: var(--amber-600);
-    letter-spacing: 1px;
+    letter-spacing: 0.08em;
   }
 
   .status-error {
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 600;
     color: var(--red-500);
-    letter-spacing: 1px;
+    letter-spacing: 0.08em;
+    text-shadow: 0 0 14px rgba(244, 63, 94, 0.2);
   }
 
   @media (max-width: 760px) {

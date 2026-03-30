@@ -5,19 +5,13 @@
   let {
     providers = [],
     value = "[]",
-    onchange = (v: string) => {},
+    onchange = (_value: string) => {},
     component = "",
     validationResults = [] as Array<{ provider: string; live_ok: boolean; reason: string }>,
   } = $props();
 
   const LOCAL_PROVIDERS = ["ollama", "lm-studio", "claude-cli", "codex-cli", "openai-codex"];
   const MODEL_RESULTS_LIMIT = 80;
-
-  type ProviderOption = {
-    value: string;
-    label: string;
-    recommended?: boolean;
-  };
 
   type ProviderEntry = {
     provider: string;
@@ -41,7 +35,9 @@
     try {
       const data = await api.getSavedProviders();
       savedProviders = data.providers || [];
-    } catch {}
+    } catch {
+      // Saved providers are optional; the editor still works without preload data.
+    }
   });
 
   onDestroy(() => {
@@ -104,6 +100,7 @@
         entries = parsed;
       }
     } catch {
+      // Fall back to an empty provider list when persisted JSON is invalid.
       entries = [];
     }
   });

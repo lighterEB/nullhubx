@@ -5,7 +5,7 @@
 
   let {
     value = {} as Record<string, Record<string, Record<string, any>>>,
-    onchange = (v: Record<string, Record<string, Record<string, any>>>) => {},
+    onchange = (_value: Record<string, Record<string, Record<string, any>>>) => {},
     validationResults = [] as Array<{ channel: string; account: string; live_ok: boolean; reason: string }>,
   } = $props();
 
@@ -32,7 +32,9 @@
     try {
       const data = await api.getSavedChannels();
       savedChannels = data.channels || [];
-    } catch {}
+    } catch {
+      // Saved channels are optional; keep the picker empty on preload failure.
+    }
   });
 
   $effect(() => {

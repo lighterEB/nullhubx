@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { getFieldPath, getFieldValue } from "./configSchemaContract";
   import {
     getComponentConfigSchema,
     type GenericFieldDef,
@@ -19,10 +20,6 @@
   let errors = $state<Record<string, string>>({});
 
   let sections = $derived(getComponentConfigSchema(component));
-
-  function getPath(obj: any, path: string): any {
-    return path.split(".").reduce((o, k) => o?.[k], obj);
-  }
 
   function setPath(obj: any, path: string, value: any): any {
     const clone = JSON.parse(JSON.stringify(obj ?? {}));
@@ -67,8 +64,9 @@
   }
 
   function displayJson(field: GenericFieldDef): string {
-    if (drafts[field.key] !== undefined) return drafts[field.key];
-    const value = getPath(config, field.key);
+    const path = getFieldPath(field);
+    if (drafts[path] !== undefined) return drafts[path];
+    const value = getFieldValue(config, field);
     if (value === undefined) {
       return JSON.stringify(field.default ?? {}, null, 2);
     }
@@ -76,25 +74,26 @@
   }
 
   function displayList(field: GenericFieldDef): string {
-    const value = getPath(config, field.key);
+    const value = getFieldValue(config, field);
     if (Array.isArray(value)) return value.join("\n");
     if (value === undefined && Array.isArray(field.default)) return field.default.join("\n");
     return "";
   }
 
   function updateJson(field: GenericFieldDef, raw: string) {
-    drafts[field.key] = raw;
+    const path = getFieldPath(field);
+    drafts[path] = raw;
     if (!raw.trim()) {
-      delete errors[field.key];
-      clearField(field.key);
+      delete errors[path];
+      clearField(path);
       return;
     }
     try {
       const parsed = JSON.parse(raw);
-      delete errors[field.key];
-      updateField(field.key, parsed);
+      delete errors[path];
+      updateField(path, parsed);
     } catch {
-      errors[field.key] = "Invalid JSON";
+      errors[path] = "Invalid JSON";
     }
   }
 
@@ -103,16 +102,16 @@
       .split("\n")
       .map((item) => item.trim())
       .filter(Boolean);
-    updateField(field.key, items);
+    updateField(getFieldPath(field), items);
   }
 
   function updateNumber(field: GenericFieldDef, raw: string) {
     if (!raw.trim()) {
-      clearField(field.key);
+      clearField(getFieldPath(field));
       return;
     }
     const value = Number(raw);
-    if (!Number.isNaN(value)) updateField(field.key, value);
+    if (!Number.isNaN(value)) updateField(getFieldPath(field), value);
   }
 </script>
 
@@ -131,7 +130,8 @@
           {/if}
 
           {#each section.fields as field}
-            {@const id = fieldId(section.key, field.key)}
+            {@const fieldPath = getFieldPath(field)}
+            {@const id = fieldId(section.key, fieldPath)}
             <div class="field">
               <label for={id}>{field.label}</label>
 
@@ -140,16 +140,16 @@
                   <input
                     id={id}
                     type="checkbox"
-                    checked={!!getPath(config, field.key)}
-                    onchange={(e) => updateField(field.key, e.currentTarget.checked)}
+                    checked={!!getFieldValue(config, field)}
+                    onchange={(e) => updateField(fieldPath, e.currentTarget.checked)}
                   />
-                  <span>{getPath(config, field.key) ? "Enabled" : "Disabled"}</span>
+                  <span>{getFieldValue(config, field) ? "Enabled" : "Disabled"}</span>
                 </label>
               {:else if field.type === "select"}
                 <select
                   id={id}
-                  value={getPath(config, field.key) ?? field.default ?? ""}
-                  onchange={(e) => updateField(field.key, e.currentTarget.value)}
+                  value={getFieldValue(config, field) ?? field.default ?? ""}
+                  onchange={(e) => updateField(fieldPath, e.currentTarget.value)}
                 >
                   {#each field.options ?? [] as option}
                     <option value={option}>{option}</option>
@@ -159,7 +159,7 @@
                 <input
                   id={id}
                   type="number"
-                  value={getPath(config, field.key) ?? field.default ?? ""}
+                  value={getFieldValue(config, field) ?? field.default ?? ""}
                   min={field.min}
                   max={field.max}
                   step={field.step}
@@ -169,15 +169,15 @@
                 <input
                   id={id}
                   type="password"
-                  value={getPath(config, field.key) ?? ""}
-                  oninput={(e) => updateField(field.key, e.currentTarget.value)}
+                  value={getFieldValue(config, field) ?? ""}
+                  oninput={(e) => updateField(fieldPath, e.currentTarget.value)}
                 />
               {:else if field.type === "textarea"}
                 <textarea
                   id={id}
                   rows={field.rows ?? 4}
-                  oninput={(e) => updateField(field.key, e.currentTarget.value)}
-                >{getPath(config, field.key) ?? field.default ?? ""}</textarea>
+                  oninput={(e) => updateField(fieldPath, e.currentTarget.value)}
+                >{getFieldValue(config, field) ?? field.default ?? ""}</textarea>
               {:else if field.type === "list"}
                 <textarea
                   id={id}
@@ -196,16 +196,16 @@
                 <input
                   id={id}
                   type="text"
-                  value={getPath(config, field.key) ?? field.default ?? ""}
-                  oninput={(e) => updateField(field.key, e.currentTarget.value)}
+                  value={getFieldValue(config, field) ?? field.default ?? ""}
+                  oninput={(e) => updateField(fieldPath, e.currentTarget.value)}
                 />
               {/if}
 
               {#if field.hint}
                 <p class="hint">{field.hint}</p>
               {/if}
-              {#if errors[field.key]}
-                <p class="error">{errors[field.key]}</p>
+              {#if errors[fieldPath]}
+                <p class="error">{errors[fieldPath]}</p>
               {/if}
             </div>
           {/each}
@@ -219,35 +219,37 @@
   .structured-editor {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: var(--spacing-md);
   }
 
   .section {
-    border: 1px solid var(--border);
-    border-radius: 2px;
-    background: color-mix(in srgb, var(--bg-surface) 75%, transparent);
+    border: 1px solid rgba(141, 154, 178, 0.18);
+    border-radius: var(--radius-lg);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(244, 248, 255, 0.72));
+    box-shadow: var(--shadow-sm);
+    backdrop-filter: blur(16px);
   }
 
   .section-header {
     width: 100%;
     background: none;
     border: none;
-    color: var(--fg);
+    color: var(--slate-900);
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.9rem 1rem;
+    padding: 1rem 1.1rem;
     cursor: pointer;
-    font-size: 0.85rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    letter-spacing: -0.01em;
   }
 
   .section-arrow {
     font-size: 0.7rem;
-    transition: transform 0.2s ease;
-    color: var(--accent);
+    transition: transform var(--transition-fast);
+    color: var(--cyan-600);
   }
 
   .section-arrow.open {
@@ -255,14 +257,15 @@
   }
 
   .section-body {
-    padding: 0 1rem 1rem;
+    padding: 0 1.1rem 1.1rem;
+    border-top: 1px solid rgba(141, 154, 178, 0.16);
   }
 
   .section-description {
     margin: 0 0 1rem;
-    color: var(--fg-dim);
-    font-size: 0.8rem;
-    line-height: 1.5;
+    color: var(--slate-600);
+    font-size: 0.875rem;
+    line-height: 1.6;
   }
 
   .field {
@@ -273,33 +276,32 @@
   }
 
   .field label {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--fg-dim);
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--slate-700);
+    letter-spacing: -0.01em;
   }
 
   .field input,
   .field select,
   .field textarea {
     width: 100%;
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: 2px;
-    padding: 0.625rem 0.75rem;
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(141, 154, 178, 0.22);
+    border-radius: var(--radius-md);
+    padding: 0.65rem 0.8rem;
     color: var(--fg);
     font-size: 0.875rem;
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     outline: none;
-    transition: all 0.2s ease;
+    transition: all var(--transition-fast);
   }
 
   .field input:focus,
   .field select:focus,
   .field textarea:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 8px var(--border-glow);
+    border-color: rgba(34, 211, 238, 0.24);
+    box-shadow: var(--focus-ring);
   }
 
   .field textarea {
@@ -307,13 +309,20 @@
     line-height: 1.5;
   }
 
+  .field textarea[id*="json"],
+  .field textarea[id*="list"] {
+    font-family: var(--font-mono);
+  }
+
   .toggle-field {
     display: flex;
     align-items: center;
     gap: 0.6rem;
-    text-transform: none;
-    letter-spacing: 0;
-    color: var(--fg);
+    padding: 0.75rem 0.85rem;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(141, 154, 178, 0.16);
+    background: rgba(255, 255, 255, 0.56);
+    color: var(--slate-800);
     font-size: 0.875rem;
   }
 
@@ -324,15 +333,16 @@
 
   .hint {
     margin: 0;
-    color: var(--fg-dim);
+    color: var(--slate-500);
     font-size: 0.75rem;
     line-height: 1.4;
+    font-family: var(--font-sans);
   }
 
   .error {
     margin: 0;
-    color: var(--error);
+    color: var(--red-600);
     font-size: 0.75rem;
-    font-weight: 700;
+    font-weight: 600;
   }
 </style>

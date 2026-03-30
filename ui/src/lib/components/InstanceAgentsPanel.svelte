@@ -1,7 +1,12 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { api } from "$lib/api/client";
+  import {
+    api,
+    type AgentBindingsResponse,
+    type AgentProfilesResponse,
+  } from "$lib/api/client";
   import { channelSchemas } from "$lib/components/configSchemas";
+  import { t } from "$lib/i18n/index.svelte";
 
   type AgentProfile = {
     id: string;
@@ -57,16 +62,27 @@
   const channelOptions = Object.keys(channelSchemas).sort();
   const peerKindOptions = ["direct", "group", "channel"];
 
+  function translate(key: string, replacements?: Record<string, string | number>): string {
+    let message = t(key);
+    if (!replacements) return message;
+
+    for (const [name, value] of Object.entries(replacements)) {
+      message = message.replace(`{${name}}`, String(value));
+    }
+
+    return message;
+  }
+
   function normalizeError(err: unknown): string {
-    return err instanceof Error ? err.message : "请求失败";
+    return err instanceof Error ? err.message : t("agentsPanel.requestFailed");
   }
 
   function defaultModelIssue(value: string): string | null {
     const trimmed = value.trim();
     if (!trimmed) return null;
     if (trimmed.startsWith("custom:")) return null;
-    if (!trimmed.includes("/")) return "默认主模型格式应为 provider/model。";
-    if (trimmed.startsWith("/") || trimmed.endsWith("/")) return "默认主模型格式应为 provider/model。";
+    if (!trimmed.includes("/")) return t("agentsPanel.defaultModelFormat");
+    if (trimmed.startsWith("/") || trimmed.endsWith("/")) return t("agentsPanel.defaultModelFormat");
     return null;
   }
 
@@ -126,11 +142,11 @@
       const model = profile.model.trim();
       const maxDepth = profile.max_depth ?? 0;
 
-      if (!id) issues.push("ID 为必填项。");
-      if (id && (counts.get(id) ?? 0) > 1) issues.push("ID 不能重复。");
-      if (!provider) issues.push("Provider 为必填项。");
-      if (!model) issues.push("Model 为必填项。");
-      if (maxDepth < 1 || maxDepth > 8) issues.push("Max depth 必须在 1 到 8 之间。");
+      if (!id) issues.push(t("agentsPanel.idRequired"));
+      if (id && (counts.get(id) ?? 0) > 1) issues.push(t("agentsPanel.idUnique"));
+      if (!provider) issues.push(t("agentsPanel.providerRequired"));
+      if (!model) issues.push(t("agentsPanel.modelRequired"));
+      if (maxDepth < 1 || maxDepth > 8) issues.push(t("agentsPanel.maxDepthRange"));
 
       return issues;
     });
@@ -171,13 +187,13 @@
         peerId,
       ].join("|");
 
-      if (!agentId) issues.push("Agent ID 为必填项。");
-      if (agentId && !validAgentIds.has(agentId)) issues.push("Agent ID 必须匹配已存在的 Profile。");
-      if (!channel) issues.push("渠道为必填项。");
-      if (!peerKind) issues.push("Peer 类型为必填项。");
-      if (!peerId) issues.push("Peer ID 为必填项。");
+      if (!agentId) issues.push(t("agentsPanel.agentIdRequired"));
+      if (agentId && !validAgentIds.has(agentId)) issues.push(t("agentsPanel.agentIdMatchProfile"));
+      if (!channel) issues.push(t("agentsPanel.channelRequired"));
+      if (!peerKind) issues.push(t("agentsPanel.peerKindRequired"));
+      if (!peerId) issues.push(t("agentsPanel.peerIdRequired"));
       if (duplicateKeyCount.get(duplicateKey) && (duplicateKeyCount.get(duplicateKey) || 0) > 1) {
-        issues.push("存在重复的路由规则（agent/channel/peer 组合重复）。");
+        issues.push(t("agentsPanel.duplicateRoute"));
       }
 
       return issues;
@@ -273,13 +289,17 @@
     notice = "";
     try {
       const [profilesRes, bindingsRes] = await Promise.all([
-        api.getAgentProfiles(component, name).catch(() => ({ defaults: {}, profiles: [] })),
-        api.getAgentBindings(component, name).catch(() => ({ bindings: [] })),
+        api
+          .getAgentProfiles(component, name)
+          .catch((): AgentProfilesResponse => ({ defaults: {}, profiles: [] })),
+        api
+          .getAgentBindings(component, name)
+          .catch((): AgentBindingsResponse => ({ bindings: [] })),
       ]);
 
       defaultsModelPrimary = profilesRes?.defaults?.model_primary ?? "";
       profiles = Array.isArray(profilesRes?.profiles)
-        ? profilesRes.profiles.map((item: any) => ({
+        ? profilesRes.profiles.map((item) => ({
             id: item?.id ?? "",
             provider: item?.provider ?? "",
             model: item?.model ?? "",
@@ -289,7 +309,7 @@
           }))
         : [];
       bindings = Array.isArray(bindingsRes?.bindings)
-        ? bindingsRes.bindings.map((item: any) => ({
+        ? bindingsRes.bindings.map((item) => ({
             agent_id: item?.agent_id ?? "",
             match: {
               channel: item?.match?.channel ?? "",
@@ -324,7 +344,7 @@
   async function saveProfiles() {
     if (hasProfileIssues) {
       activeTab = "profiles";
-      error = "Profiles 存在校验问题，请先修复后再保存。";
+      error = t("agentsPanel.profilesInvalidSave");
       return;
     }
 
@@ -333,7 +353,7 @@
     notice = "";
     try {
       await persistProfilesOnly();
-      notice = `Profiles 已保存（${profiles.length} 项）`;
+      notice = translate("agentsPanel.profilesSaved", { count: profiles.length });
       await load();
     } catch (err) {
       error = normalizeError(err);
@@ -345,12 +365,12 @@
   async function saveBindings() {
     if (hasBindingIssues) {
       activeTab = "bindings";
-      error = "Bindings 存在校验问题，请先修复后再保存。";
+      error = t("agentsPanel.bindingsInvalidSave");
       return;
     }
     if (hasBlockingBindingReferences) {
       activeTab = "bindings";
-      error = "存在引用未保存 Profile 的 Binding，请先保存 Profiles。";
+      error = t("agentsPanel.bindingsUnsavedProfile");
       return;
     }
 
@@ -359,7 +379,7 @@
     notice = "";
     try {
       await persistBindingsOnly();
-      notice = `Bindings 已保存（${bindings.length} 项）`;
+      notice = translate("agentsPanel.bindingsSaved", { count: bindings.length });
       await load();
     } catch (err) {
       error = normalizeError(err);
@@ -370,14 +390,14 @@
 
   async function saveAll() {
     if (!hasAnyDirty) {
-      notice = "当前没有可保存的改动。";
+      notice = t("agentsPanel.noChangesToSave");
       error = "";
       return;
     }
 
     if (hasProfileIssues) {
       activeTab = "profiles";
-      error = "Profiles 存在校验问题，已定位到 Profiles 标签。";
+      error = t("agentsPanel.profilesInvalidTab");
       notice = "";
       return;
     }
@@ -385,8 +405,8 @@
     if (hasBindingIssues || hasBlockingBindingReferences) {
       activeTab = "bindings";
       error = hasBlockingBindingReferences
-        ? "Bindings 引用了未持久化的 Profile，请先保存 Profiles 或使用“保存全部改动”。"
-        : "Bindings 存在校验问题，已定位到 Bindings 标签。";
+        ? t("agentsPanel.bindingsUnsavedProfileAll")
+        : t("agentsPanel.bindingsInvalidTab");
       notice = "";
       return;
     }
@@ -412,11 +432,11 @@
       await load();
 
       if (savedProfiles && savedBindings) {
-        notice = "Profiles 与 Bindings 已全部保存。";
+        notice = t("agentsPanel.savedAll");
       } else if (savedProfiles) {
-        notice = "Profiles 已保存（Bindings 无改动）。";
+        notice = t("agentsPanel.savedProfilesOnly");
       } else if (savedBindings) {
-        notice = "Bindings 已保存（Profiles 无改动）。";
+        notice = t("agentsPanel.savedBindingsOnly");
       }
     } catch (err) {
       error = normalizeError(err);
@@ -465,15 +485,15 @@
 <div class="agents-panel">
   <div class="panel-header">
     <div>
-      <h3>代理工作区</h3>
-      <p>在实例内维护 Profiles 与 Bindings，保存顺序按“Profiles → Bindings”。</p>
+      <h3>{t("agentsPanel.title")}</h3>
+      <p>{t("agentsPanel.subtitle")}</p>
     </div>
     <div class="row-actions">
       <button class="ghost-btn" onclick={() => load()} disabled={busy}>
-        {loading ? "刷新中..." : "刷新"}
+        {loading ? t("agentsPanel.refreshing") : t("agentsPanel.refresh")}
       </button>
       <button class="primary-btn" onclick={saveAll} disabled={busy || !hasAnyDirty}>
-        {savingAll ? "保存中..." : "保存全部改动"}
+        {savingAll ? t("agentsPanel.saving") : t("agentsPanel.saveAll")}
       </button>
     </div>
   </div>
@@ -485,12 +505,12 @@
       onclick={() => (activeTab = "profiles")}
       type="button"
     >
-      Profiles
+      {t("agentsPanel.profilesTab")}
       <span>{profiles.length}</span>
       {#if profileIssueRows > 0}
-        <em>{profileIssueRows} 问题</em>
+        <em>{translate("agentsPanel.issuesCount", { count: profileIssueRows })}</em>
       {:else if profilesDirty}
-        <em>有改动</em>
+        <em>{t("agentsPanel.modified")}</em>
       {/if}
     </button>
 
@@ -500,12 +520,12 @@
       onclick={() => (activeTab = "bindings")}
       type="button"
     >
-      Bindings
+      {t("agentsPanel.bindingsTab")}
       <span>{bindings.length}</span>
       {#if bindingIssueRows > 0}
-        <em>{bindingIssueRows} 问题</em>
+        <em>{translate("agentsPanel.issuesCount", { count: bindingIssueRows })}</em>
       {:else if bindingsDirty}
-        <em>有改动</em>
+        <em>{t("agentsPanel.modified")}</em>
       {/if}
     </button>
   </div>
@@ -518,25 +538,25 @@
   {/if}
 
   {#if !loaded || loading}
-    <div class="empty">正在加载代理配置...</div>
+    <div class="empty">{t("agentsPanel.loading")}</div>
   {:else}
     {#if activeTab === "profiles"}
       <section class="card">
         <div class="card-head">
           <div>
-            <h4>Profiles</h4>
-            <p>Profiles 对应 `agents.list[]`，默认主模型位于 `agents.defaults.model.primary`。</p>
+            <h4>{t("agentsPanel.profilesTitle")}</h4>
+            <p>{t("agentsPanel.profilesSubtitle")}</p>
           </div>
           <div class="row-actions">
-            <button class="ghost-btn" onclick={addProfile} disabled={busy}>添加 Profile</button>
+            <button class="ghost-btn" onclick={addProfile} disabled={busy}>{t("agentsPanel.addProfile")}</button>
             <button class="primary-btn" onclick={saveProfiles} disabled={busy || !profilesDirty || hasProfileIssues}>
-              {savingProfiles ? "保存中..." : "保存 Profiles"}
+              {savingProfiles ? t("agentsPanel.saving") : t("agentsPanel.saveProfiles")}
             </button>
           </div>
         </div>
 
         <label class="field full">
-          <span>默认主模型</span>
+          <span>{t("agentsPanel.defaultPrimaryModel")}</span>
           <input bind:value={defaultsModelPrimary} placeholder="openrouter/openai/gpt-5-mini" />
           {#if defaultModelError}
             <div class="field-error">{defaultModelError}</div>
@@ -544,15 +564,15 @@
         </label>
 
         {#if profiles.length === 0}
-          <div class="empty subtle">暂无 Profiles，可先添加一个用于路由绑定。</div>
+          <div class="empty subtle">{t("agentsPanel.emptyProfiles")}</div>
         {/if}
 
         <div class="stack">
           {#each profiles as profile, index}
             <article class="entry">
               <div class="entry-head">
-                <strong>{profile.id || `Profile ${index + 1}`}</strong>
-                <button class="danger-btn" onclick={() => removeProfile(index)} disabled={busy}>移除</button>
+                <strong>{profile.id || translate("agentsPanel.profileLabel", { count: index + 1 })}</strong>
+                <button class="danger-btn" onclick={() => removeProfile(index)} disabled={busy}>{t("agentsPanel.remove")}</button>
               </div>
               {#if profileIssues[index]?.length}
                 <ul class="issues">
@@ -567,15 +587,15 @@
                   <input bind:value={profile.id} placeholder="coder" />
                 </label>
                 <label class="field">
-                  <span>Provider</span>
+                  <span>{t("agentsPanel.provider")}</span>
                   <input bind:value={profile.provider} placeholder="openrouter" />
                 </label>
                 <label class="field">
-                  <span>Model</span>
+                  <span>{t("agentsPanel.model")}</span>
                   <input bind:value={profile.model} placeholder="openai/gpt-5-mini" />
                 </label>
                 <label class="field">
-                  <span>Temperature</span>
+                  <span>{t("agentsPanel.temperature")}</span>
                   <input
                     type="number"
                     step="0.1"
@@ -584,11 +604,11 @@
                   />
                 </label>
                 <label class="field">
-                  <span>Max Depth</span>
+                  <span>{t("agentsPanel.maxDepth")}</span>
                   <input type="number" min="1" max="8" bind:value={profile.max_depth} />
                 </label>
                 <label class="field full">
-                  <span>System Prompt</span>
+                  <span>{t("agentsPanel.systemPrompt")}</span>
                   <textarea bind:value={profile.system_prompt} rows="4" placeholder="Focus on implementation and tests."></textarea>
                 </label>
               </div>
@@ -602,17 +622,17 @@
       <section class="card">
         <div class="card-head">
           <div>
-            <h4>Bindings</h4>
-            <p>Bindings 用于将渠道与 peer 路由到指定 Profile。支持 legacy `#topic:`，保存时会转换为 `:thread:`。</p>
+            <h4>{t("agentsPanel.bindingsTitle")}</h4>
+            <p>{t("agentsPanel.bindingsSubtitle")}</p>
           </div>
           <div class="row-actions">
-            <button class="ghost-btn" onclick={addBinding} disabled={busy}>添加 Binding</button>
+            <button class="ghost-btn" onclick={addBinding} disabled={busy}>{t("agentsPanel.addBinding")}</button>
             <button
               class="primary-btn"
               onclick={saveBindings}
               disabled={busy || !bindingsDirty || hasBindingIssues || hasBlockingBindingReferences}
             >
-              {savingBindings ? "保存中..." : "保存 Bindings"}
+              {savingBindings ? t("agentsPanel.saving") : t("agentsPanel.saveBindings")}
             </button>
           </div>
         </div>
@@ -620,23 +640,23 @@
         {#if hasBlockingBindingReferences}
           <div class="banner warn">
             <div>
-              <strong>检测到 {unsavedProfileRefIssues.length} 条 Binding 引用了未保存 Profile。</strong>
-              <p>请先保存 Profiles，再保存 Bindings；或直接使用“保存全部改动”。</p>
+              <strong>{translate("agentsPanel.unsavedBindingsTitle", { count: unsavedProfileRefIssues.length })}</strong>
+              <p>{t("agentsPanel.unsavedBindingsDesc")}</p>
             </div>
-            <button class="ghost-btn" type="button" onclick={gotoProfilesTab}>去保存 Profiles</button>
+            <button class="ghost-btn" type="button" onclick={gotoProfilesTab}>{t("agentsPanel.gotoProfiles")}</button>
           </div>
         {/if}
 
         {#if bindings.length === 0}
-          <div class="empty subtle">暂无 Bindings，流量将继续使用默认路径。</div>
+          <div class="empty subtle">{t("agentsPanel.emptyBindings")}</div>
         {/if}
 
         <div class="stack">
           {#each bindings as binding, index}
             <article class="entry">
               <div class="entry-head">
-                <strong>{binding.agent_id || `Binding ${index + 1}`}</strong>
-                <button class="danger-btn" onclick={() => removeBinding(index)} disabled={busy}>移除</button>
+                <strong>{binding.agent_id || translate("agentsPanel.bindingLabel", { count: index + 1 })}</strong>
+                <button class="danger-btn" onclick={() => removeBinding(index)} disabled={busy}>{t("agentsPanel.remove")}</button>
               </div>
               {#if bindingIssues[index]?.length}
                 <ul class="issues">
@@ -647,19 +667,19 @@
               {/if}
               <div class="grid">
                 <label class="field">
-                  <span>Agent ID</span>
+                  <span>{t("agentsPanel.agentId")}</span>
                   <input bind:value={binding.agent_id} list="agent-profile-ids" placeholder="coder" />
                 </label>
                 <label class="field">
-                  <span>渠道</span>
+                  <span>{t("agentsPanel.channelLabel")}</span>
                   <input bind:value={binding.match.channel} list="agent-channel-types" placeholder="telegram" />
                 </label>
                 <label class="field">
-                  <span>账户 ID</span>
+                  <span>{t("agentsPanel.accountId")}</span>
                   <input bind:value={binding.match.account_id} placeholder="main" />
                 </label>
                 <label class="field">
-                  <span>Peer 类型</span>
+                  <span>{t("agentsPanel.peerKind")}</span>
                   <select bind:value={binding.match.peer.kind}>
                     {#each peerKindOptions as kind}
                       <option value={kind}>{kind}</option>
@@ -667,7 +687,7 @@
                   </select>
                 </label>
                 <label class="field full">
-                  <span>Peer ID</span>
+                  <span>{t("agentsPanel.peerId")}</span>
                   <input bind:value={binding.match.peer.id} placeholder="-1001234567890:thread:42" />
                 </label>
               </div>
@@ -697,7 +717,7 @@
 <style>
   .agents-panel {
     display: grid;
-    gap: 1rem;
+    gap: var(--spacing-lg);
   }
 
   .panel-header,
@@ -712,12 +732,13 @@
   .panel-header h3,
   .card-head h4 {
     margin: 0;
+    color: var(--shell-text);
   }
 
   .panel-header p,
   .card-head p {
     margin: 0.35rem 0 0;
-    color: var(--slate-500);
+    color: var(--shell-text-dim);
   }
 
   .status-strip {
@@ -727,11 +748,11 @@
   }
 
   .tab-chip {
-    border: 1px solid var(--slate-300);
-    background: white;
-    color: var(--slate-700);
+    border: 1px solid rgba(116, 136, 173, 0.22);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--shell-text-dim);
     border-radius: 999px;
-    padding: 0.45rem 0.8rem;
+    padding: 0.5rem 0.9rem;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
@@ -741,49 +762,51 @@
 
   .tab-chip span {
     font-family: var(--font-mono);
-    color: var(--slate-500);
+    color: var(--shell-text-dim);
     font-size: 0.8rem;
   }
 
   .tab-chip em {
-    color: var(--amber-700);
+    color: #ffd089;
     font-style: normal;
     font-size: 0.76rem;
   }
 
   .tab-chip.active {
-    border-color: var(--indigo-500);
-    background: var(--indigo-50);
-    color: var(--indigo-700);
+    border-color: rgba(34, 211, 238, 0.22);
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(24, 34, 56, 0.94));
+    color: var(--shell-text);
+    box-shadow: var(--glow-cyan);
   }
 
   .card {
-    border: 1px solid var(--slate-200);
-    border-radius: 14px;
-    padding: 1rem;
+    border: 1px solid rgba(116, 136, 173, 0.22);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
     background:
-      linear-gradient(180deg, color-mix(in srgb, var(--indigo-50) 35%, white) 0%, white 46%),
-      white;
+      linear-gradient(180deg, rgba(9, 15, 27, 0.98), rgba(15, 24, 40, 0.96)),
+      radial-gradient(circle at top right, rgba(34, 211, 238, 0.1), transparent 30%);
+    box-shadow: var(--glow-cyan);
   }
 
   .stack {
     display: grid;
-    gap: 0.85rem;
+    gap: var(--spacing-md);
   }
 
   .entry {
-    border: 1px solid var(--slate-200);
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.9);
-    padding: 0.9rem;
+    border: 1px solid rgba(116, 136, 173, 0.18);
+    border-radius: var(--radius-lg);
+    background: rgba(255, 255, 255, 0.06);
+    padding: var(--spacing-lg);
     display: grid;
-    gap: 0.85rem;
+    gap: var(--spacing-md);
   }
 
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 0.8rem;
+    gap: var(--spacing-md);
   }
 
   .field {
@@ -798,11 +821,11 @@
   .field span {
     font-size: 0.8rem;
     font-weight: 600;
-    color: var(--slate-600);
+    color: var(--shell-text-dim);
   }
 
   .field-error {
-    color: var(--red-600);
+    color: #ff98ad;
     font-size: 0.78rem;
   }
 
@@ -810,16 +833,22 @@
   textarea,
   select {
     width: 100%;
-    border: 1px solid var(--slate-300);
-    border-radius: 10px;
-    padding: 0.7rem 0.8rem;
-    background: white;
-    color: var(--slate-800);
+    border: 1px solid rgba(116, 136, 173, 0.22);
+    border-radius: var(--radius-md);
+    padding: 0.75rem 0.85rem;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--shell-text);
+    box-shadow: inset 0 1px 2px rgba(4, 9, 18, 0.22);
   }
 
   textarea {
     resize: vertical;
     font: inherit;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: rgba(181, 199, 230, 0.52);
   }
 
   .row-actions {
@@ -834,19 +863,20 @@
     border-radius: 999px;
     padding: 0.55rem 0.95rem;
     cursor: pointer;
-    border: 1px solid var(--slate-300);
-    background: white;
+    border: 1px solid rgba(116, 136, 173, 0.2);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--shell-text);
   }
 
   .primary-btn {
-    border-color: var(--indigo-600);
-    background: var(--indigo-600);
-    color: white;
+    border-color: rgba(34, 211, 238, 0.22);
+    background: linear-gradient(135deg, rgba(34, 211, 238, 0.18), rgba(139, 92, 246, 0.14));
+    box-shadow: inset 0 0 14px rgba(34, 211, 238, 0.12);
   }
 
   .danger-btn {
-    border-color: var(--red-300);
-    color: var(--red-600);
+    border-color: rgba(244, 63, 94, 0.22);
+    color: #ffb0c0;
   }
 
   .primary-btn:disabled,
@@ -857,26 +887,26 @@
   }
 
   .banner {
-    border-radius: 10px;
-    padding: 0.8rem 0.95rem;
+    border-radius: var(--radius-lg);
+    padding: 0.9rem 1rem;
   }
 
   .banner.error {
-    border: 1px solid var(--red-200);
-    background: var(--red-50);
-    color: var(--red-700);
+    border: 1px solid rgba(244, 63, 94, 0.22);
+    background: rgba(244, 63, 94, 0.08);
+    color: #ffc0cc;
   }
 
   .banner.success {
-    border: 1px solid var(--emerald-200);
-    background: var(--emerald-50);
-    color: var(--emerald-700);
+    border: 1px solid rgba(16, 185, 129, 0.22);
+    background: rgba(16, 185, 129, 0.08);
+    color: #b8f8d7;
   }
 
   .banner.warn {
-    border: 1px solid var(--amber-200);
-    background: var(--amber-50);
-    color: var(--amber-800);
+    border: 1px solid rgba(245, 158, 11, 0.22);
+    background: rgba(245, 158, 11, 0.08);
+    color: #ffd89f;
     display: flex;
     gap: 0.8rem;
     justify-content: space-between;
@@ -886,16 +916,16 @@
 
   .banner.warn p {
     margin: 0.3rem 0 0;
-    color: var(--amber-700);
+    color: #ffd9a5;
     font-size: 0.86rem;
   }
 
   .empty {
-    border: 1px dashed var(--slate-300);
-    border-radius: 12px;
+    border: 1px dashed rgba(116, 136, 173, 0.28);
+    border-radius: var(--radius-lg);
     padding: 1rem;
-    color: var(--slate-500);
-    background: var(--slate-50);
+    color: var(--shell-text-dim);
+    background: rgba(255, 255, 255, 0.04);
   }
 
   .empty.subtle {
@@ -905,10 +935,10 @@
   .issues {
     margin: 0;
     padding: 0.5rem 0.85rem;
-    border-radius: 10px;
-    border: 1px solid var(--red-100);
-    background: var(--red-50);
-    color: var(--red-700);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(244, 63, 94, 0.18);
+    background: rgba(244, 63, 94, 0.08);
+    color: #ffc0cc;
     font-size: 0.82rem;
   }
 

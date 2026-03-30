@@ -1,12 +1,15 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import InstanceCard from "$lib/components/InstanceCard.svelte";
+  import StatusBadge from "$lib/components/StatusBadge.svelte";
   import { status, statusError, instanceCount, runningCount, subscribeStatus, refreshStatus } from "$lib/statusStore";
   import { t } from "$lib/i18n/index.svelte";
+  import type { InstanceInfo, InstancesPayload } from "$lib/api/client";
 
   let unsubscribe: (() => void) | null = null;
   let selectedComponent = $state("all");
   let keyword = $state("");
+  let previewTarget = $state("");
 
   onMount(() => {
     unsubscribe = subscribeStatus();
@@ -17,12 +20,11 @@
   });
 
   const componentStats = $derived.by(() => {
-    const groups = $status?.instances || {};
+    const groups: InstancesPayload = $status?.instances || {};
     const rows = Object.entries(groups).map(([component, instances]) => {
-      const instMap = instances as Record<string, any>;
-      const total = Object.keys(instMap).length;
-      const running = Object.values(instMap).filter((inst: any) =>
-        ["running", "starting", "restarting"].includes(inst?.status || "stopped"),
+      const total = Object.keys(instances).length;
+      const running = Object.values(instances).filter((inst: InstanceInfo) =>
+        ["running", "starting", "restarting"].includes(inst.status || "stopped"),
       ).length;
       return { component, total, running };
     });
@@ -31,13 +33,13 @@
   });
 
   const filteredInstances = $derived.by(() => {
-    const rows: Array<{ component: string; name: string; info: any }> = [];
-    const groups = $status?.instances || {};
+    const rows: Array<{ component: string; name: string; info: InstanceInfo }> = [];
+    const groups: InstancesPayload = $status?.instances || {};
     const query = keyword.trim().toLowerCase();
 
     for (const [component, instances] of Object.entries(groups)) {
       if (selectedComponent !== "all" && component !== selectedComponent) continue;
-      for (const [name, info] of Object.entries(instances as Record<string, any>)) {
+      for (const [name, info] of Object.entries(instances) as Array<[string, InstanceInfo]>) {
         if (query.length > 0) {
           const hay = `${component}/${name}`.toLowerCase();
           if (!hay.includes(query)) continue;
@@ -49,206 +51,301 @@
     rows.sort((a, b) => `${a.component}/${a.name}`.localeCompare(`${b.component}/${b.name}`));
     return rows;
   });
+
+  const filteredCount = $derived(filteredInstances.length);
+  const selectedComponentLabel = $derived(
+    selectedComponent === "all" ? t("instances.allComponents") : selectedComponent,
+  );
+  const previewInstance = $derived.by(() => {
+    if (filteredInstances.length === 0) return null;
+    return (
+      filteredInstances.find((row) => `${row.component}/${row.name}` === previewTarget) ||
+      filteredInstances[0]
+    );
+  });
+
+  $effect(() => {
+    if (filteredInstances.length === 0) {
+      previewTarget = "";
+      return;
+    }
+
+    if (!filteredInstances.some((row) => `${row.component}/${row.name}` === previewTarget)) {
+      previewTarget = `${filteredInstances[0].component}/${filteredInstances[0].name}`;
+    }
+  });
+
+  function setPreview(component: string, name: string) {
+    previewTarget = `${component}/${name}`;
+  }
 </script>
 
 <svelte:head>
   <title>{t("instances.title")} - NullHubX</title>
 </svelte:head>
 
-<div class="workspace">
-  <aside class="sidebar">
-    <header class="sidebar-header">
-      <h2>{t("instances.title")}</h2>
-      <p>{t("instances.subtitle")}</p>
-    </header>
-
-    <button class:selected={selectedComponent === "all"} onclick={() => (selectedComponent = "all")}>
-      {t("instances.allComponents")}
-      <span>{$instanceCount}</span>
-    </button>
-
-    {#each componentStats as row}
-      <button class:selected={selectedComponent === row.component} onclick={() => (selectedComponent = row.component)}>
-        {row.component}
-        <span>{row.running}/{row.total}</span>
-      </button>
-    {/each}
-
-    <a class="install-link" href="/hub">+ {t("hub.installNewComponent")}</a>
-  </aside>
-
-  <section class="main">
-    <header class="main-header">
-      <div>
-        <h1>{t("instances.instanceList")}</h1>
-        <p>{$instanceCount} {t("hub.instances")}，{$runningCount} {t("statusBar.running")}</p>
+<div class="page-shell instances-page">
+  <section class="section-shell hero-shell">
+    <div class="page-hero">
+      <div class="page-title-group">
+        <span class="page-kicker">NullHubX</span>
+        <h1 class="page-title">{t("instances.title")}</h1>
+        <p class="page-subtitle">{t("instances.subtitle")}</p>
       </div>
-      <div class="toolbar">
-        <input
-          type="text"
-          placeholder={t("instances.searchPlaceholder")}
-          bind:value={keyword}
-        />
-        <button onclick={refreshStatus}>{t("common.refresh")}</button>
+      <div class="page-actions">
+        <button class="control-btn primary" onclick={refreshStatus}>{t("common.refresh")}</button>
+        <a class="control-btn secondary" href="/hub">{t("hub.installNewComponent")}</a>
       </div>
-    </header>
+    </div>
 
-    {#if $statusError}
-      <div class="error-banner">{t("error.statusFetchFailed").replace("{error}", $statusError)}</div>
-    {/if}
+    <div class="metrics-grid">
+      <article class="metric-card">
+        <span class="metric-label">{t("instances.allComponents")}</span>
+        <strong class="metric-value">{componentStats.length}</strong>
+        <p class="metric-meta">{t("overview.componentCount")}</p>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">{t("overview.instanceTotal")}</span>
+        <strong class="metric-value">{$instanceCount}</strong>
+        <p class="metric-meta">{t("instances.instanceList")}</p>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">{t("overview.runningInstances")}</span>
+        <strong class="metric-value">{$runningCount}</strong>
+        <p class="metric-meta">{t("statusBar.operational")}</p>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">{t("common.search")}</span>
+        <strong class="metric-value">{filteredCount}</strong>
+        <p class="metric-meta">{selectedComponentLabel}</p>
+      </article>
+    </div>
+  </section>
 
-    {#if filteredInstances.length === 0}
-      <div class="empty-state">
-        <h3>{t("common.noData")}</h3>
-        <p>{t("instances.emptyState")}</p>
+  <div class="workspace-grid">
+    <aside class="section-shell sidebar-panel">
+      <div class="section-heading">
+        <span class="section-kicker">{t("instances.title")}</span>
+        <h2 class="section-title">{t("instances.allComponents")}</h2>
+        <p class="section-subtitle">{t("instances.subtitle")}</p>
       </div>
-    {:else}
-      <div class="instance-grid">
-        {#each filteredInstances as row, i}
-          <div class="card-wrapper" style="animation-delay: {i * 50}ms">
-            <InstanceCard
-              component={row.component}
-              name={row.name}
-              version={row.info.version}
-              status={row.info.status || "stopped"}
-              autoStart={row.info.auto_start}
-              port={row.info.port || 0}
-              onAction={refreshStatus}
-            />
-          </div>
+
+      <div class="filter-list">
+        <button class="filter-chip" class:selected={selectedComponent === "all"} onclick={() => (selectedComponent = "all")}>
+          <span>{t("instances.allComponents")}</span>
+          <strong>{$instanceCount}</strong>
+        </button>
+
+        {#each componentStats as row}
+          <button
+            class="filter-chip"
+            class:selected={selectedComponent === row.component}
+            onclick={() => (selectedComponent = row.component)}
+          >
+            <span>{row.component}</span>
+            <strong>{row.running}/{row.total}</strong>
+          </button>
         {/each}
       </div>
-    {/if}
-  </section>
+    </aside>
+
+    <section class="section-shell main-panel">
+      <div class="section-heading-row">
+        <div class="section-heading">
+          <span class="section-kicker">{selectedComponentLabel}</span>
+          <h2 class="section-title">{t("instances.instanceList")}</h2>
+          <p class="section-subtitle">{$instanceCount} {t("hub.instances")}，{$runningCount} {t("statusBar.running")}</p>
+        </div>
+        <div class="toolbar">
+          <input
+            type="text"
+            placeholder={t("instances.searchPlaceholder")}
+            bind:value={keyword}
+          />
+          <button class="control-btn secondary toolbar-btn" onclick={refreshStatus}>{t("common.refresh")}</button>
+        </div>
+      </div>
+
+      {#if $statusError}
+        <div class="error-banner">{t("error.statusFetchFailed").replace("{error}", $statusError)}</div>
+      {/if}
+
+      {#if filteredInstances.length === 0}
+        <div class="empty-panel workspace-empty">
+          <h3>{t("common.noData")}</h3>
+          <p>{t("instances.emptyState")}</p>
+        </div>
+      {:else}
+        <div class="instance-grid">
+          {#each filteredInstances as row, i}
+            <div
+              class="card-wrapper"
+              class:is-preview={previewInstance && `${row.component}/${row.name}` === `${previewInstance.component}/${previewInstance.name}`}
+              role="group"
+              aria-label={`${row.component}/${row.name}`}
+              style="animation-delay: {i * 50}ms"
+              onmouseenter={() => setPreview(row.component, row.name)}
+              onfocusin={() => setPreview(row.component, row.name)}
+            >
+              <InstanceCard
+                component={row.component}
+                name={row.name}
+                version={row.info.version}
+                status={row.info.status || "stopped"}
+                port={row.info.port || 0}
+                onAction={refreshStatus}
+              />
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </section>
+
+    <aside class="section-shell preview-panel">
+      <div class="section-heading">
+        <span class="section-kicker">{t("instanceDetail.tabs.overview")}</span>
+        <h2 class="section-title">{t("instanceDetail.title")}</h2>
+        <p class="section-subtitle">{t("instanceDetail.subtitle")}</p>
+      </div>
+
+      {#if previewInstance}
+        <div class="preview-card">
+          <div class="preview-header">
+            <div>
+              <div class="preview-route">{previewInstance.component}/{previewInstance.name}</div>
+              <div class="preview-meta">
+                <span class="surface-chip">{previewInstance.component}</span>
+                <span class="surface-chip">{previewInstance.info.version || "-"}</span>
+              </div>
+            </div>
+            <StatusBadge status={previewInstance.info.status || "stopped"} />
+          </div>
+
+          <div class="preview-stats">
+            <div class="preview-stat">
+              <span>{t("instanceDetail.portLabel")}</span>
+              <strong>{previewInstance.info.port || "-"}</strong>
+            </div>
+            <div class="preview-stat">
+              <span>{t("instanceDetail.versionLabel")}</span>
+              <strong>{previewInstance.info.version || "-"}</strong>
+            </div>
+            <div class="preview-stat">
+              <span>{t("instanceDetail.statusLabel")}</span>
+              <strong>{previewInstance.info.status || "stopped"}</strong>
+            </div>
+          </div>
+
+          <div class="preview-actions">
+            <a class="control-btn primary" href={`/instances/${previewInstance.component}/${previewInstance.name}`}>
+              {t("instanceDetail.tabs.overview")}
+            </a>
+          </div>
+        </div>
+      {:else}
+        <p class="empty-panel">{t("instances.emptyState")}</p>
+      {/if}
+    </aside>
+  </div>
 </div>
 
 <style>
-  .workspace {
-    display: grid;
-    grid-template-columns: 260px minmax(0, 1fr);
-    min-height: calc(100vh - var(--topbar-height) - var(--statusbar-height));
+  .hero-shell {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
   }
 
-  .sidebar {
-    border-right: 1px solid var(--slate-200);
-    padding: var(--spacing-xl);
-    background: linear-gradient(180deg, #fcfdff 0%, #f8fafc 100%);
+  .workspace-grid {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr) 320px;
+    gap: var(--spacing-lg);
+    align-items: start;
+  }
+
+  .sidebar-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    position: sticky;
+    top: calc(var(--topbar-height) + 20px);
+  }
+
+  .filter-list {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
   }
 
-  .sidebar-header {
-    margin-bottom: var(--spacing-md);
-  }
-
-  .sidebar-header h2 {
-    margin: 0;
-    font-family: var(--font-mono);
-    font-size: var(--text-lg);
-    color: var(--slate-900);
-  }
-
-  .sidebar-header p {
-    margin: var(--spacing-xs) 0 0 0;
-    color: var(--slate-500);
-    font-size: var(--text-sm);
-  }
-
-  .sidebar button {
+  .filter-chip {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border: 1px solid var(--slate-200);
-    background: white;
+    gap: var(--spacing-md);
+    width: 100%;
+    padding: 0.75rem 0.9rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(141, 154, 178, 0.18);
+    background: rgba(255, 255, 255, 0.72);
     color: var(--slate-700);
-    border-radius: var(--radius-md);
-    padding: 0.6rem 0.7rem;
-    cursor: pointer;
     transition: all var(--transition-fast);
-    font-size: var(--text-sm);
   }
 
-  .sidebar button span {
-    font-family: var(--font-mono);
-    color: var(--slate-500);
-    font-size: var(--text-xs);
-  }
-
-  .sidebar button:hover {
-    border-color: var(--indigo-300);
-    color: var(--indigo-700);
-  }
-
-  .sidebar button.selected {
-    border-color: var(--indigo-500);
-    background: var(--indigo-50);
-    color: var(--indigo-700);
-  }
-
-  .install-link {
-    margin-top: var(--spacing-md);
-    padding: 0.6rem 0.7rem;
-    border-radius: var(--radius-md);
-    text-decoration: none;
-    border: 1px dashed var(--indigo-300);
-    color: var(--indigo-700);
-    font-weight: 600;
-    font-size: var(--text-sm);
-    text-align: center;
-  }
-
-  .main {
-    padding: var(--spacing-3xl);
-  }
-
-  .main-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    gap: var(--spacing-lg);
-    margin-bottom: var(--spacing-xl);
-  }
-
-  .main-header h1 {
-    margin: 0;
-    font-family: var(--font-mono);
-    font-size: var(--text-2xl);
+  .filter-chip:hover {
+    border-color: rgba(34, 211, 238, 0.24);
     color: var(--slate-900);
+    transform: translateY(-1px);
   }
 
-  .main-header p {
-    margin: var(--spacing-xs) 0 0 0;
+  .filter-chip span {
+    font-size: var(--text-sm);
+    text-align: left;
+  }
+
+  .filter-chip strong {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
     color: var(--slate-500);
+  }
+
+  .filter-chip.selected {
+    border-color: rgba(34, 211, 238, 0.22);
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(24, 34, 56, 0.92));
+    color: var(--shell-text);
+    box-shadow: var(--glow-cyan);
+  }
+
+  .filter-chip.selected strong {
+    color: var(--cyan-300);
+  }
+
+  .main-panel,
+  .preview-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
   }
 
   .toolbar {
     display: flex;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-lg);
+    align-items: center;
+    flex-wrap: wrap;
   }
 
   .toolbar input {
-    width: 240px;
-    border: 1px solid var(--slate-300);
-    border-radius: var(--radius-md);
-    padding: 0.55rem 0.7rem;
+    width: min(260px, 100%);
   }
 
-  .toolbar button {
-    border: 1px solid var(--indigo-500);
-    background: var(--indigo-600);
-    color: white;
-    border-radius: var(--radius-md);
-    padding: 0.55rem 0.9rem;
-    cursor: pointer;
+  .toolbar-btn {
+    min-width: 108px;
   }
 
   .error-banner {
-    margin-bottom: var(--spacing-lg);
-    padding: 0.75rem 1rem;
-    border: 1px solid var(--red-200);
-    background: var(--red-50);
-    border-radius: var(--radius-md);
+    padding: 0.85rem 1rem;
+    border: 1px solid rgba(244, 63, 94, 0.16);
+    background: rgba(255, 241, 245, 0.82);
+    border-radius: var(--radius-lg);
     color: var(--red-700);
   }
 
@@ -263,67 +360,129 @@
     animation: fadeUp 0.4s ease forwards;
   }
 
-  .empty-state {
-    border: 1px dashed var(--slate-300);
-    border-radius: var(--radius-lg);
+  .card-wrapper.is-preview :global(.instance-card) {
+    border-color: rgba(34, 211, 238, 0.28);
+    box-shadow: var(--shadow-md), 0 0 0 1px rgba(34, 211, 238, 0.1);
+  }
+
+  .workspace-empty {
     padding: var(--spacing-4xl);
     text-align: center;
-    color: var(--slate-500);
-    background: #f8fafc;
   }
 
-  .empty-state h3 {
+  .workspace-empty h3 {
     margin: 0;
-    color: var(--slate-700);
+    color: var(--slate-800);
   }
 
-  .empty-state p {
+  .workspace-empty p {
     margin: var(--spacing-sm) 0 0 0;
   }
 
-  @keyframes fadeUp {
-    from {
-      opacity: 0;
-      transform: translateY(16px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+  .preview-panel {
+    position: sticky;
+    top: calc(var(--topbar-height) + 20px);
+  }
+
+  .preview-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(34, 211, 238, 0.18);
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(18, 28, 48, 0.94));
+    color: var(--shell-text);
+    box-shadow: var(--glow-cyan);
+  }
+
+  .preview-header {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+  }
+
+  .preview-route {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+    word-break: break-word;
+  }
+
+  .preview-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin-top: var(--spacing-sm);
+  }
+
+  .preview-meta :global(.surface-chip) {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--shell-text);
+    border-color: rgba(255, 255, 255, 0.16);
+  }
+
+  .preview-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--spacing-sm);
+  }
+
+  .preview-stat {
+    padding: 0.8rem;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(116, 136, 173, 0.22);
+    background: rgba(255, 255, 255, 0.06);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .preview-stat span {
+    font-size: var(--text-xs);
+    color: var(--shell-text-dim);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .preview-stat strong {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--shell-text);
+  }
+
+  .preview-actions {
+    display: flex;
+  }
+
+  .preview-actions .control-btn {
+    width: 100%;
   }
 
   @media (max-width: 980px) {
-    .workspace {
+    .workspace-grid {
       grid-template-columns: 1fr;
     }
 
-    .sidebar {
-      border-right: none;
-      border-bottom: 1px solid var(--slate-200);
-    }
-
-    .main {
-      padding: var(--spacing-xl);
-    }
-
-    .toolbar input {
-      width: 180px;
+    .sidebar-panel,
+    .preview-panel {
+      position: static;
     }
   }
 
   @media (max-width: 680px) {
-    .main-header {
-      flex-direction: column;
-      align-items: stretch;
-    }
-
     .toolbar {
       width: 100%;
     }
 
     .toolbar input,
-    .toolbar button {
-      flex: 1;
+    .toolbar-btn {
+      width: 100%;
+    }
+
+    .preview-stats {
+      grid-template-columns: 1fr;
     }
   }
 </style>

@@ -2,7 +2,54 @@
   import WizardStep from "./WizardStep.svelte";
   import ProviderList from "./ProviderList.svelte";
   import ChannelList from "./ChannelList.svelte";
-  import { api } from "$lib/api/client";
+  import {
+    api,
+    type JsonObject,
+    type JsonValue,
+    type ValidationResultPayload,
+    type VersionOptionPayload,
+  } from "$lib/api/client";
+
+  type WizardOption = {
+    value: string;
+    label: string;
+    description?: string;
+    recommended?: boolean;
+  };
+
+  type WizardCondition = {
+    step: string;
+    equals?: string;
+    not_equals?: string;
+    contains?: string;
+    not_in?: string;
+  };
+
+  type WizardStepDef = {
+    id: string;
+    title: string;
+    description?: string;
+    type: string;
+    options?: WizardOption[];
+    default_value?: string;
+    advanced?: boolean;
+    group?: string;
+    condition?: WizardCondition;
+  };
+
+  type VersionOption = {
+    value: string;
+    label: string;
+    recommended?: boolean;
+  };
+
+  type WizardProviderEntry = JsonObject & {
+    provider: string;
+    api_key: string;
+    model: string;
+  };
+
+  type ChannelConfig = Record<string, Record<string, Record<string, JsonValue>>>;
 
   let {
     component = "",
@@ -10,7 +57,7 @@
     onComplete,
   } = $props<{
     component: string;
-    steps: any[];
+    steps: WizardStepDef[];
     onComplete?: () => void;
   }>();
 
@@ -19,25 +66,40 @@
   let currentPage = $state(0);
   let installing = $state(false);
   let installMessage = $state("");
-  let versions = $state<any[]>([]);
+  let versions = $state<VersionOption[]>([]);
   let selectedVersion = $state("latest");
-  let channels = $state<Record<string, Record<string, Record<string, any>>>>({});
+  let channels = $state<ChannelConfig>({});
   const instanceNameId = "wizard-instance-name";
 
   // Validation state
   let validating = $state(false);
-  let providerValidationResults = $state<any[]>([]);
-  let channelValidationResults = $state<any[]>([]);
+  let providerValidationResults = $state<ValidationResultPayload[]>([]);
+  let channelValidationResults = $state<ValidationResultPayload[]>([]);
   let validationError = $state("");
   let validationWarning = $state("");
   let existingInstanceNames = $state<string[]>([]);
+  const providerValidationView = $derived(
+    providerValidationResults.map((result) => ({
+      provider: result.provider ?? "",
+      live_ok: !!result.live_ok,
+      reason: result.reason ?? result.error ?? "",
+    })),
+  );
+  const channelValidationView = $derived(
+    channelValidationResults.map((result) => ({
+      channel: result.channel ?? "",
+      account: result.account ?? result.account_id ?? "",
+      live_ok: !!result.live_ok,
+      reason: result.reason ?? result.error ?? "",
+    })),
+  );
 
   // Auto-generate instance name on mount
   $effect(() => {
     if (component && !instanceName) {
       api
         .getInstances()
-        .then((data: any) => {
+        .then((data) => {
           const existing = data?.instances?.[component] || {};
           const names = Object.keys(existing);
           existingInstanceNames = names;
@@ -66,10 +128,16 @@
     if (component) {
       api
         .getVersions(component)
-        .then((data: any) => {
-          versions = Array.isArray(data) ? data : [];
+        .then((data) => {
+          versions = Array.isArray(data)
+            ? data.map((option: VersionOptionPayload) => ({
+                value: option.value,
+                label: option.label ?? option.value,
+                recommended: option.recommended,
+              }))
+            : [];
           if (versions.length > 0) {
-            const rec = versions.find((v: any) => v.recommended);
+            const rec = versions.find((v) => v.recommended);
             selectedVersion = rec?.value || versions[0].value;
           }
         })
@@ -86,7 +154,7 @@
       if (step.default_value && !(step.id in answers)) {
         answers[step.id] = step.default_value;
       } else if (step.options?.length && !(step.id in answers)) {
-        const rec = step.options.find((o: any) => o.recommended);
+        const rec = step.options.find((o: WizardOption) => o.recommended);
         if (rec) answers[step.id] = rec.value;
       }
     }
@@ -101,9 +169,9 @@
   // Initialize default provider entry when provider step exists
   $effect(() => {
     if (!("_providers" in answers)) {
-      const providerStep = steps.find((s) => s.id === "provider");
+      const providerStep = steps.find((s: WizardStepDef) => s.id === "provider");
       if (providerStep) {
-        const rec = providerStep.options?.find((o: any) => o.recommended);
+        const rec = providerStep.options?.find((o: WizardOption) => o.recommended);
         const defaultProvider =
           rec?.value || providerStep.options?.[0]?.value || "";
         answers["_providers"] = JSON.stringify([
@@ -113,7 +181,7 @@
     }
   });
 
-  function isStepVisible(step: any): boolean {
+  function isStepVisible(step: WizardStepDef): boolean {
     if (!step.condition) return true;
     const ref = answers[step.condition.step] || "";
     if (step.condition.equals) return ref === step.condition.equals;
@@ -129,7 +197,7 @@
 
   let settingsSteps = $derived(
     steps.filter(
-      (s) =>
+      (s: WizardStepDef) =>
         s.id !== "provider" &&
         s.id !== "api_key" &&
         s.id !== "model" &&
@@ -142,7 +210,7 @@
 
   let advancedSteps = $derived(
     steps.filter(
-      (s) =>
+      (s: WizardStepDef) =>
         s.advanced &&
         s.id !== "provider" &&
         s.id !== "api_key" &&
@@ -153,7 +221,7 @@
 
   let showAdvanced = $state(false);
 
-  let providerStep = $derived(steps.find((s) => s.id === "provider"));
+  let providerStep = $derived(steps.find((s: WizardStepDef) => s.id === "provider"));
   let hasChannelsPage = $derived(component === "nullclaw");
   let pageKinds = $derived(
     hasChannelsPage ? ["setup", "channels", "settings"] : ["setup", "settings"],
@@ -183,7 +251,7 @@
     providerValidationResults = [];
 
     try {
-      const providers = JSON.parse(answers["_providers"] || "[]");
+      const providers = JSON.parse(answers["_providers"] || "[]") as WizardProviderEntry[];
       if (providers.length === 0) {
         validationError = "Add at least one provider";
         return false;
@@ -191,7 +259,7 @@
       const result = await api.validateProviders(component, providers);
       providerValidationResults = result.results || [];
       validationWarning = result.saved_providers_warning || "";
-      return providerValidationResults.every((r: any) => r.live_ok);
+      return providerValidationResults.every((result) => !!result.live_ok);
     } catch (e) {
       validationError = `Validation failed: ${(e as Error).message}`;
       return false;
@@ -218,7 +286,7 @@
       const result = await api.validateChannels(component, channels);
       channelValidationResults = result.results || [];
       validationWarning = result.saved_channels_warning || "";
-      return channelValidationResults.every((r: any) => r.live_ok);
+      return channelValidationResults.every((result) => !!result.live_ok);
     } catch (e) {
       validationError = `Validation failed: ${(e as Error).message}`;
       return false;
@@ -263,21 +331,23 @@
     installMessage = "Installing...";
     try {
       const { _providers, ...rest } = answers;
-      const payload: any = {
+      const payload: JsonObject = {
         instance_name: trimmedInstanceName,
         version: selectedVersion,
         ...rest,
       };
       if (_providers) {
         try {
-          const parsed = JSON.parse(_providers);
+          const parsed = JSON.parse(_providers) as WizardProviderEntry[];
           payload.providers = parsed;
           if (parsed.length > 0) {
             payload.provider = parsed[0].provider;
             payload.api_key = parsed[0].api_key || "";
             payload.model = parsed[0].model || "";
           }
-        } catch {}
+        } catch {
+          // Provider validation should have caught malformed JSON before submit.
+        }
       }
       if (Object.keys(channels).length > 0) {
         payload.channels = channels;
@@ -353,16 +423,16 @@
         <ProviderList
           providers={providerStep.options || []}
           value={answers["_providers"] || "[]"}
-          onchange={(v) => (answers["_providers"] = v)}
+          onchange={(v: string) => (answers["_providers"] = v)}
           {component}
-          validationResults={providerValidationResults}
+          validationResults={providerValidationView}
         />
       {/if}
     {:else if pageKinds[currentPage] === "channels"}
       <ChannelList
         value={channels}
-        onchange={(v) => (channels = v)}
-        validationResults={channelValidationResults}
+        onchange={(v: ChannelConfig) => (channels = v)}
+        validationResults={channelValidationView}
       />
     {:else}
       {#each settingsSteps as step}

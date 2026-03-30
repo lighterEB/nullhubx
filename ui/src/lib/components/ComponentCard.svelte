@@ -1,5 +1,7 @@
 <script lang="ts">
   import { api } from "$lib/api/client";
+  import { t } from "$lib/i18n/index.svelte";
+  import { toast } from "$lib/toastStore.svelte";
 
   let {
     name = "",
@@ -26,7 +28,8 @@
       installed = true;
       instanceCount = 1;
     } catch (err) {
-      console.error("Import failed:", err);
+      const message = err instanceof Error ? err.message : t("error.requestFailed");
+      toast.error(t("hub.importFailed").replace("{error}", message));
     } finally {
       importing = false;
     }
@@ -54,8 +57,8 @@
       {iconMap[name] || "◈"}
     </div>
     <div class="badges">
-      <span class="alpha-badge">ALPHA</span>
-      <span class="badge badge-slate">COMING SOON</span>
+      <span class="alpha-badge">{t("componentCard.alpha")}</span>
+      <span class="badge badge-slate">{t("componentCard.comingSoon")}</span>
     </div>
   </div>
 
@@ -64,11 +67,11 @@
 
   <div class="card-footer">
     <div class="tag-row">
-      <span class="tag">{name === "nullboiler" ? "orchestrator" : "tracker"}</span>
-      <span class="tag">{name === "nullboiler" ? "dag" : "api"}</span>
+      <span class="tag">{name === "nullboiler" ? t("componentCard.orchestrator") : t("componentCard.tracker")}</span>
+      <span class="tag">{name === "nullboiler" ? t("componentCard.dag") : t("componentCard.api")}</span>
     </div>
     <button class="btn-notify" disabled>
-      Notify me
+      {t("componentCard.notify")}
     </button>
   </div>
 </div>
@@ -83,13 +86,13 @@
       </div>
       <div class="badges">
         {#if imported}
-          <span class="import-badge">IMPORTED</span>
+          <span class="import-badge">{t("componentCard.imported")}</span>
         {:else if standalone}
-          <span class="instance-badge">STANDALONE</span>
+          <span class="instance-badge">{t("componentCard.standalone")}</span>
         {:else if installed}
-          <span class="instance-badge">{instanceCount} instance{instanceCount !== 1 ? "s" : ""}</span>
+          <span class="instance-badge">{t("componentCard.instanceCount").replace("{count}", String(instanceCount))}</span>
         {:else}
-          <span class="import-badge">AVAILABLE</span>
+          <span class="import-badge">{t("componentCard.available")}</span>
         {/if}
       </div>
     </div>
@@ -100,20 +103,20 @@
 
   <div class="card-footer">
     <div class="tag-row">
-      <span class="tag">runtime</span>
-      <span class="tag">stable</span>
+      <span class="tag">{t("componentCard.runtime")}</span>
+      <span class="tag">{t("componentCard.stable")}</span>
       <span class="tag">v2.4.1</span>
     </div>
     {#if !installed && !standalone}
-      <span class="btn-install passive">Install →</span>
+      <span class="control-btn primary btn-install passive">{t("componentCard.installCta")}</span>
     {:else if standalone && !imported}
-      <button class="btn-install" onclick={handleImport} disabled={importing}>
-        {importing ? "Importing..." : "Import →"}
+      <button class="control-btn primary btn-install" onclick={handleImport} disabled={importing}>
+        {importing ? t("componentCard.importing") : t("componentCard.importCta")}
       </button>
     {:else}
       <div class="installed-status">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--emerald-500)"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-        <span>Installed</span>
+        <span>{t("componentCard.installed")}</span>
       </div>
     {/if}
   </div>
@@ -128,27 +131,28 @@
     gap: 12px;
     padding: var(--spacing-xl);
     padding-left: calc(var(--spacing-xl) + 3px);
-    background: white;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(245, 249, 255, 0.74));
     border-radius: var(--radius-lg);
     text-decoration: none;
     color: inherit;
     transition: all var(--transition-base);
     overflow: hidden;
+    backdrop-filter: blur(18px);
   }
 
   .component-card.featured {
-    border: 1px solid var(--indigo-200);
-    box-shadow: var(--shadow-indigo);
+    border: 1px solid rgba(34, 211, 238, 0.18);
+    box-shadow: var(--shadow-sm), 0 0 0 1px rgba(34, 211, 238, 0.08);
   }
 
   .component-card:not(.featured) {
-    border: 1px solid var(--slate-200);
+    border: 1px solid rgba(141, 154, 178, 0.2);
     box-shadow: var(--shadow-sm);
   }
 
   .component-card:not(.disabled):hover {
     transform: translateY(-3px);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-md), 0 0 0 1px rgba(34, 211, 238, 0.08);
   }
 
   .component-card.disabled {
@@ -189,16 +193,16 @@
   }
 
   .icon-box {
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 18px;
     border-radius: var(--radius-md);
-    background: var(--indigo-50);
-    border: 1px solid var(--indigo-200);
-    color: var(--indigo-600);
+    background: rgba(34, 211, 238, 0.08);
+    border: 1px solid rgba(34, 211, 238, 0.18);
+    color: var(--cyan-600);
   }
 
   .icon-box.violet {
@@ -221,63 +225,45 @@
 
   .alpha-badge {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--radius-sm);
-    background: rgba(245, 158, 11, 0.15);
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.12);
     color: var(--amber-600);
-    letter-spacing: 0.5px;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    letter-spacing: 0.06em;
   }
 
   .import-badge {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--radius-sm);
-    background: var(--indigo-600);
-    color: white;
-    letter-spacing: 0.5px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(34, 211, 238, 0.1);
+    color: var(--cyan-600);
+    border: 1px solid rgba(34, 211, 238, 0.18);
+    letter-spacing: 0.06em;
   }
 
   .instance-badge {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 500;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--radius-sm);
-    background: var(--slate-100);
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.74);
     color: var(--slate-600);
-  }
-
-  .import-btn {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--radius-sm);
-    background: var(--indigo-600);
-    color: white;
-    border: none;
-    cursor: pointer;
-    letter-spacing: 0.5px;
-  }
-
-  .import-btn:hover:not(:disabled) {
-    background: var(--indigo-700);
-  }
-
-  .import-btn:disabled {
-    opacity: 0.6;
+    border: 1px solid rgba(141, 154, 178, 0.18);
   }
 
   .card-name {
-    font-family: var(--font-mono);
+    font-family: var(--font-display);
     font-size: var(--text-lg);
-    font-weight: 700;
+    font-weight: 600;
     color: var(--slate-900);
-    letter-spacing: 2px;
+    letter-spacing: -0.02em;
     margin: 0;
   }
 
@@ -288,8 +274,8 @@
   .card-description {
     font-family: var(--font-sans);
     font-size: var(--text-sm);
-    color: var(--slate-500);
-    line-height: 1.8;
+    color: var(--slate-600);
+    line-height: 1.65;
     margin: 0;
   }
 
@@ -312,13 +298,13 @@
 
   .tag {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 500;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--radius-sm);
-    background: var(--indigo-50);
-    color: var(--indigo-500);
-    border: 1px solid var(--indigo-200);
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.74);
+    color: var(--slate-700);
+    border: 1px solid rgba(141, 154, 178, 0.18);
   }
 
   .disabled .tag {
@@ -329,48 +315,25 @@
 
   .btn-install {
     width: 100%;
-    padding: var(--spacing-md);
-    background: var(--indigo-600);
-    color: white;
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    font-weight: 600;
-    letter-spacing: 1.5px;
-    border: none;
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: all var(--transition-fast);
+    font-family: var(--font-sans);
+    letter-spacing: 0.06em;
   }
 
   .btn-install.passive {
     cursor: default;
     user-select: none;
-  }
-
-  .btn-install:hover:not(:disabled) {
-    background: var(--indigo-700);
-    box-shadow: var(--shadow-indigo);
-    transform: translateY(-1px);
-  }
-
-  .btn-install:active:not(:disabled) {
-    transform: translateY(0) scale(0.98);
-  }
-
-  .btn-install:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+    pointer-events: none;
   }
 
   .btn-notify {
     width: 100%;
-    padding: var(--spacing-md);
-    background: var(--slate-100);
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.72);
     color: var(--slate-500);
     font-family: var(--font-sans);
     font-size: var(--text-sm);
     font-weight: 500;
-    border: 1px solid var(--slate-200);
+    border: 1px solid rgba(141, 154, 178, 0.2);
     border-radius: var(--radius-md);
     cursor: not-allowed;
   }
@@ -379,8 +342,9 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    padding: var(--spacing-md);
+    padding: 12px 14px;
     background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.16);
     border-radius: var(--radius-md);
     font-family: var(--font-sans);
     font-size: var(--text-sm);

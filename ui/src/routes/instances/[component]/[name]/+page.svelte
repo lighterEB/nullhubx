@@ -3,7 +3,10 @@
   import { page } from "$app/stores";
   import { onMount, onDestroy } from "svelte";
   import { api } from "$lib/api/client";
+  import { formatTimeoutError } from "$lib/api/errorMessages";
+  import { t } from "$lib/i18n/index.svelte";
   import type { LogSource } from "$lib/api/client";
+  import StatusBadge from "$lib/components/StatusBadge.svelte";
   import ConfigEditor from "$lib/components/ConfigEditor.svelte";
   import LogViewer from "$lib/components/LogViewer.svelte";
   import InstanceHistoryPanel from "$lib/components/InstanceHistoryPanel.svelte";
@@ -64,28 +67,28 @@
   let logInitialSource = $state<LogSource>("instance");
   let logViewerKey = $state(0);
 
-  const tabs: { key: TabKey; label: string }[] = [
-    { key: "overview", label: "总览" },
-    { key: "agents", label: "代理" },
-    { key: "config", label: "配置" },
-    { key: "logs", label: "日志" },
-    { key: "usage", label: "用量" },
-    { key: "history", label: "历史" },
-    { key: "memory", label: "记忆" },
-    { key: "skills", label: "技能" },
-    { key: "integration", label: "集成" },
-  ];
+  const tabs: { key: TabKey; label: string }[] = $derived([
+    { key: "overview", label: t("instanceDetail.tabs.overview") },
+    { key: "agents", label: t("instanceDetail.tabs.agents") },
+    { key: "config", label: t("instanceDetail.tabs.config") },
+    { key: "logs", label: t("instanceDetail.tabs.logs") },
+    { key: "usage", label: t("instanceDetail.tabs.usage") },
+    { key: "history", label: t("instanceDetail.tabs.history") },
+    { key: "memory", label: t("instanceDetail.tabs.memory") },
+    { key: "skills", label: t("instanceDetail.tabs.skills") },
+    { key: "integration", label: t("instanceDetail.tabs.integration") },
+  ]);
 
   const statusText = $derived(instanceStatus?.status || "unknown");
   const statusLabel = $derived(
     ({
-      running: "运行中",
-      stopped: "已停止",
-      starting: "启动中",
-      stopping: "停止中",
-      failed: "失败",
-      restarting: "重启中",
-    } as Record<string, string>)[statusText] || statusText,
+      running: t("instanceDetail.statusLabels.running"),
+      stopped: t("instanceDetail.statusLabels.stopped"),
+      starting: t("instanceDetail.statusLabels.starting"),
+      stopping: t("instanceDetail.statusLabels.stopping"),
+      failed: t("instanceDetail.statusLabels.failed"),
+      restarting: t("instanceDetail.statusLabels.restarting"),
+    } as Record<string, string>)[statusText] || t("instanceDetail.statusLabels.unknown"),
   );
 
   const canStart = $derived(statusText === "stopped" || statusText === "failed");
@@ -100,7 +103,7 @@
   const integrationJson = $derived.by(() => JSON.stringify(integration || {}, null, 2));
 
   function normalizeError(err: unknown): string {
-    return err instanceof Error ? err.message : "请求失败";
+    return err instanceof Error ? err.message : t("error.requestFailed");
   }
 
   function resolveRouteRef(): { component: string; name: string } | null {
@@ -179,7 +182,10 @@
   async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     const timeoutPromise = new Promise<never>((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error(`请求超时（${Math.ceil(timeoutMs / 1000)}s）`)), timeoutMs);
+      timeoutId = setTimeout(
+        () => reject(new Error(formatTimeoutError(timeoutMs, `/instances/${component}/${name}`))),
+        timeoutMs,
+      );
     });
     try {
       return await Promise.race([promise, timeoutPromise]);
@@ -343,7 +349,7 @@
     if (!instanceStatus) return;
     const mode = launchMode.trim();
     if (mode.length === 0) {
-      loadError = "启动模式不能为空";
+      loadError = t("instanceDetail.launchModeRequired");
       return;
     }
 
@@ -376,7 +382,7 @@
   async function saveDefaultSettings() {
     const mode = defaultsLaunchMode.trim();
     if (mode.length === 0) {
-      loadError = "默认启动模式不能为空";
+      loadError = t("instanceDetail.defaultLaunchModeRequired");
       return;
     }
 
@@ -406,7 +412,10 @@
 
   async function runDelete() {
     if (busyAction !== null) return;
-    if (!confirm(`确认删除实例 ${component}/${name} 吗？此操作不可撤销。`)) return;
+    const msg = t("instanceDetail.confirmDelete")
+      .replace("{component}", component)
+      .replace("{name}", name);
+    if (!confirm(msg)) return;
     busyAction = "delete";
     try {
       await api.deleteInstance(component, name);
@@ -468,123 +477,146 @@
 </script>
 
 <svelte:head>
-  <title>{component}/{name} - 实例详情 - NullHubX</title>
+  <title>{component}/{name} - {t("instanceDetail.title")} - NullHubX</title>
 </svelte:head>
 
-<div class="page">
-  <header class="instance-header">
-    <div class="header-left">
-      <button class="back-link" type="button" onclick={() => goto("/instances")}>← 返回实例工作区</button>
-      {#if isValidInstance}
-        <h1>{component}/{name}</h1>
-        <p class="subtitle">多代理实例详情与运行控制</p>
-      {/if}
+<div class="page-shell instance-page">
+  <section class="section-shell hero-shell">
+    <div class="instance-header">
+      <div class="header-left">
+        <button class="control-btn secondary back-link" type="button" onclick={() => goto("/instances")}>
+          {t("instanceDetail.backToWorkspace")}
+        </button>
+        {#if isValidInstance}
+          <div class="title-stack">
+            <div class="header-meta">
+              <span class="page-kicker">{component}</span>
+              {#if instanceStatus}
+                <StatusBadge status={statusText} />
+              {/if}
+            </div>
+            <h1 class="page-title">{component}/{name}</h1>
+            <p class="page-subtitle">{t("instanceDetail.subtitle")}</p>
+          </div>
+        {/if}
+      </div>
+      <div class="actions">
+        <button
+          class="control-btn primary"
+          onclick={() => openLaunchDialog("start")}
+          disabled={busyAction !== null || !canStart || !instanceStatus}
+        >
+          {busyAction === "start" ? t("instanceDetail.starting") : t("instanceDetail.start")}
+        </button>
+        <button
+          class="control-btn warning"
+          onclick={() => runControlAction("stop")}
+          disabled={busyAction !== null || !canStop || !instanceStatus}
+        >
+          {busyAction === "stop" ? t("instanceDetail.stopping") : t("instanceDetail.stop")}
+        </button>
+        <button
+          class="control-btn secondary"
+          onclick={() => openLaunchDialog("restart")}
+          disabled={busyAction !== null || !canRestart || !instanceStatus}
+        >
+          {busyAction === "restart" ? t("instanceDetail.restarting") : t("instanceDetail.restart")}
+        </button>
+        <button class="control-btn secondary" onclick={() => runControlAction("update")} disabled={busyAction !== null || !instanceStatus}>
+          {busyAction === "update" ? t("instanceDetail.updating") : t("instanceDetail.update")}
+        </button>
+        <button class="control-btn danger" onclick={runDelete} disabled={busyAction !== null || !instanceStatus}>
+          {busyAction === "delete" ? t("instanceDetail.deleting") : t("instanceDetail.delete")}
+        </button>
+      </div>
     </div>
-    <div class="actions">
-      <button
-        class="btn-action btn-start"
-        onclick={() => openLaunchDialog("start")}
-        disabled={busyAction !== null || !canStart || !instanceStatus}
-      >
-        {busyAction === "start" ? "启动中..." : "启动"}
-      </button>
-      <button
-        class="btn-action btn-stop"
-        onclick={() => runControlAction("stop")}
-        disabled={busyAction !== null || !canStop || !instanceStatus}
-      >
-        {busyAction === "stop" ? "停止中..." : "停止"}
-      </button>
-      <button
-        class="btn-action btn-restart"
-        onclick={() => openLaunchDialog("restart")}
-        disabled={busyAction !== null || !canRestart || !instanceStatus}
-      >
-        {busyAction === "restart" ? "重启中..." : "重启"}
-      </button>
-      <button class="btn-action btn-update" onclick={() => runControlAction("update")} disabled={busyAction !== null || !instanceStatus}>
-        {busyAction === "update" ? "更新中..." : "更新"}
-      </button>
-      <button class="btn-action btn-delete" onclick={runDelete} disabled={busyAction !== null || !instanceStatus}>
-        {busyAction === "delete" ? "删除中..." : "删除"}
-      </button>
-    </div>
-  </header>
+  </section>
 
   {#if statusText === "failed"}
-    <div class="failed-banner">
+    <div class="section-shell failed-banner">
       <div>
-        <h3>实例处于失败状态</h3>
-        <p>建议先查看 NullHubX 监控日志，再决定重启或修改配置。</p>
+        <h3>{t("instanceDetail.failedBannerTitle")}</h3>
+        <p>{t("instanceDetail.failedBannerDesc")}</p>
         {#if recentSupervisorError}
           <p class="failed-detail">{recentSupervisorError}</p>
         {/if}
       </div>
-      <button class="failed-log-btn" onclick={openFailureLogs}>查看故障日志</button>
+      <button class="control-btn warning failed-log-btn" onclick={openFailureLogs}>{t("instanceDetail.viewFailureLogs")}</button>
     </div>
   {/if}
 
   {#if loadError}
-    <div class="error">{loadError}</div>
+    <div class="feedback-banner error">{loadError}</div>
   {/if}
 
   {#if !instanceStatus}
-    <div class="empty">
+    <div class="section-shell empty">
       {#if instanceMissing}
-        当前状态快照中未找到该实例。
+        {t("instanceDetail.notFound")}
       {:else}
-        正在获取实例状态，请稍候。
+        {t("instanceDetail.fetching")}
       {/if}
       <div class="empty-actions">
-        <button class="empty-btn" type="button" onclick={() => goto("/instances")}>返回实例工作区</button>
-        <button class="empty-btn" type="button" onclick={() => goto("/")}>返回总览</button>
-        <button class="empty-btn" onclick={loadSummary}>立即重试</button>
+        <button class="control-btn secondary" type="button" onclick={() => goto("/instances")}>{t("instanceDetail.backToWorkspace")}</button>
+        <button class="control-btn secondary" type="button" onclick={() => goto("/")}>{t("instanceDetail.backToOverview")}</button>
+        <button class="control-btn primary" onclick={() => void loadSummary("interactive")}>{t("instanceDetail.retryNow")}</button>
       </div>
     </div>
   {:else}
-    <div class="summary-grid">
-      <div class="summary-card">
-        <span class="label">状态</span>
-        <strong>{statusLabel}</strong>
+    <section class="section-shell summary-shell">
+      <div class="section-heading-row">
+        <div class="section-heading">
+          <span class="section-kicker">{t("instanceDetail.tabs.overview")}</span>
+          <h2 class="section-title">{t("instanceDetail.title")}</h2>
+          <p class="section-subtitle">{t("instanceDetail.subtitle")}</p>
+        </div>
       </div>
-      <div class="summary-card">
-        <span class="label">版本</span>
-        <strong>{instanceStatus.version || "-"}</strong>
-      </div>
-      <div class="summary-card">
-        <span class="label">端口</span>
-        <strong>{instanceStatus.port || "-"}</strong>
-      </div>
-      <div class="summary-card">
-        <span class="label">重启次数</span>
-        <strong>{restartCount}</strong>
-      </div>
-      <div class="summary-card">
-        <span class="label">健康失败计数</span>
-        <strong>{healthFailureCount}</strong>
-      </div>
-      <div class="summary-card">
-        <span class="label">服务商健康</span>
-        <strong>{providerHealth?.status || "未知"}</strong>
-      </div>
-      <div class="summary-card">
-        <span class="label">引导状态</span>
-        <strong>{onboarding?.pending ? "待完成" : onboarding?.completed ? "已完成" : "未知"}</strong>
-      </div>
-      <div class="summary-card">
-        <span class="label">代理路由（Profiles/Bindings）</span>
-        <strong>{agentProfilesCount ?? "-"} / {agentBindingsCount ?? "-"}</strong>
-      </div>
-      <div class="summary-card">
-        <span class="label">最近监控事件</span>
-        <strong class="recent-event">{recentSupervisorError || "-"}</strong>
-      </div>
-    </div>
 
-    <section class="runtime-defaults">
+      <div class="summary-grid">
+        <div class="summary-card status-card">
+          <span class="label">{t("instanceDetail.statusLabel")}</span>
+          <strong>{statusLabel}</strong>
+          <StatusBadge status={statusText} />
+        </div>
+        <div class="summary-card">
+          <span class="label">{t("instanceDetail.versionLabel")}</span>
+          <strong>{instanceStatus.version || "-"}</strong>
+        </div>
+        <div class="summary-card">
+          <span class="label">{t("instanceDetail.portLabel")}</span>
+          <strong>{instanceStatus.port || "-"}</strong>
+        </div>
+        <div class="summary-card">
+          <span class="label">{t("instanceDetail.restartCountLabel")}</span>
+          <strong>{restartCount}</strong>
+        </div>
+        <div class="summary-card">
+          <span class="label">{t("instanceDetail.healthFailuresLabel")}</span>
+          <strong>{healthFailureCount}</strong>
+        </div>
+        <div class="summary-card">
+          <span class="label">{t("instanceDetail.providerHealthLabel")}</span>
+          <strong>{providerHealth?.status || t("instanceDetail.unknown")}</strong>
+        </div>
+        <div class="summary-card">
+          <span class="label">{t("instanceDetail.onboardingStatusLabel")}</span>
+          <strong>{onboarding?.pending ? t("instanceDetail.pending") : onboarding?.completed ? t("instanceDetail.completed") : t("instanceDetail.unknown")}</strong>
+        </div>
+        <div class="summary-card">
+          <span class="label">{t("instanceDetail.agentRoutesLabel")}</span>
+          <strong>{agentProfilesCount ?? "-"} / {agentBindingsCount ?? "-"}</strong>
+        </div>
+        <div class="summary-card wide">
+          <span class="label">{t("instanceDetail.recentEventsLabel")}</span>
+          <strong class="recent-event">{recentSupervisorError || "-"}</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-shell runtime-defaults">
       <div class="runtime-head">
-        <h3>实例默认启动设置</h3>
-        <p>这里保存的是实例持久默认值（通过实例 PATCH 接口生效）。</p>
+        <h3>{t("instanceDetail.defaultsTitle")}</h3>
+        <p>{t("instanceDetail.defaultsDesc")}</p>
       </div>
       <div class="runtime-form">
         <label class="field-toggle">
@@ -596,16 +628,16 @@
               defaultsDirty = true;
             }}
           />
-          <span>自动启动（auto_start）</span>
+          <span>{t("instanceDetail.autoStart")}</span>
         </label>
 
         <label class="field">
-          <span>启动模式（launch_mode）</span>
+          <span>{t("instanceDetail.launchMode")}</span>
           <input
             type="text"
             bind:value={defaultsLaunchMode}
             oninput={() => (defaultsDirty = true)}
-            placeholder="gateway / agent / 自定义子命令"
+            placeholder={t("instanceDetail.launchModePlaceholder")}
           />
         </label>
 
@@ -618,15 +650,15 @@
               defaultsDirty = true;
             }}
           />
-          <span>详细日志（verbose）</span>
+          <span>{t("instanceDetail.verboseLog")}</span>
         </label>
       </div>
       <div class="runtime-actions">
-        <button class="btn-save" onclick={saveDefaultSettings} disabled={!defaultsDirty || savingDefaults}>
-          {savingDefaults ? "保存中..." : "保存默认设置"}
+        <button class="control-btn primary" onclick={saveDefaultSettings} disabled={!defaultsDirty || savingDefaults}>
+          {savingDefaults ? t("instanceDetail.savingDefaults") : t("instanceDetail.saveDefaults")}
         </button>
-        <button class="btn-reset" onclick={resetDefaultSettingsDraft} disabled={!defaultsDirty || savingDefaults}>
-          重置改动
+        <button class="control-btn secondary" onclick={resetDefaultSettingsDraft} disabled={!defaultsDirty || savingDefaults}>
+          {t("instanceDetail.resetChanges")}
         </button>
       </div>
     </section>
@@ -637,19 +669,19 @@
       {/each}
     </nav>
 
-    <section class="panel">
+    <section class="section-shell panel">
       {#if activeTab === "overview"}
-        <div class="overview-grid">
-          <div>
-            <h3>运行状态</h3>
+        <div class="json-grid">
+          <div class="json-card">
+            <h3>{t("instanceDetail.statusLabel")}</h3>
             <pre>{JSON.stringify(instanceStatus, null, 2)}</pre>
           </div>
-          <div>
-            <h3>服务商健康</h3>
+          <div class="json-card">
+            <h3>{t("instanceDetail.providerHealthLabel")}</h3>
             <pre>{JSON.stringify(providerHealth || {}, null, 2)}</pre>
           </div>
-          <div>
-            <h3>引导状态</h3>
+          <div class="json-card">
+            <h3>{t("instanceDetail.onboardingStatusLabel")}</h3>
             <pre>{JSON.stringify(onboarding || {}, null, 2)}</pre>
           </div>
         </div>
@@ -670,8 +702,8 @@
       {/if}
 
       {#if activeTab === "usage"}
-        <div>
-          <h3>用量聚合</h3>
+        <div class="json-card">
+          <h3>{t("instanceDetail.tabs.usage")}</h3>
           <pre>{usageJson}</pre>
         </div>
       {/if}
@@ -689,8 +721,8 @@
       {/if}
 
       {#if activeTab === "integration"}
-        <div>
-          <h3>集成状态</h3>
+        <div class="json-card">
+          <h3>{t("instanceDetail.tabs.integration")}</h3>
           <pre>{integrationJson}</pre>
         </div>
       {/if}
@@ -703,35 +735,35 @@
     class="modal-backdrop"
     role="button"
     tabindex="0"
-    aria-label="关闭启动参数弹窗"
+    aria-label={t("instanceDetail.closeLaunchDialog")}
     onclick={handleLaunchBackdropClick}
     onkeydown={handleLaunchBackdropKeydown}
   >
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="launch-dialog-title">
-      <h3 id="launch-dialog-title">{launchAction === "start" ? "启动参数" : "重启参数"}</h3>
-      <p class="modal-desc">以下参数仅用于本次操作；可选同步为实例默认值。</p>
+      <h3 id="launch-dialog-title">{launchAction === "start" ? t("instanceDetail.launchDialog.start") : t("instanceDetail.launchDialog.restart")}</h3>
+      <p class="modal-desc">{t("instanceDetail.launchDialogDesc")}</p>
 
       <label class="field">
-        <span>启动模式（launch_mode）</span>
-        <input type="text" bind:value={launchMode} placeholder="gateway / agent / 自定义子命令" />
+        <span>{t("instanceDetail.launchDialog.launchMode")}</span>
+        <input type="text" bind:value={launchMode} placeholder={t("instanceDetail.launchModePlaceholder")} />
       </label>
 
       <label class="field-toggle">
         <input type="checkbox" bind:checked={launchVerbose} />
-        <span>详细日志（verbose）</span>
+        <span>{t("instanceDetail.launchDialog.verbose")}</span>
       </label>
 
       <label class="field-toggle persist">
         <input type="checkbox" bind:checked={launchPersistDefaults} />
-        <span>同时保存为实例默认设置</span>
+        <span>{t("instanceDetail.launchDialog.persistDefaults")}</span>
       </label>
 
       <div class="modal-actions">
-        <button class="btn-reset" onclick={closeLaunchDialog} disabled={busyAction === "start" || busyAction === "restart"}>
-          取消
+        <button class="control-btn secondary" onclick={closeLaunchDialog} disabled={busyAction === "start" || busyAction === "restart"}>
+          {t("instanceDetail.launchDialog.cancel")}
         </button>
-        <button class="btn-save" onclick={confirmLaunchAction} disabled={busyAction === "start" || busyAction === "restart"}>
-          {busyAction === launchAction ? "执行中..." : launchAction === "start" ? "确认启动" : "确认重启"}
+        <button class="control-btn primary" onclick={confirmLaunchAction} disabled={busyAction === "start" || busyAction === "restart"}>
+          {busyAction === launchAction ? t("instanceDetail.executing") : launchAction === "start" ? t("instanceDetail.confirmStart") : t("instanceDetail.confirmRestart")}
         </button>
       </div>
     </div>
@@ -739,111 +771,57 @@
 {/if}
 
 <style>
-  .page {
-    padding: var(--spacing-2xl);
-    max-width: 1400px;
-    margin: 0 auto;
+  .hero-shell {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
   }
 
   .instance-header {
     display: flex;
     justify-content: space-between;
-    gap: 1rem;
+    gap: var(--spacing-lg);
     align-items: flex-start;
-    margin-bottom: var(--spacing-lg);
   }
 
   .header-left {
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
+    gap: var(--spacing-md);
   }
 
   .back-link {
-    color: var(--slate-500);
-    text-decoration: none;
-    font-size: var(--text-sm);
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    font-family: inherit;
-    transition: color var(--transition-fast);
+    width: fit-content;
   }
 
-  .back-link:hover {
-    color: var(--indigo-600);
+  .title-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
   }
 
-  h1 {
-    margin: 0;
-    font-family: var(--font-mono);
-    font-size: var(--text-2xl);
-  }
-
-  .subtitle {
-    margin: 0;
-    color: var(--slate-500);
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
   }
 
   .actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .btn-action {
-    border: 1px solid transparent;
-    padding: 0.5rem 0.9rem;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    transition: all 0.2s ease;
-  }
-
-  .btn-start {
-    background: var(--emerald-600);
-    color: white;
-  }
-
-  .btn-stop {
-    background: var(--red-600);
-    color: white;
-  }
-
-  .btn-restart {
-    background: var(--amber-500);
-    color: var(--slate-800);
-  }
-
-  .btn-update {
-    background: var(--indigo-600);
-    color: white;
-  }
-
-  .btn-delete {
-    background: white;
-    color: var(--red-600);
-    border-color: var(--red-300);
-  }
-
-  .btn-action:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
+    gap: var(--spacing-sm);
+    justify-content: flex-end;
   }
 
   .failed-banner {
-    margin-bottom: 1rem;
-    padding: 0.85rem 1rem;
-    border: 1px solid #f5d0a6;
-    background: #fff7ed;
-    color: #9a3412;
-    border-radius: 10px;
     display: flex;
     justify-content: space-between;
-    gap: 1rem;
+    gap: var(--spacing-lg);
     align-items: center;
+    border-color: rgba(245, 158, 11, 0.2);
+    background: linear-gradient(180deg, rgba(255, 251, 235, 0.92), rgba(255, 247, 237, 0.84));
+    color: #9a3412;
   }
 
   .failed-banner h3 {
@@ -862,218 +840,200 @@
   }
 
   .failed-log-btn {
-    border: 1px solid #ea580c;
-    background: #ea580c;
-    color: white;
-    border-radius: 8px;
-    padding: 0.45rem 0.8rem;
-    cursor: pointer;
     white-space: nowrap;
   }
 
-  .error {
-    margin-bottom: 1rem;
-    padding: 0.75rem 1rem;
-    border: 1px solid var(--red-200);
-    background: var(--red-50);
-    color: var(--red-600);
-    border-radius: 8px;
+  .feedback-banner {
+    padding: 0.85rem 1rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(244, 63, 94, 0.16);
+    background: rgba(255, 241, 245, 0.82);
+    color: var(--red-700);
+    box-shadow: var(--shadow-sm);
   }
 
   .empty {
-    padding: 2rem;
-    border: 1px dashed var(--slate-300);
-    border-radius: 10px;
+    padding: var(--spacing-3xl);
     color: var(--slate-500);
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: var(--spacing-md);
   }
 
   .empty-actions {
     display: flex;
-    gap: 0.8rem;
+    gap: var(--spacing-sm);
     flex-wrap: wrap;
-  }
-
-  .empty-actions button {
-    color: var(--indigo-600);
-    background: none;
-    border: 1px solid var(--indigo-300);
-    border-radius: var(--radius-sm);
-    padding: 0.4rem 0.8rem;
-    font-size: var(--text-sm);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-  }
-
-  .empty-actions button:hover {
-    background: var(--indigo-50);
-    border-color: var(--indigo-500);
   }
 
   .summary-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-    gap: 0.75rem;
-    margin-bottom: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--spacing-md);
   }
 
   .summary-card {
-    border: 1px solid var(--slate-200);
-    border-radius: 8px;
-    background: white;
-    padding: 0.7rem 0.9rem;
+    border: 1px solid rgba(141, 154, 178, 0.18);
+    border-radius: var(--radius-lg);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(246, 249, 255, 0.76));
+    padding: 0.95rem 1rem;
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: var(--spacing-xs);
     min-width: 0;
+    box-shadow: var(--shadow-sm);
   }
 
   .summary-card .label {
     font-size: var(--text-xs);
     color: var(--slate-500);
-    letter-spacing: 0.2px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .summary-card strong {
+    color: var(--slate-900);
+    font-size: var(--text-base);
+    line-height: 1.5;
+  }
+
+  .summary-card.status-card {
+    border-color: rgba(34, 211, 238, 0.22);
+    box-shadow: 0 16px 36px rgba(14, 165, 198, 0.08), 0 0 0 1px rgba(34, 211, 238, 0.08);
+  }
+
+  .summary-card.wide {
+    grid-column: 1 / -1;
   }
 
   .recent-event {
-    font-size: var(--text-xs);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .runtime-defaults {
-    border: 1px solid var(--slate-200);
-    border-radius: 10px;
-    background: white;
-    padding: 1rem;
-    margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
   }
 
   .runtime-head h3 {
     margin: 0;
-    color: var(--slate-800);
+    color: var(--slate-900);
   }
 
   .runtime-head p {
     margin: 0.35rem 0 0 0;
-    color: var(--slate-500);
+    color: var(--slate-600);
     font-size: var(--text-sm);
   }
 
   .runtime-form {
-    margin-top: 0.9rem;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 0.75rem;
+    gap: var(--spacing-md);
   }
 
   .field {
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
+    gap: var(--spacing-xs);
   }
 
   .field span {
-    font-size: var(--text-xs);
-    color: var(--slate-600);
+    font-size: var(--text-sm);
+    color: var(--slate-700);
+    font-weight: 600;
   }
 
   .field input {
-    border: 1px solid var(--slate-300);
-    border-radius: 8px;
-    padding: 0.5rem 0.65rem;
+    border-radius: var(--radius-md);
+    padding: 0.75rem 0.85rem;
   }
 
   .field-toggle {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--spacing-sm);
+    min-height: 48px;
+    padding: 0.8rem 0.95rem;
+    border: 1px solid rgba(141, 154, 178, 0.16);
+    border-radius: var(--radius-lg);
+    background: rgba(255, 255, 255, 0.64);
     color: var(--slate-700);
     font-size: var(--text-sm);
   }
 
   .runtime-actions {
     display: flex;
-    gap: 0.6rem;
-    margin-top: 0.9rem;
-  }
-
-  .btn-save,
-  .btn-reset {
-    border-radius: 8px;
-    padding: 0.45rem 0.85rem;
-    cursor: pointer;
-    font-weight: 600;
-  }
-
-  .btn-save {
-    border: 1px solid var(--indigo-600);
-    background: var(--indigo-600);
-    color: white;
-  }
-
-  .btn-reset {
-    border: 1px solid var(--slate-300);
-    background: white;
-    color: var(--slate-700);
-  }
-
-  .btn-save:disabled,
-  .btn-reset:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
   }
 
   .tabs {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--spacing-xl);
-    margin-bottom: 1rem;
-    border-bottom: 1px solid var(--slate-200);
+    gap: var(--spacing-sm);
   }
 
   .tabs button {
-    border: none;
-    background: transparent;
-    padding: var(--spacing-md) 0;
+    border: 1px solid rgba(141, 154, 178, 0.18);
+    background: rgba(255, 255, 255, 0.74);
+    padding: 0.7rem 1rem;
     cursor: pointer;
-    color: var(--slate-400);
-    border-bottom: 2px solid transparent;
+    color: var(--slate-500);
+    border-radius: 999px;
     font-family: var(--font-mono);
     font-size: var(--text-sm);
-    letter-spacing: 0.5px;
+    letter-spacing: 0.04em;
     transition: all var(--transition-fast);
   }
 
   .tabs button.active {
-    border-bottom-color: var(--indigo-600);
-    color: var(--indigo-600);
+    border-color: rgba(34, 211, 238, 0.22);
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(24, 34, 56, 0.94));
+    color: var(--shell-text);
+    box-shadow: var(--glow-cyan);
   }
 
   .panel {
-    border: 1px solid var(--slate-200);
-    border-radius: 10px;
-    background: white;
-    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
   }
 
-  .overview-grid {
+  .json-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 0.9rem;
+    gap: var(--spacing-md);
+  }
+
+  .json-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .json-card h3 {
+    margin: 0;
+    color: var(--slate-900);
+    font-size: var(--text-base);
   }
 
   pre {
     margin: 0;
-    border: 1px solid var(--slate-200);
-    background: var(--slate-50);
-    border-radius: 8px;
-    padding: 0.75rem;
+    border: 1px solid rgba(141, 154, 178, 0.18);
+    background: rgba(255, 255, 255, 0.72);
+    border-radius: var(--radius-lg);
+    padding: 0.9rem 1rem;
     max-height: 320px;
     overflow: auto;
     font-size: 12px;
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
   }
 
   .modal-backdrop {
@@ -1089,21 +1049,22 @@
 
   .modal {
     width: min(560px, 100%);
-    background: white;
-    border-radius: 12px;
-    border: 1px solid var(--slate-200);
-    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.22);
-    padding: 1rem;
+    background: rgba(248, 251, 255, 0.96);
+    border-radius: var(--radius-xl);
+    border: 1px solid rgba(141, 154, 178, 0.18);
+    box-shadow: 0 24px 72px rgba(15, 23, 42, 0.22);
+    padding: var(--spacing-xl);
+    backdrop-filter: blur(20px);
   }
 
   .modal h3 {
     margin: 0;
-    color: var(--slate-800);
+    color: var(--slate-900);
   }
 
   .modal-desc {
     margin: 0.35rem 0 0.8rem 0;
-    color: var(--slate-500);
+    color: var(--slate-600);
     font-size: var(--text-sm);
   }
 
@@ -1115,8 +1076,8 @@
   .modal-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 0.55rem;
-    margin-top: 1rem;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-lg);
   }
 
   @media (max-width: 900px) {
@@ -1126,9 +1087,10 @@
 
     .actions {
       width: 100%;
+      justify-content: flex-start;
     }
 
-    .btn-action {
+    .actions .control-btn {
       flex: 1 1 calc(50% - 0.5rem);
     }
 
@@ -1139,18 +1101,15 @@
   }
 
   @media (max-width: 640px) {
-    .page {
-      padding: var(--spacing-lg);
-    }
-
     .summary-grid {
       grid-template-columns: 1fr;
     }
 
     .tabs {
-      gap: var(--spacing-md);
       overflow-x: auto;
       scrollbar-width: none;
+      flex-wrap: nowrap;
+      padding-bottom: 2px;
     }
 
     .tabs::-webkit-scrollbar {
@@ -1161,8 +1120,7 @@
       flex-direction: column-reverse;
     }
 
-    .modal-actions .btn-save,
-    .modal-actions .btn-reset {
+    .modal-actions .control-btn {
       width: 100%;
     }
   }

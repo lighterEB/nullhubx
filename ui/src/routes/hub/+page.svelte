@@ -1,10 +1,10 @@
 <script lang="ts">
   import { afterNavigate } from "$app/navigation";
   import ComponentCard from "$lib/components/ComponentCard.svelte";
-  import { api } from "$lib/api/client";
+  import { api, type ComponentSummary } from "$lib/api/client";
   import { t } from "$lib/i18n/index.svelte";
 
-  let components = $state<any[]>([]);
+  let components = $state<ComponentSummary[]>([]);
 
   async function loadComponents() {
     try {
@@ -18,43 +18,64 @@
   afterNavigate(loadComponents);
 
   // Separate core engine (nullclaw) from extensions
-  let coreEngine = $derived(components.find(c => c.name === "nullclaw"));
-  let extensions = $derived(components.filter(c => c.name !== "nullclaw"));
+  let coreEngine = $derived(components.find((c) => c.name === "nullclaw"));
+  let extensions = $derived(components.filter((c) => c.name !== "nullclaw"));
 
   // Split extensions into available and coming soon
-  let availableExtensions = $derived(extensions.filter(c => !c.alpha || c.installed));
-  let comingSoonExtensions = $derived(extensions.filter(c => c.alpha && !c.installed && !c.standalone));
+  let availableExtensions = $derived(extensions.filter((c) => !c.alpha || c.installed));
+  let comingSoonExtensions = $derived(extensions.filter((c) => c.alpha && !c.installed && !c.standalone));
+  let installedCount = $derived(components.filter((c) => c.installed).length);
 </script>
 
 <svelte:head>
   <title>{t('hub.title')} - NullHubX</title>
 </svelte:head>
 
-<div class="page">
-  <header class="page-header">
-    <div class="header-left">
-      <div class="breadcrumb">
-        <span class="breadcrumb-item">NullHubX</span>
-        <span class="breadcrumb-sep">/</span>
-        <span class="breadcrumb-item active">{t('hub.title')}</span>
+<div class="page-shell hub-page">
+  <section class="section-shell hero-shell">
+    <div class="page-hero">
+      <div class="page-title-group">
+        <span class="page-kicker">NullHubX</span>
+        <h1 class="page-title">{t('hub.title')}</h1>
+        <p class="page-subtitle">{t('hub.subtitle')}</p>
       </div>
-      <h1>
-        {t('hub.title')}
-      </h1>
-      <p class="subtitle">{t('hub.subtitle')}</p>
+      <div class="page-actions">
+        <span class="surface-chip">{t('hub.coreEngine')}</span>
+        <span class="surface-chip">{t('hub.extensions')}</span>
+      </div>
     </div>
-  </header>
 
-  <hr class="divider" />
+    <div class="metrics-grid">
+      <article class="metric-card">
+        <span class="metric-label">{t('hub.title')}</span>
+        <strong class="metric-value">{components.length}</strong>
+        <p class="metric-meta">{t('overview.componentCount')}</p>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">{t('hub.installed')}</span>
+        <strong class="metric-value">{installedCount}</strong>
+        <p class="metric-meta">{t('instances.title')}</p>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">{t('hub.extensions')}</span>
+        <strong class="metric-value">{availableExtensions.length}</strong>
+        <p class="metric-meta">{t('hub.extensionsDesc')}</p>
+      </article>
+      <article class="metric-card">
+        <span class="metric-label">{t('common.comingSoon')}</span>
+        <strong class="metric-value">{comingSoonExtensions.length}</strong>
+        <p class="metric-meta">{t('hub.comingSoonDesc')}</p>
+      </article>
+    </div>
+  </section>
 
-  <!-- Core Engine Section -->
-  <section class="section">
-    <div class="section-header">
-      <h2 class="section-title">
-        <span class="section-icon">⬡</span>
-        {t('hub.coreEngine')}
-      </h2>
-      <p class="section-desc">{t('hub.coreEngineDesc')}</p>
+  <section class="section-shell section-panel core-panel">
+    <div class="section-heading-row">
+      <div class="section-heading">
+        <span class="section-kicker">{t('hub.title')}</span>
+        <h2 class="section-title">{t('hub.coreEngine')}</h2>
+        <p class="section-subtitle">{t('hub.coreEngineDesc')}</p>
+      </div>
     </div>
 
     <div class="core-grid">
@@ -79,15 +100,15 @@
     </div>
   </section>
 
-  <!-- Extensions Section -->
   {#if availableExtensions.length > 0}
-    <section class="section">
-      <div class="section-header">
-        <h2 class="section-title">
-          <span class="section-icon">⊕</span>
-          {t('hub.extensions')}
-        </h2>
-        <p class="section-desc">{t('hub.extensionsDesc')}</p>
+    <section class="section-shell section-panel">
+      <div class="section-heading-row">
+        <div class="section-heading">
+          <span class="section-kicker">{t('hub.title')}</span>
+          <h2 class="section-title">{t('hub.extensions')}</h2>
+          <p class="section-subtitle">{t('hub.extensionsDesc')}</p>
+        </div>
+        <span class="surface-chip">{availableExtensions.length}</span>
       </div>
 
       <div class="extensions-grid">
@@ -108,15 +129,15 @@
     </section>
   {/if}
 
-  <!-- Coming Soon Section -->
   {#if comingSoonExtensions.length > 0}
-    <section class="section">
-      <div class="section-header">
-        <h2 class="section-title">
-          <span class="section-icon">◦</span>
-          {t('common.comingSoon')}
-        </h2>
-        <p class="section-desc">{t('hub.comingSoonDesc')}</p>
+    <section class="section-shell section-panel">
+      <div class="section-heading-row">
+        <div class="section-heading">
+          <span class="section-kicker">{t('hub.title')}</span>
+          <h2 class="section-title">{t('common.comingSoon')}</h2>
+          <p class="section-subtitle">{t('hub.comingSoonDesc')}</p>
+        </div>
+        <span class="surface-chip">{comingSoonExtensions.length}</span>
       </div>
 
       <div class="extensions-grid coming-soon">
@@ -139,132 +160,47 @@
 </div>
 
 <style>
-  .page {
-    padding: var(--spacing-4xl) var(--spacing-5xl);
-    max-width: 1400px;
-    margin: 0 auto;
-  }
-
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: var(--spacing-xl);
-  }
-
-  .header-left {
+  .hero-shell {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xl);
   }
 
-  .breadcrumb {
+  .section-panel {
     display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--slate-400);
-    letter-spacing: 1px;
+    flex-direction: column;
+    gap: var(--spacing-lg);
   }
 
-  .breadcrumb-sep {
-    color: var(--slate-300);
-  }
-
-  .breadcrumb-item.active {
-    color: var(--slate-600);
-  }
-
-  h1 {
-    font-family: var(--font-mono);
-    font-size: var(--text-3xl);
-    font-weight: 700;
-    color: var(--slate-900);
-    letter-spacing: 3px;
-  }
-
-  .subtitle {
-    font-family: var(--font-sans);
-    font-size: var(--text-base);
-    color: var(--slate-500);
-    margin-top: var(--spacing-xs);
-  }
-
-  .divider {
-    border: none;
-    height: 1px;
-    background: var(--slate-200);
-    margin: var(--spacing-xl) 0;
-  }
-
-  .section {
-    margin-bottom: var(--spacing-3xl);
-  }
-
-  .section-header {
-    margin-bottom: var(--spacing-xl);
-  }
-
-  .section-title {
-    font-family: var(--font-mono);
-    font-size: var(--text-lg);
-    font-weight: 600;
-    color: var(--slate-800);
-    letter-spacing: 1px;
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    margin: 0 0 var(--spacing-xs) 0;
-  }
-
-  .section-icon {
-    font-size: var(--text-xl);
-    color: var(--indigo-500);
-  }
-
-  .section-desc {
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    color: var(--slate-500);
-    margin: 0;
+  .core-panel {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(243, 248, 255, 0.74)),
+      radial-gradient(circle at top right, rgba(34, 211, 238, 0.12), transparent 28%);
   }
 
   .core-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: var(--spacing-xl);
   }
 
   .extensions-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: var(--spacing-lg);
   }
 
   .extensions-grid.coming-soon {
-    opacity: 0.7;
+    opacity: 0.78;
   }
 
-  .card-wrapper {
+  .card-wrapper,
+  .core-card-wrapper {
     opacity: 0;
     animation: fadeUp 0.4s ease forwards;
   }
 
   .core-card-wrapper {
-    opacity: 0;
-    animation: fadeUp 0.5s ease forwards;
-  }
-
-  @keyframes fadeUp {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    animation-duration: 0.5s;
   }
 
   .loading-card {
@@ -273,19 +209,18 @@
     justify-content: center;
     gap: var(--spacing-md);
     padding: var(--spacing-3xl);
-    background: white;
-    border: 1px solid var(--slate-200);
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(141, 154, 178, 0.18);
     border-radius: var(--radius-lg);
     color: var(--slate-500);
-    font-family: var(--font-sans);
     font-size: var(--text-sm);
   }
 
   .loading-spinner {
     width: 20px;
     height: 20px;
-    border: 2px solid var(--slate-200);
-    border-top-color: var(--indigo-500);
+    border: 2px solid rgba(141, 154, 178, 0.24);
+    border-top-color: var(--cyan-500);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
@@ -295,10 +230,6 @@
   }
 
   @media (max-width: 768px) {
-    .page {
-      padding: var(--spacing-xl);
-    }
-
     .extensions-grid {
       grid-template-columns: 1fr;
     }

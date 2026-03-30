@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { api } from "$lib/api/client";
+  import { api, type JsonObject, type ServiceStatusResponse } from "$lib/api/client";
+  import { t } from "$lib/i18n/index.svelte";
 
   type ServiceInfo = {
     status: string;
@@ -11,7 +12,15 @@
     unit_path: string;
   };
 
-  let settings = $state<any>({
+  type SettingsPayload = JsonObject & {
+    port?: number;
+    host?: string;
+    auth_token?: string | null;
+    auto_update_check?: boolean;
+    access?: JsonObject | null;
+  };
+
+  let settings = $state<SettingsPayload>({
     port: 19800,
     host: "127.0.0.1",
     auth_token: null,
@@ -20,7 +29,6 @@
   });
   let saving = $state(false);
   let serviceLoading = $state(false);
-  let serviceAction = $state<"status" | "install" | "uninstall" | null>(null);
   let messageTone = $state<"success" | "error">("success");
   let message = $state("");
   let service = $state<ServiceInfo>({
@@ -34,11 +42,9 @@
 
   const serviceButtonLabel = $derived.by(() => {
     if (serviceLoading) {
-      if (serviceAction === "install") return "启用中...";
-      if (serviceAction === "uninstall") return "停用中...";
-      return "检查中...";
+      return t('common.loading');
     }
-    return service.registered ? "禁用开机自启" : "启用开机自启";
+    return service.registered ? t('settings.disableAutostart') : t('settings.enableAutostart');
   });
 
   onMount(async () => {
@@ -55,7 +61,7 @@
     messageTone = tone;
   }
 
-  function applyServiceStatus(data: any) {
+  function applyServiceStatus(data: ServiceStatusResponse | null | undefined) {
     service = {
       status: typeof data?.status === "string" ? data.status : "ok",
       message: typeof data?.message === "string" ? data.message : "",
@@ -68,51 +74,47 @@
 
   async function refreshServiceStatus(showErrorMessage = true) {
     serviceLoading = true;
-    serviceAction = "status";
     try {
       const data = await api.serviceStatus();
       applyServiceStatus(data);
       if (data?.status === "error" && showErrorMessage) {
-        setMessage(data?.message || "加载服务状态失败", "error");
+        setMessage(data?.message || t('settings.serviceStatusLoadFailed'), "error");
       }
     } catch (e) {
-      applyServiceStatus({ status: "error", message: (e as Error).message || "加载服务状态失败" });
-      if (showErrorMessage) setMessage(`错误：${(e as Error).message}`, "error");
+      applyServiceStatus({ status: "error", message: (e as Error).message || t('settings.serviceStatusLoadFailed') });
+      if (showErrorMessage) setMessage(t('settings.error').replace('{message}', (e as Error).message), "error");
     } finally {
       serviceLoading = false;
-      serviceAction = null;
     }
   }
 
   async function toggleService() {
     const enabling = !service.registered;
     serviceLoading = true;
-    serviceAction = enabling ? "install" : "uninstall";
     try {
       const data = enabling ? await api.serviceInstall() : await api.serviceUninstall();
       applyServiceStatus(data);
       if (data?.status === "error") {
-        setMessage(data?.message || "更新服务状态失败", "error");
+        setMessage(data?.message || t('settings.serviceStatusUpdateFailed'), "error");
         return;
       }
       await refreshServiceStatus(false);
-      setMessage(data?.message || (enabling ? "服务已启用" : "服务已停用"));
+      setMessage(data?.message || (enabling ? t('settings.serviceEnabled') : t('settings.serviceDisabled')));
     } catch (e) {
-      setMessage(`错误：${(e as Error).message}`, "error");
+      setMessage(t('settings.error').replace('{message}', (e as Error).message), "error");
     } finally {
       serviceLoading = false;
-      serviceAction = null;
     }
   }
 
   async function save() {
     saving = true;
     try {
-      const { access, ...payload } = settings;
+      const { access: _access, ...payload } = settings;
       await api.putSettings(payload);
-      setMessage("设置已保存");
+      setMessage(t('settings.settingsSaved'));
     } catch (e) {
-      setMessage(`错误：${(e as Error).message}`, "error");
+      setMessage(t('settings.error').replace('{message}', (e as Error).message), "error");
     } finally {
       saving = false;
     }
@@ -120,26 +122,30 @@
 </script>
 
 <svelte:head>
-  <title>系统设置 - NullHubX</title>
+  <title>{t('nav.settings')} - NullHubX</title>
 </svelte:head>
 
-<div class="page">
-  <header class="page-header">
-    <div class="header-left">
-      <div class="breadcrumb">
-        <span class="breadcrumb-item">系统</span>
-        <span class="breadcrumb-sep">/</span>
-        <span class="breadcrumb-item active">设置</span>
+<div class="page-shell narrow settings-page">
+  <section class="section-shell hero-shell">
+    <div class="page-hero">
+      <div class="page-title-group">
+        <span class="page-kicker">NullHubX</span>
+        <h1 class="page-title">{t('settings.title')}</h1>
+        <p class="page-subtitle">{t('settings.subtitle')}</p>
       </div>
-      <h1>系统 <span class="highlight">设置</span></h1>
-      <p class="subtitle">配置 NullHubX 服务器与服务偏好</p>
+      <div class="page-actions">
+        <span class="surface-chip status-summary" class:is-active={service.registered}>
+          {t('settings.autostart')}: {service.registered ? t('settings.enabled') : t('settings.disabled')}
+        </span>
+        <span class="surface-chip status-summary" class:is-running={service.running}>
+          {t('settings.serviceStatus')}: {service.running ? t('settings.running') : t('settings.stopped')}
+        </span>
+      </div>
     </div>
-  </header>
-
-  <hr class="divider" />
+  </section>
 
   {#if message}
-    <div class="message" class:error={messageTone === "error"}>
+    <div class="feedback-banner" class:error={messageTone === "error"}>
       {#if messageTone === "success"}
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
       {:else}
@@ -150,255 +156,216 @@
   {/if}
 
   <div class="settings-grid">
-    <section class="settings-section">
-      <h2>服务器</h2>
+    <section class="section-shell settings-section">
+      <div class="settings-section-head">
+        <h2>{t('settings.server')}</h2>
+      </div>
       <div class="field">
-        <label for="settings-port">端口</label>
+        <label for="settings-port">{t('settings.port')}</label>
         <input id="settings-port" type="number" bind:value={settings.port} />
-        <p class="hint">NullHubX 监听端口</p>
+        <p class="hint">{t('settings.portHint')}</p>
       </div>
       <div class="field">
-        <label for="settings-host">主机地址</label>
+        <label for="settings-host">{t('settings.host')}</label>
         <input id="settings-host" type="text" bind:value={settings.host} />
-        <p class="hint">绑定地址（0.0.0.0 表示监听所有网卡）</p>
+        <p class="hint">{t('settings.hostHint')}</p>
       </div>
     </section>
 
-    <section class="settings-section">
-      <h2>安全</h2>
+    <section class="section-shell settings-section">
+      <div class="settings-section-head">
+        <h2>{t('settings.security')}</h2>
+      </div>
       <div class="field">
-        <label for="settings-auth-token">认证令牌</label>
-        <input id="settings-auth-token" type="password" bind:value={settings.auth_token} placeholder="留空表示关闭认证" />
-        <p class="hint">设置后可启用远程访问认证</p>
+        <label for="settings-auth-token">{t('settings.authToken')}</label>
+        <input id="settings-auth-token" type="password" bind:value={settings.auth_token} placeholder="" />
+        <p class="hint">{t('settings.authTokenHint')}</p>
       </div>
     </section>
 
-    <section class="settings-section">
-      <h2>更新</h2>
+    <section class="section-shell settings-section updates-section">
+      <div class="settings-section-head">
+        <h2>{t('settings.updates')}</h2>
+      </div>
       <label class="toggle-field">
         <input type="checkbox" bind:checked={settings.auto_update_check} />
         <span class="toggle-slider"></span>
-        <span class="toggle-label">自动检查更新</span>
+        <span class="toggle-label">{t('settings.autoUpdateCheck')}</span>
       </label>
     </section>
 
-    <section class="settings-section">
-      <h2>服务</h2>
-      <p class="section-hint">将 NullHubX 注册为系统服务以支持开机自启</p>
+    <section class="section-shell settings-section service-section">
+      <div class="settings-section-head">
+        <h2>{t('settings.service')}</h2>
+        <p class="section-hint">{t('settings.serviceHint')}</p>
+      </div>
 
       <div class="service-panel">
         <div class="service-row">
-          <span class="service-label">开机自启</span>
+          <span class="service-label">{t('settings.autostart')}</span>
           <span class="service-badge" class:active={service.registered}>
-            {service.registered ? "已启用" : "已禁用"}
+            {service.registered ? t('settings.enabled') : t('settings.disabled')}
           </span>
         </div>
         <div class="service-row">
-          <span class="service-label">运行状态</span>
+          <span class="service-label">{t('settings.serviceStatus')}</span>
           <span class="service-badge" class:active={service.running}>
-            {service.running ? "运行中" : "已停止"}
+            {service.running ? t('settings.running') : t('settings.stopped')}
           </span>
         </div>
         {#if service.service_type}
           <div class="service-detail">
-            <span class="service-label">服务类型</span>
+            <span class="service-label">{t('settings.serviceType')}</span>
             <code>{service.service_type}</code>
           </div>
         {/if}
         {#if service.unit_path}
           <div class="service-detail">
-            <span class="service-label">单元路径</span>
+            <span class="service-label">{t('settings.unitPath')}</span>
             <code>{service.unit_path}</code>
           </div>
         {/if}
         <div class="service-actions">
-          <button class="btn-primary" onclick={toggleService} disabled={serviceLoading}>
+          <button class="control-btn primary service-btn" onclick={toggleService} disabled={serviceLoading}>
             {serviceButtonLabel}
           </button>
-          <button class="btn-secondary" onclick={() => refreshServiceStatus()} disabled={serviceLoading}>
-            刷新
+          <button class="control-btn secondary service-btn" onclick={() => refreshServiceStatus()} disabled={serviceLoading}>
+            {t('common.refresh')}
           </button>
         </div>
       </div>
     </section>
 
-    <div class="actions-bar">
-      <button class="btn-save" onclick={save} disabled={saving}>
-        {saving ? "保存中..." : "保存设置"}
+    <div class="section-shell actions-shell">
+      <button class="control-btn primary save-btn" onclick={save} disabled={saving}>
+        {saving ? t('settings.saving') : t('settings.saveSettings')}
       </button>
     </div>
   </div>
 </div>
 
 <style>
-  .page {
-    padding: var(--spacing-4xl) var(--spacing-5xl);
-    max-width: 800px;
-    margin: 0 auto;
-  }
-
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: var(--spacing-xl);
-  }
-
-  .header-left {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-  }
-
-  .breadcrumb {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--slate-400);
-    letter-spacing: 1px;
-  }
-
-  .breadcrumb-sep { color: var(--slate-300); }
-  .breadcrumb-item.active { color: var(--slate-600); }
-
-  h1 {
-    font-family: var(--font-mono);
-    font-size: var(--text-3xl);
-    font-weight: 700;
-    color: var(--slate-900);
-    letter-spacing: 3px;
-  }
-
-  .highlight { color: var(--indigo-600); }
-
-  .subtitle {
-    font-family: var(--font-sans);
-    font-size: var(--text-base);
-    color: var(--slate-500);
-    margin-top: var(--spacing-xs);
-  }
-
-  .divider {
-    border: none;
-    height: 1px;
-    background: var(--slate-200);
-    margin: var(--spacing-xl) 0;
-  }
-
-  .message {
+  .feedback-banner {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
     padding: var(--spacing-md) var(--spacing-lg);
-    background: rgba(16, 185, 129, 0.08);
-    border: 1px solid rgba(16, 185, 129, 0.2);
-    border-radius: var(--radius-md);
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    font-weight: 500;
-    color: var(--emerald-600);
-    margin-bottom: var(--spacing-xl);
-  }
-
-  .message.error {
-    background: rgba(239, 68, 68, 0.08);
-    border-color: rgba(239, 68, 68, 0.2);
-    color: var(--red-600);
-  }
-
-  .settings-grid {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xl);
-  }
-
-  .settings-section {
-    background: white;
-    border: 1px solid var(--slate-200);
     border-radius: var(--radius-lg);
-    padding: var(--spacing-lg);
+    border: 1px solid rgba(16, 185, 129, 0.18);
+    background: rgba(236, 253, 245, 0.84);
+    color: var(--emerald-700);
     box-shadow: var(--shadow-sm);
   }
 
-  .settings-section h2 {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    font-weight: 700;
-    color: var(--slate-700);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: var(--spacing-lg);
-    padding-bottom: var(--spacing-sm);
-    border-bottom: 1px solid var(--slate-100);
+  .feedback-banner.error {
+    border-color: rgba(244, 63, 94, 0.16);
+    background: rgba(255, 241, 245, 0.82);
+    color: var(--red-700);
+  }
+
+  .status-summary {
+    white-space: nowrap;
+  }
+
+  .status-summary.is-active {
+    border-color: rgba(16, 185, 129, 0.18);
+    background: rgba(236, 253, 245, 0.78);
+    color: var(--emerald-700);
+  }
+
+  .status-summary.is-running {
+    border-color: rgba(34, 211, 238, 0.2);
+    background: rgba(239, 250, 255, 0.82);
+    color: var(--cyan-700, var(--cyan-600));
+  }
+
+  .settings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-lg);
+  }
+
+  .settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+
+  .updates-section,
+  .service-section,
+  .actions-shell {
+    grid-column: 1 / -1;
+  }
+
+  .settings-section-head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+  }
+
+  .settings-section-head h2 {
+    margin: 0;
+    color: var(--slate-900);
+    font-size: var(--text-lg);
   }
 
   .section-hint {
-    font-family: var(--font-sans);
+    margin: 0;
+    color: var(--slate-600);
     font-size: var(--text-sm);
-    color: var(--slate-500);
-    margin-bottom: var(--spacing-md);
+    line-height: 1.6;
   }
 
   .field {
-    margin-bottom: var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+  }
+
+  .field + .field {
+    margin-top: var(--spacing-sm);
   }
 
   .field label {
-    display: block;
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    color: var(--slate-700);
+    font-size: var(--text-sm);
     font-weight: 600;
-    color: var(--slate-600);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: var(--spacing-sm);
   }
 
   .field input[type="text"],
   .field input[type="number"],
   .field input[type="password"] {
     width: 100%;
-    padding: var(--spacing-sm) var(--spacing-md);
-    background: var(--slate-50);
-    border: 1px solid var(--slate-200);
-    border-radius: var(--radius-md);
-    color: var(--slate-900);
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    outline: none;
-    transition: all var(--transition-fast);
+    font-family: var(--font-sans);
   }
-
-  .field input:focus {
-    border-color: var(--indigo-500);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-  }
-
-  .field input::placeholder { color: var(--slate-400); }
 
   .hint {
-    font-family: var(--font-sans);
+    margin: 0;
+    color: var(--slate-500);
     font-size: var(--text-xs);
-    color: var(--slate-400);
-    margin-top: var(--spacing-xs);
+    line-height: 1.5;
   }
 
   .toggle-field {
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(141, 154, 178, 0.18);
+    background: rgba(255, 255, 255, 0.6);
     cursor: pointer;
   }
 
-  .toggle-field input { display: none; }
+  .toggle-field input {
+    display: none;
+  }
 
   .toggle-slider {
     position: relative;
     width: 44px;
     height: 24px;
-    background: var(--slate-200);
+    background: rgba(141, 154, 178, 0.34);
     border-radius: 12px;
     transition: all var(--transition-fast);
   }
@@ -410,14 +377,14 @@
     height: 18px;
     left: 3px;
     top: 3px;
-    background: white;
+    background: rgba(255, 255, 255, 0.96);
     border-radius: 50%;
     transition: all var(--transition-fast);
     box-shadow: var(--shadow-sm);
   }
 
   .toggle-field input:checked + .toggle-slider {
-    background: var(--indigo-600);
+    background: linear-gradient(135deg, rgba(34, 211, 238, 0.84), rgba(139, 92, 246, 0.84));
   }
 
   .toggle-field input:checked + .toggle-slider::before {
@@ -425,60 +392,64 @@
   }
 
   .toggle-label {
-    font-family: var(--font-sans);
     font-size: var(--text-sm);
     color: var(--slate-700);
+    line-height: 1.5;
   }
 
   .service-panel {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--spacing-md);
-    padding: var(--spacing-md);
-    background: var(--slate-50);
-    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(141, 154, 178, 0.16);
+    background: rgba(255, 255, 255, 0.58);
   }
 
   .service-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: var(--spacing-sm);
   }
 
   .service-label {
-    font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--slate-500);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.08em;
+    font-weight: 600;
   }
 
   .service-badge {
-    font-family: var(--font-mono);
     font-size: var(--text-xs);
     font-weight: 600;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    background: var(--slate-200);
+    padding: 5px 10px;
+    background: rgba(255, 255, 255, 0.84);
     color: var(--slate-500);
-    border-radius: var(--radius-sm);
+    border-radius: 999px;
+    border: 1px solid rgba(141, 154, 178, 0.18);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.06em;
   }
 
   .service-badge.active {
-    background: rgba(16, 185, 129, 0.15);
-    color: var(--emerald-600);
+    background: rgba(236, 253, 245, 0.78);
+    border-color: rgba(16, 185, 129, 0.18);
+    color: var(--emerald-700);
   }
 
   .service-detail {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-xs);
+    grid-column: span 2;
   }
 
   .service-detail code {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-sm);
     color: var(--slate-700);
     word-break: break-all;
   }
@@ -487,117 +458,51 @@
     display: flex;
     gap: var(--spacing-sm);
     margin-top: var(--spacing-sm);
+    grid-column: span 2;
+    flex-wrap: wrap;
   }
 
-  .btn-primary {
-    padding: var(--spacing-sm) var(--spacing-lg);
-    background: var(--indigo-600);
-    color: white;
-    border: none;
-    border-radius: var(--radius-md);
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    font-weight: 600;
-    cursor: pointer;
-    transition: all var(--transition-fast);
+  .service-btn {
+    min-width: 160px;
   }
 
-  .btn-primary:hover:not(:disabled) {
-    background: var(--indigo-700);
-  }
-
-  .btn-primary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .btn-secondary {
-    padding: var(--spacing-sm) var(--spacing-lg);
-    background: white;
-    color: var(--slate-600);
-    border: 1px solid var(--slate-200);
-    border-radius: var(--radius-md);
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    font-weight: 500;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-  }
-
-  .btn-secondary:hover:not(:disabled) {
-    background: var(--slate-50);
-    border-color: var(--slate-300);
-  }
-
-  .btn-secondary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .actions-bar {
+  .actions-shell {
     display: flex;
     justify-content: flex-end;
-    padding-top: var(--spacing-lg);
-    border-top: 1px solid var(--slate-200);
-    margin-top: var(--spacing-lg);
   }
 
-  .btn-save {
-    padding: var(--spacing-md) var(--spacing-xl);
-    background: var(--indigo-600);
-    color: white;
-    border: none;
-    border-radius: var(--radius-md);
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    font-weight: 600;
-    letter-spacing: 1px;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-  }
-
-  .btn-save:hover:not(:disabled) {
-    background: var(--indigo-700);
-    box-shadow: var(--shadow-indigo);
-    transform: translateY(-1px);
-  }
-
-  .btn-save:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  .save-btn {
+    min-width: 180px;
   }
 
   @media (max-width: 900px) {
-    .page {
-      padding: var(--spacing-2xl);
+    .settings-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .updates-section,
+    .service-section,
+    .actions-shell {
+      grid-column: auto;
+    }
+
+    .service-panel {
+      grid-template-columns: 1fr;
+    }
+
+    .service-detail,
+    .service-actions {
+      grid-column: auto;
     }
   }
 
   @media (max-width: 680px) {
-    .page {
-      padding: var(--spacing-lg);
-    }
-
-    h1 {
-      font-size: var(--text-2xl);
-      letter-spacing: 1.5px;
-    }
-
     .service-actions {
       flex-direction: column;
     }
 
-    .service-actions .btn-primary,
-    .service-actions .btn-secondary {
-      width: 100%;
-    }
-
-    .actions-bar {
-      padding-top: var(--spacing-md);
-      margin-top: var(--spacing-md);
-    }
-
-    .btn-save {
+    .service-btn,
+    .save-btn {
       width: 100%;
     }
   }

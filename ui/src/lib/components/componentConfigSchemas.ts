@@ -1,32 +1,13 @@
-export type GenericFieldType =
-  | "text"
-  | "password"
-  | "number"
-  | "toggle"
-  | "select"
-  | "list"
-  | "json"
-  | "textarea";
+import {
+  normalizeConfigSection,
+  type ConfigSectionDef as GenericSectionDef,
+} from "./configSchemaContract";
 
-export interface GenericFieldDef {
-  key: string;
-  label: string;
-  type: GenericFieldType;
-  default?: any;
-  options?: string[];
-  hint?: string;
-  min?: number;
-  max?: number;
-  step?: number;
-  rows?: number;
-}
-
-export interface GenericSectionDef {
-  key: string;
-  label: string;
-  description?: string;
-  fields: GenericFieldDef[];
-}
+export type {
+  ConfigFieldDef as GenericFieldDef,
+  ConfigFieldType as GenericFieldType,
+  ConfigSectionDef as GenericSectionDef,
+} from "./configSchemaContract";
 
 const nullboilerSections: GenericSectionDef[] = [
   {
@@ -161,15 +142,13 @@ const nullticketsSections: GenericSectionDef[] = [
   },
 ];
 
+const componentSchemas: Record<string, GenericSectionDef[]> = {
+  nullboiler: nullboilerSections.map(normalizeConfigSection),
+  nulltickets: nullticketsSections.map(normalizeConfigSection),
+};
+
 export function getComponentConfigSchema(component: string): GenericSectionDef[] {
-  switch (component) {
-    case "nullboiler":
-      return nullboilerSections;
-    case "nulltickets":
-      return nullticketsSections;
-    default:
-      return [];
-  }
+  return componentSchemas[component] ?? [];
 }
 
 export function supportsStructuredConfig(component: string): boolean {

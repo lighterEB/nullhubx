@@ -124,10 +124,10 @@ pub fn parseInstanceRef(arg: []const u8) ?InstanceRef {
 /// Parse CLI arguments into a Command. Expects `args` to have already
 /// consumed the program name (argv[0]).
 pub fn parse(args: *std.process.ArgIterator) Command {
-    const cmd = args.next() orelse return .{ .serve = .{} };
+    const cmd = args.next() orelse return .{ .serve = .{ .no_open = false } };
 
     if (std.mem.eql(u8, cmd, "serve")) {
-        return parseServe(args);
+        return parseServe(args, true);
     }
     if (std.mem.eql(u8, cmd, "version") or std.mem.eql(u8, cmd, "--version") or std.mem.eql(u8, cmd, "-v")) {
         return .version;
@@ -195,8 +195,8 @@ pub fn parse(args: *std.process.ArgIterator) Command {
 
 // ─── Sub-parsers ─────────────────────────────────────────────────────────────
 
-fn parseServe(args: *std.process.ArgIterator) Command {
-    var opts = ServeOptions{};
+fn parseServe(args: *std.process.ArgIterator, no_open_default: bool) Command {
+    var opts = ServeOptions{ .no_open = no_open_default };
     while (args.next()) |arg| {
         if (std.mem.eql(u8, arg, "--port")) {
             if (args.next()) |val| {
@@ -208,6 +208,8 @@ fn parseServe(args: *std.process.ArgIterator) Command {
             }
         } else if (std.mem.eql(u8, arg, "--no-open")) {
             opts.no_open = true;
+        } else if (std.mem.eql(u8, arg, "--open")) {
+            opts.no_open = false;
         }
     }
     return .{ .serve = opts };
@@ -392,7 +394,9 @@ pub fn printUsage() void {
         \\Usage: nullhubx [command]
         \\
         \\Commands:
-        \\  serve                     Start web UI server (default)
+        \\  serve                     Start web UI server without opening a browser
+        \\    --open                 Open browser after startup
+        \\    --no-open              Do not open browser after startup
         \\  install <component>       Install a component
         \\    --name <instance>       Instance name (default: default)
         \\    --version <tag>         Component version (default: latest)

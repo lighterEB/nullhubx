@@ -33,31 +33,31 @@
     display: inline-flex;
     align-items: center;
     gap: 0.375rem;
-    padding: 0.25rem 0.5rem;
-    background: color-mix(in srgb, var(--node-color) 10%, var(--bg-surface));
-    border: 1px solid color-mix(in srgb, var(--node-color) 40%, transparent);
-    border-radius: 4px;
+    padding: 0.35rem 0.6rem;
+    background: color-mix(in srgb, var(--node-color) 10%, rgba(8, 13, 24, 0.94));
+    border: 1px solid color-mix(in srgb, var(--node-color) 22%, transparent);
+    border-radius: 999px;
     font-size: 0.6875rem;
-    color: var(--fg);
-    box-shadow: 0 0 4px color-mix(in srgb, var(--node-color) 15%, transparent);
+    color: rgba(226, 232, 240, 0.88);
   }
+
   .type-badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 16px;
     height: 16px;
-    border-radius: 2px;
-    background: color-mix(in srgb, var(--node-color) 25%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--node-color) 18%, transparent);
     color: var(--node-color);
     font-family: var(--font-mono);
     font-size: 0.625rem;
     font-weight: 700;
-    text-shadow: 0 0 4px var(--node-color);
   }
+
   .node-name {
     font-family: var(--font-mono);
-    letter-spacing: 0.5px;
+    letter-spacing: 0.04em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

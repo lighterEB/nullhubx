@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api } from "$lib/api/client";
+  import { t } from "$lib/i18n/index.svelte";
   import ModuleFrame from "./ModuleFrame.svelte";
 
   let {
@@ -92,6 +93,21 @@
       return "";
     }
     return starterMessage.trim();
+  });
+  const moduleLabel = $derived(
+    hasModule ? `${moduleName}@${moduleVersion}` : t("orchestration.moduleSurface"),
+  );
+  const panelStatus = $derived.by(() => {
+    if (!hasModule) return t("orchestration.unavailableState");
+    if (!wsUrl) return t("orchestration.loading");
+    if (!historyReady) return t("orchestration.loading");
+    return t("orchestration.ready");
+  });
+  const panelStateTone = $derived.by(() => {
+    if (!hasModule) return "warning";
+    if (!wsUrl) return "muted";
+    if (!historyReady) return "muted";
+    return "ready";
   });
 
   function parseInstanceKey(value: string): { component: string; name: string } | null {
@@ -186,59 +202,172 @@
 </script>
 
 <div class="chat-panel">
-  {#if hasModule && wsUrl}
-    {#if historyReady}
-      {#key mountKey}
-        <ModuleFrame
-          {moduleName}
-          {moduleVersion}
-          instanceUrl={wsUrl}
-          moduleProps={{
-            wsUrl,
-            pairingCode: "123456",
-            initialMessages,
-            autoSendMessage,
-            onAutoSend: () => markBootstrapAutostarted(instanceKey, onboardingMarker),
-          }}
-        />
-      {/key}
-    {:else}
-      <div class="chat-unavailable">Loading chat history...</div>
-    {/if}
-  {:else if !hasModule}
-    <div class="chat-unavailable">
-      Chat UI module not installed. Reinstall this instance to add it.
+  <div class="chat-header">
+    <div class="chat-title-group">
+      <span class="chat-kicker">{t("orchestration.liveChannel")}</span>
+      <strong class="chat-title">{t("orchestration.moduleSurface")}</strong>
+      <span class="chat-meta">{moduleLabel}</span>
     </div>
-  {:else}
-    <div class="chat-unavailable">Waiting for web channel port...</div>
-  {/if}
+    <span class="chat-status" class:ready={panelStateTone === "ready"} class:warning={panelStateTone === "warning"}>
+      {panelStatus}
+    </span>
+  </div>
+
+  <div class="chat-body">
+    {#if hasModule && wsUrl}
+      {#if historyReady}
+        {#key mountKey}
+          <ModuleFrame
+            {moduleName}
+            {moduleVersion}
+            instanceUrl={wsUrl}
+            moduleProps={{
+              wsUrl,
+              pairingCode: "123456",
+              initialMessages,
+              autoSendMessage,
+              onAutoSend: () => markBootstrapAutostarted(instanceKey, onboardingMarker),
+            }}
+          />
+        {/key}
+      {:else}
+        <div class="chat-unavailable muted">{t("orchestration.loadingHistory")}</div>
+      {/if}
+    {:else if !hasModule}
+      <div class="chat-unavailable warning">
+        {t("orchestration.moduleMissing")}
+      </div>
+    {:else}
+      <div class="chat-unavailable muted">{t("orchestration.waitingPort")}</div>
+    {/if}
+  </div>
 </div>
 
 <style>
   .chat-panel {
-    height: 600px;
-    border: 1px solid var(--border);
-    border-radius: 2px;
+    display: flex;
+    flex-direction: column;
+    height: 640px;
+    border: 1px solid rgba(34, 211, 238, 0.16);
+    border-radius: var(--radius-xl);
     overflow: hidden;
-    background: var(--bg-surface);
-    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+    background:
+      linear-gradient(180deg, rgba(10, 15, 28, 0.97), rgba(14, 23, 41, 0.94)),
+      radial-gradient(circle at top right, rgba(34, 211, 238, 0.14), transparent 34%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      0 24px 70px rgba(2, 8, 23, 0.42);
   }
+
+  .chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--spacing-lg);
+    padding: 1rem 1.1rem;
+    border-bottom: 1px solid rgba(96, 165, 250, 0.14);
+    background: rgba(9, 15, 28, 0.7);
+    backdrop-filter: blur(16px);
+  }
+
+  .chat-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .chat-kicker {
+    color: var(--cyan-300);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .chat-title {
+    color: var(--shell-text);
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .chat-meta {
+    color: rgba(191, 219, 254, 0.72);
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+  }
+
+  .chat-status {
+    padding: 0.35rem 0.65rem;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(15, 23, 42, 0.84);
+    color: rgba(191, 219, 254, 0.72);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .chat-status.ready {
+    border-color: rgba(34, 211, 238, 0.24);
+    color: var(--cyan-300);
+    box-shadow: 0 0 18px rgba(34, 211, 238, 0.14);
+  }
+
+  .chat-status.warning {
+    border-color: rgba(245, 158, 11, 0.24);
+    color: #fbbf24;
+  }
+
+  .chat-body {
+    flex: 1;
+    min-height: 0;
+    padding: 0.95rem;
+  }
+
   .chat-unavailable {
     display: flex;
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: var(--warning, #f59e0b);
-    font-size: 0.875rem;
+    padding: 2rem;
+    border-radius: calc(var(--radius-xl) - 6px);
+    border: 1px dashed rgba(96, 165, 250, 0.18);
+    background:
+      linear-gradient(180deg, rgba(9, 15, 28, 0.92), rgba(12, 20, 34, 0.88)),
+      radial-gradient(circle at top right, rgba(34, 211, 238, 0.08), transparent 35%);
+    color: rgba(191, 219, 254, 0.8);
+    font-size: 0.86rem;
     font-family: var(--font-mono);
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.08em;
     padding: 2rem;
     text-align: center;
-    border: 1px dashed
-      color-mix(in srgb, var(--warning, #f59e0b) 50%, transparent);
-    background: color-mix(in srgb, var(--warning, #f59e0b) 5%, transparent);
-    text-shadow: 0 0 5px
-      color-mix(in srgb, var(--warning, #f59e0b) 50%, transparent);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  .chat-unavailable.warning {
+    border-color: rgba(245, 158, 11, 0.26);
+    color: #fbbf24;
+    background:
+      linear-gradient(180deg, rgba(24, 18, 6, 0.94), rgba(18, 14, 7, 0.9)),
+      radial-gradient(circle at top right, rgba(245, 158, 11, 0.08), transparent 34%);
+  }
+
+  .chat-unavailable.muted {
+    border-color: rgba(96, 165, 250, 0.14);
+    color: rgba(191, 219, 254, 0.76);
+  }
+
+  @media (max-width: 760px) {
+    .chat-panel {
+      height: 560px;
+    }
+
+    .chat-header {
+      flex-direction: column;
+      align-items: stretch;
+    }
   }
 </style>
