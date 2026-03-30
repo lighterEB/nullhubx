@@ -145,6 +145,25 @@ export type AgentProfileDefaultsPayload = JsonObject & {
   model_primary?: string;
 };
 
+export type AgentFieldPolicyPayload = JsonObject & {
+  standard_fields?: string[];
+  defaults_fields?: string[];
+  unknown_fields?: string;
+  write_mode?: string;
+};
+
+export type AgentMutationResponse = JsonObject & {
+  contract_version?: number;
+  ownership?: string;
+  resource?: string;
+  status?: string;
+  apply_state?: string;
+  runtime_effect?: string;
+  unknown_fields?: string;
+  profiles_count?: number;
+  bindings_count?: number;
+};
+
 export type AgentProfilePayload = JsonObject & {
   id?: string;
   provider?: string;
@@ -155,6 +174,10 @@ export type AgentProfilePayload = JsonObject & {
 };
 
 export type AgentProfilesResponse = JsonObject & {
+  contract_version?: number;
+  ownership?: string;
+  resource?: string;
+  field_policy?: AgentFieldPolicyPayload;
   defaults?: AgentProfileDefaultsPayload;
   profiles?: AgentProfilePayload[];
 };
@@ -176,6 +199,10 @@ export type AgentBindingPayload = JsonObject & {
 };
 
 export type AgentBindingsResponse = JsonObject & {
+  contract_version?: number;
+  ownership?: string;
+  resource?: string;
+  field_policy?: AgentFieldPolicyPayload;
   bindings?: AgentBindingPayload[];
 };
 
@@ -324,14 +351,14 @@ export const api = {
   getAgentProfiles: (c: string, n: string) =>
     request<AgentProfilesResponse>(`/instances/${c}/${n}/agents/profiles`),
   putAgentProfiles: (c: string, n: string, payload: JsonObject) =>
-    request<AnyRecord>(`/instances/${c}/${n}/agents/profiles`, {
+    request<AgentMutationResponse>(`/instances/${c}/${n}/agents/profiles`, {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
   getAgentBindings: (c: string, n: string) =>
     request<AgentBindingsResponse>(`/instances/${c}/${n}/agents/bindings`),
   putAgentBindings: (c: string, n: string, payload: JsonObject) =>
-    request<AnyRecord>(`/instances/${c}/${n}/agents/bindings`, {
+    request<AgentMutationResponse>(`/instances/${c}/${n}/agents/bindings`, {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),

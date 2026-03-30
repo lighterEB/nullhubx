@@ -235,6 +235,9 @@ NullClaw 默认路径规范：
 
 2. `PUT /api/instances/{component}/{name}/agents/profiles`
 - 用途：整体替换 profiles（幂等，便于前端整页提交）。
+- 标准字段白名单：`id`、`provider`、`model`、`system_prompt`、`temperature`、`max_depth`
+- 默认模型字段白名单：`defaults.model_primary`
+- 未知字段策略：按 `profile.id` 保留旧条目中的未知字段
 - 请求体示例：
 
 ```json
@@ -259,7 +262,12 @@ NullClaw 默认路径规范：
 
 ```json
 {
+  "contract_version": 1,
+  "resource": "agent_profiles",
   "status": "saved",
+  "apply_state": "config_saved",
+  "runtime_effect": "component_defined",
+  "unknown_fields": "preserve_by_id",
   "profiles_count": 1
 }
 ```
@@ -295,6 +303,8 @@ NullClaw 默认路径规范：
 
 2. `PUT /api/instances/{component}/{name}/agents/bindings`
 - 用途：整体替换 bindings（幂等）。
+- 标准字段白名单：`agent_id`、`match.channel`、`match.account_id`、`match.peer.kind`、`match.peer.id`
+- 未知字段策略：整体替换，不保留未知字段
 - 请求体示例：
 
 ```json
@@ -316,7 +326,12 @@ NullClaw 默认路径规范：
 
 ```json
 {
+  "contract_version": 1,
+  "resource": "agent_bindings",
   "status": "saved",
+  "apply_state": "config_saved",
+  "runtime_effect": "component_defined",
+  "unknown_fields": "replace_all",
   "bindings_count": 1
 }
 ```
@@ -331,12 +346,19 @@ NullClaw 默认路径规范：
 
 2. bindings 校验：
 - `agent_id` 必须存在于 `profiles.id`（或允许保留值 `main/default`，按 NullClaw 行为）。
-- `match.channel` 必填，`match.peer.kind/id` 必填。
+- `match.channel` 必填，`match.peer.kind/id` 必填；空白值会在服务端按 trim 后判空。
+- 同一组 `channel/account/peer` 精确 scope 只能对应一条 binding；同 agent 重复写入会报 `binding_route_duplicate`，不同 agent 抢占同 scope 会报 `binding_scope_conflict`。
 - peer id 如使用 topic，统一规范为 `:thread:` 形式。
 
 3. 原子写入：
 - 读实例 `config.json` -> 修改 `agents.list` / `agents.defaults.model.primary` / 顶层 `bindings` -> 一次性写回。
 - 写入失败返回 `500`，不更新任何部分字段。
+
+4. 响应语义：
+- `status = "saved"` 只表示配置已保存，不承诺运行态已经热生效。
+- `apply_state = "config_saved"` 表示本次变更已落盘。
+- `runtime_effect = "component_defined"` 表示运行态是否立即应用由组件决定。
+- 校验失败响应包含单个阻塞 `error_code`，前端不必再依赖纯文本错误猜测类型；当前 contract v1 仍不返回整批结构化校验列表。
 
 ### 7.4 与 NullClaw 配置映射
 

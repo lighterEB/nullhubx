@@ -48,6 +48,17 @@
 4. 新增 `docs/regression-checklist.md`，固化执行方式与判定标准（完成）
 
 实例级 Agent 设计说明：[docs/instance-agent-management-design.md](/home/huspc/projects/nullhubx/docs/instance-agent-management-design.md)
+实例级 Agent 实施清单：[docs/instance-agent-management-checklist.md](/home/huspc/projects/nullhubx/docs/instance-agent-management-checklist.md)
+
+## 实例级 Agent 管理阶段
+1. `AG-00`：done
+2. `AG-01`：done
+3. `AG-02`：in_progress
+4. `AG-03`：done
+5. `AG-04`：done
+6. `AG-05`：done
+7. `AG-06`：done
+8. `AG-07`：done
 
 ## 前端视觉基线
 1. 通用视觉与排版规则已固化到 `docs/frontend-visual-rules.md`

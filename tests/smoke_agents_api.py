@@ -35,6 +35,14 @@ def expect(status: int, allowed, label: str):
         raise RuntimeError(f"{label} failed: status={status}, expected one of {allowed}")
 
 
+def expect_error_code(payload, expected: str, label: str):
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"{label} failed: payload is not a JSON object")
+    actual = payload.get("error_code")
+    if actual != expected:
+        raise RuntimeError(f"{label} failed: expected error_code={expected!r}, got {actual!r}")
+
+
 def pick_instance(status_json):
     instances = status_json.get("instances", {})
     for component, names in instances.items():
@@ -90,8 +98,9 @@ def main():
             "defaults": {"model_primary": "not-valid"},
             "profiles": [],
         }
-        invalid_profiles_status, _ = request_json(base_url, "PUT", profiles_path, invalid_profiles)
+        invalid_profiles_status, invalid_profiles_body = request_json(base_url, "PUT", profiles_path, invalid_profiles)
         expect(invalid_profiles_status, {400}, "invalid defaults.model_primary")
+        expect_error_code(invalid_profiles_body, "defaults_model_primary_invalid", "invalid defaults.model_primary")
 
         invalid_bindings = {
             "bindings": [
@@ -104,8 +113,72 @@ def main():
                 }
             ]
         }
-        invalid_bindings_status, _ = request_json(base_url, "PUT", bindings_path, invalid_bindings)
+        invalid_bindings_status, invalid_bindings_body = request_json(base_url, "PUT", bindings_path, invalid_bindings)
         expect(invalid_bindings_status, {400}, "invalid binding agent_id")
+        expect_error_code(invalid_bindings_body, "binding_agent_id_unknown", "invalid binding agent_id")
+
+        duplicate_bindings = {
+            "bindings": [
+                {
+                    "agent_id": "main",
+                    "match": {
+                        "channel": "telegram",
+                        "account_id": "default",
+                        "peer": {"kind": "group", "id": "5314812038"},
+                    },
+                },
+                {
+                    "agent_id": "main",
+                    "match": {
+                        "channel": "telegram",
+                        "account_id": "default",
+                        "peer": {"kind": "group", "id": "5314812038"},
+                    },
+                },
+            ]
+        }
+        duplicate_bindings_status, duplicate_bindings_body = request_json(base_url, "PUT", bindings_path, duplicate_bindings)
+        expect(duplicate_bindings_status, {400}, "duplicate binding route")
+        expect_error_code(duplicate_bindings_body, "binding_route_duplicate", "duplicate binding route")
+
+        conflicting_bindings = {
+            "bindings": [
+                {
+                    "agent_id": "main",
+                    "match": {
+                        "channel": "telegram",
+                        "account_id": "default",
+                        "peer": {"kind": "group", "id": "5314812038#topic:42"},
+                    },
+                },
+                {
+                    "agent_id": "default",
+                    "match": {
+                        "channel": "telegram",
+                        "account_id": "default",
+                        "peer": {"kind": "group", "id": "5314812038:thread:42"},
+                    },
+                },
+            ]
+        }
+        conflicting_bindings_status, conflicting_bindings_body = request_json(base_url, "PUT", bindings_path, conflicting_bindings)
+        expect(conflicting_bindings_status, {400}, "conflicting binding scope")
+        expect_error_code(conflicting_bindings_body, "binding_scope_conflict", "conflicting binding scope")
+
+        blank_bindings = {
+            "bindings": [
+                {
+                    "agent_id": "main",
+                    "match": {
+                        "channel": "   ",
+                        "peer": {"kind": "group", "id": "   "},
+                    },
+                }
+            ]
+        }
+        blank_bindings_status, blank_bindings_body = request_json(base_url, "PUT", bindings_path, blank_bindings)
+        expect(blank_bindings_status, {400}, "blank binding fields")
+        expect_error_code(blank_bindings_body, "binding_match_fields_empty", "blank binding fields")
 
         normalization_payload = {
             "bindings": [

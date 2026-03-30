@@ -29,6 +29,7 @@
 - API：`GET/PUT /api/instances/{component}/{name}/agents/profiles`
 - API：`GET/PUT /api/instances/{component}/{name}/agents/bindings`
 - 持久化：实例目录下的 `config.json`
+- 契约版本：`agent_contract_version = 1`
 
 这意味着 Agent 管理本质上是“实例配置管理的一个专门切面”，不是额外的资源系统。
 
@@ -69,6 +70,12 @@ Profile 表示“这个实例里可被选中的 agent 身份/能力描述”。
 
 - `defaults.model_primary`
 
+字段策略：
+
+- `profiles` 的标准字段只覆盖上述字段
+- 对同一 `profile.id` 的未知字段，保存时保留
+- 因此 `profiles` 的写入语义是“替换标准字段 + 保留未知扩展字段”
+
 它不等于某条 binding，而是实例内 agent 的默认模型偏好。
 
 ### 3.3 Agent Binding
@@ -82,6 +89,12 @@ Binding 表示“某类消息/渠道/会话路由到哪个 agent”。
 - `match.account_id`
 - `match.peer.kind`
 - `match.peer.id`
+
+字段策略：
+
+- `bindings` 当前标准字段只覆盖上述路由最小集
+- `bindings` 仍为整体替换，不保留未知字段
+- 因此它比 `profiles` 更刚性，扩展时需要明确兼容策略
 
 也就是说，binding 是从“外部输入上下文”到“实例内 agent profile”的映射。
 
@@ -165,6 +178,8 @@ Binding 表示“某类消息/渠道/会话路由到哪个 agent”。
 - `max_depth` 范围校验
 - binding 必须引用现有 profile
 - 若 binding 引用了“尚未持久化”的 profile，阻止保存 binding
+- 同一组 `channel/account/peer` 精确 scope 只能出现一条 binding
+- account-scoped exact peer 与 any-account fallback、thread/topic 与群级 fallback 的覆盖关系只做提示，不作为阻塞错误
 
 这套规则保证了“先配 profile，再配 route”的工作流不会被破坏。
 
@@ -187,6 +202,11 @@ Binding 表示“某类消息/渠道/会话路由到哪个 agent”。
 - 幂等
 - 整体替换标准字段
 - 以 `profile.id` 为锚点保留旧条目中的未知字段
+- 读取响应返回：
+  - `contract_version`
+  - `resource`
+  - `ownership`
+  - `field_policy`
 
 这一点很重要。它允许：
 
@@ -208,6 +228,15 @@ Binding 表示“某类消息/渠道/会话路由到哪个 agent”。
 - 幂等
 - 整体替换
 - 当前不做未知字段语义合并
+- 读取响应返回：
+  - `contract_version`
+  - `resource`
+  - `ownership`
+  - `field_policy`
+- 校验失败时当前仍返回单个阻塞错误：
+  - `status = "validation_failed"`
+  - `error_code`
+  - `error`
 
 这意味着 bindings 目前比 profiles 更“刚性”，后续如果 bindings 结构继续扩展，可能需要补语义合并策略。
 
@@ -224,6 +253,41 @@ Binding 表示“某类消息/渠道/会话路由到哪个 agent”。
 - 底层存储仍是一个 JSON 文件
 - 当前前端是整页编辑器，而不是表格型资源管理台
 - 整体 PUT 更容易保证一致性和幂等
+
+### 6.4 保存结果语义
+
+当前 `PUT` 成功响应已经补充了结构化语义：
+
+- `status = "saved"`：只表示配置文件保存成功
+- `apply_state = "config_saved"`：表示实例配置已落盘
+- `runtime_effect = "component_defined"`：是否立即影响运行态，由具体组件决定，当前端点不直接承诺
+- `unknown_fields`：显式说明当前资源的未知字段策略
+
+因此这两个端点当前表达的是“配置契约层面的成功”，不是“运行态已经热生效”。
+
+### 6.5 UI 保存反馈语义
+
+前端现在按两层信息反馈 agent 保存结果：
+
+1. `配置层结果`
+
+- 直接展示 `apply_state`
+- 直接展示 `runtime_effect`
+- 明确这表示“实例配置已写回”，不是“运行态已经热生效”
+
+2. `实例运行态建议`
+
+- 若实例 `stopped`：提示“已保存，将在下次启动时生效”
+- 若实例 `failed`：提示“已保存，建议通过重启重新应用”
+- 若实例正在运行或切换状态：提示“已保存，但若要立即且确定地应用，建议重启”
+
+同时，保存成功后前端会主动刷新实例摘要中的：
+
+- profile 数量
+- binding 数量
+- 运行状态卡片
+
+因此实例详情页现在会把“配置已保存”和“实例可能仍在运行旧配置”明确拆开，而不是混成一条“保存成功”提示。
 
 ---
 
@@ -257,6 +321,22 @@ Binding 表示“某类消息/渠道/会话路由到哪个 agent”。
 3. 一次性写回
 
 这样可以避免部分字段写入成功、部分失败的半完成状态。
+
+### 7.4 错误响应语义
+
+当前 agent 端点的校验失败与找不到配置，都会返回结构化错误：
+
+- `status`
+- `error_code`
+- `error`
+- `resource`
+- `contract_version`
+
+约定：
+
+- `validation_failed`：请求体或字段校验失败
+- `not_found`：实例配置不存在
+- `apply_state = "unchanged"`：表示本次失败没有落盘任何 agent 配置改动
 
 ---
 
@@ -309,13 +389,23 @@ Binding 表示“某类消息/渠道/会话路由到哪个 agent”。
 
 这会导致 bindings 扩展时更脆弱。
 
-### 10.2 没有“有效路由视图”
+### 10.2 只有“最小有效路由视图”
 
-当前用户只能看到绑定列表，看不到“最终哪些 channel/account/peer 会命中哪个 agent”的汇总视图。
+当前已经有本地路由预览，可以直接验证 `channel/account/peer` 在 contract v1 下会命中哪个 agent，也会解释回退到 `main/default` 的路径。
 
-### 10.3 没有“保存后是否建议重启”的明确提示
+但它仍有明确边界：
 
-当前保存成功不等于运行态一定立刻生效，但 UI 还没有按变更类型给出明确提示。
+- 仍不覆盖 guild / team / roles 维度
+- 仍基于前端本地求值，而不是统一的后端调试 API
+- 只能解释当前 contract v1 的优先级，不等于未来完整路由引擎的全部视图
+
+### 10.3 运行态提示仍是实例级，而不是字段级
+
+当前 UI 已经能区分“已保存、下次启动生效”和“建议重启以立即应用”，但提示粒度仍是实例级：
+
+- 还没有细分到“哪一类 agent 字段一定需要重启”
+- 还没有把 NullClaw 未来可能支持的热加载能力映射到具体字段
+- 当前仍以 `apply_state / runtime_effect + 实例运行状态` 为主做提示
 
 ### 10.4 没有跨实例模板能力
 
@@ -323,19 +413,44 @@ Binding 表示“某类消息/渠道/会话路由到哪个 agent”。
 
 ---
 
-## 11. 后续演进建议
+## 11. 回归与文档基线
+
+当前这条能力已经有固定的回归与文档落点：
+
+- `tests/smoke_agents_api.py`
+  - 覆盖 `profiles / bindings` GET/PUT roundtrip
+  - 覆盖 `defaults.model_primary` 格式错误
+  - 覆盖悬空 `agent_id`
+  - 覆盖重复 route、同 scope 冲突、空白字段
+  - 覆盖 legacy topic id -> `:thread:` 规范化
+- `tests/agents_ui_smoke.cjs`
+  - 覆盖新增 profile / binding
+  - 覆盖 `Save Profiles` / `Save Bindings` / `Save All`
+  - 覆盖路由预览命中
+- `tests/regression_core_flow.sh`
+  - 统一拉起临时 `HOME`
+  - 自动创建 `nullclaw/demo` fixture
+  - 可用 `RUN_UI_SMOKE=1` 打开浏览器烟测
+- `docs/regression-checklist.md`
+  - 固化执行方式、前置条件与判定标准
+
+这意味着后续继续扩 agent 管理时，不应该再只补实现，还要同步补到这 3 类回归资产和对应文档。
+
+---
+
+## 12. 后续演进建议
 
 建议按优先级推进：
 
 ### P0
 
 - 明确哪些 agent 相关配置变更需要提示重启
-- 在实例详情摘要中展示 `profiles / bindings` 数量与最近变更状态
-- 为 bindings 增加更明确的重复/覆盖提示
+- 在实例详情摘要中继续扩展 agent 相关最近变更状态
+- 为 bindings 增加更完整的调试和诊断输出
 
 ### P1
 
-- 增加“有效路由预览”或“匹配结果摘要”
+- 将当前本地路由预览提升为统一调试能力或 API
 - 为常见 channel 提供更结构化的 peer 输入辅助
 - 为 profile 增加 provider/model 候选输入
 
@@ -347,7 +462,7 @@ Binding 表示“某类消息/渠道/会话路由到哪个 agent”。
 
 ---
 
-## 12. 结论
+## 13. 结论
 
 当前最正确的定位是：
 

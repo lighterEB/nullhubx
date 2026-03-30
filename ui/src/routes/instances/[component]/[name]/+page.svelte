@@ -26,6 +26,7 @@
     | "integration";
 
   type LaunchAction = "start" | "restart";
+  type AgentRouteSummaryState = "configured" | "default_only" | "missing_profiles" | "unavailable" | "unknown";
 
   let component = $derived($page.params.component);
   let name = $derived($page.params.name);
@@ -42,6 +43,7 @@
   let integration = $state<any>(null);
   let agentProfilesCount = $state<number | null>(null);
   let agentBindingsCount = $state<number | null>(null);
+  let agentRouteSummaryState = $state<AgentRouteSummaryState>("unknown");
   let instanceMissing = $state(false);
   let loadError = $state("");
   let pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -224,6 +226,7 @@
         integration = null;
         agentProfilesCount = null;
         agentBindingsCount = null;
+        agentRouteSummaryState = "unknown";
         recentSupervisorError = "";
         healthFailuresFromLogs = null;
         return;
@@ -272,6 +275,15 @@
         bindingsRes.status === "fulfilled" && Array.isArray(bindingsRes.value?.bindings)
           ? bindingsRes.value.bindings.length
           : null;
+      if (profilesRes.status !== "fulfilled" || bindingsRes.status !== "fulfilled") {
+        agentRouteSummaryState = "unavailable";
+      } else if ((agentProfilesCount ?? 0) === 0) {
+        agentRouteSummaryState = "missing_profiles";
+      } else if ((agentBindingsCount ?? 0) === 0) {
+        agentRouteSummaryState = "default_only";
+      } else {
+        agentRouteSummaryState = "configured";
+      }
 
       if (supervisorLogsRes.status === "fulfilled") {
         const diagnostics = parseSupervisorDiagnostics(supervisorLogsRes.value?.lines || []);
@@ -431,6 +443,14 @@
     activeTab = "logs";
     logInitialSource = "nullhubx";
     logViewerKey += 1;
+  }
+
+  async function handleAgentsSaved() {
+    await loadSummary("interactive");
+  }
+
+  function handleAgentRestartRequest() {
+    openLaunchDialog("restart");
   }
 
   onMount(() => {
@@ -605,6 +625,7 @@
         <div class="summary-card">
           <span class="label">{t("instanceDetail.agentRoutesLabel")}</span>
           <strong>{agentProfilesCount ?? "-"} / {agentBindingsCount ?? "-"}</strong>
+          <span class="summary-note">{t(`instanceDetail.agentRouteStates.${agentRouteSummaryState}`)}</span>
         </div>
         <div class="summary-card wide">
           <span class="label">{t("instanceDetail.recentEventsLabel")}</span>
@@ -688,7 +709,15 @@
       {/if}
 
       {#if activeTab === "agents"}
-        <InstanceAgentsPanel {component} {name} active={activeTab === "agents"} />
+        <InstanceAgentsPanel
+          {component}
+          {name}
+          active={activeTab === "agents"}
+          runtimeStatus={statusText}
+          {canRestart}
+          onSaved={handleAgentsSaved}
+          onRequestRestart={handleAgentRestartRequest}
+        />
       {/if}
 
       {#if activeTab === "config"}
@@ -895,6 +924,12 @@
   .summary-card strong {
     color: var(--slate-900);
     font-size: var(--text-base);
+    line-height: 1.5;
+  }
+
+  .summary-note {
+    color: var(--slate-500);
+    font-size: var(--text-xs);
     line-height: 1.5;
   }
 

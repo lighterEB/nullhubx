@@ -825,7 +825,7 @@ const routes = [_]RouteSpec{
         .summary = "Read named agent profiles and default model settings for a managed instance.",
         .auth_mode = "optional_bearer",
         .path_params = common_instance_params[0..],
-        .response = "Agent profiles payload.",
+        .response = "Structured agent profiles payload with contract_version, ownership, resource, field_policy, defaults, and profiles.",
     },
     .{
         .id = "instances.agents.profiles.put",
@@ -835,8 +835,8 @@ const routes = [_]RouteSpec{
         .summary = "Replace named agent profiles and default model settings for a managed instance.",
         .auth_mode = "optional_bearer",
         .path_params = common_instance_params[0..],
-        .body = "Agent profiles replacement payload.",
-        .response = "Save status payload.",
+        .body = "Agent profiles replacement payload using the standard profile fields id/provider/model/system_prompt/temperature/max_depth plus defaults.model_primary.",
+        .response = "Structured save result with status, apply_state, runtime_effect, unknown_fields, and profiles_count.",
     },
     .{
         .id = "instances.agents.bindings.get",
@@ -846,7 +846,7 @@ const routes = [_]RouteSpec{
         .summary = "Read top-level agent routing bindings for a managed instance.",
         .auth_mode = "optional_bearer",
         .path_params = common_instance_params[0..],
-        .response = "Agent bindings payload.",
+        .response = "Structured agent bindings payload with contract_version, ownership, resource, field_policy, and bindings.",
     },
     .{
         .id = "instances.agents.bindings.put",
@@ -856,8 +856,8 @@ const routes = [_]RouteSpec{
         .summary = "Replace top-level agent routing bindings for a managed instance.",
         .auth_mode = "optional_bearer",
         .path_params = common_instance_params[0..],
-        .body = "Agent bindings replacement payload.",
-        .response = "Save status payload.",
+        .body = "Agent bindings replacement payload using the standard binding fields agent_id, match.channel, match.account_id, match.peer.kind, and match.peer.id.",
+        .response = "Structured save result with status, apply_state, runtime_effect, unknown_fields, and bindings_count.",
     },
     .{
         .id = "instances.config.get",
