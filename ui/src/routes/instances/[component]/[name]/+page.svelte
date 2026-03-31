@@ -27,6 +27,31 @@
 
   type LaunchAction = "start" | "restart";
   type AgentRouteSummaryState = "configured" | "default_only" | "missing_profiles" | "unavailable" | "unknown";
+  type UsageWindow = "24h" | "7d" | "30d" | "all";
+  type UsageRow = {
+    provider: string;
+    model: string;
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+    requests: number;
+    last_used: number | null;
+  };
+  type IntegrationSnapshotEntry = {
+    key: string;
+    value: string;
+  };
+  type IntegrationTrackerOption = {
+    name: string;
+    port: number | null;
+    running: boolean | null;
+    pipelineCount: number;
+  };
+  type IntegrationLinkedBoiler = {
+    name: string;
+    port: number | null;
+    trackerEntries: IntegrationSnapshotEntry[];
+  };
 
   let { data } = $props();
 
@@ -74,6 +99,7 @@
 
   let logInitialSource = $state<LogSource>("instance");
   let logViewerResetToken = $state(0);
+  let usageWindow = $state<UsageWindow>("all");
 
   const tabs: { key: TabKey; label: string }[] = $derived.by(() => {
     const baseTabs: { key: TabKey; label: string }[] = [
@@ -111,8 +137,40 @@
   const healthFailureCount = $derived(
     Number(instanceStatus?.health_consecutive_failures ?? healthFailuresFromLogs ?? 0),
   );
-  const usageJson = $derived.by(() => JSON.stringify(usage || {}, null, 2));
-  const integrationJson = $derived.by(() => JSON.stringify(integration || {}, null, 2));
+  const providerHealthRecord = $derived(asRecord(providerHealth));
+  const onboardingRecord = $derived(asRecord(onboarding));
+  const usageRecord = $derived(asRecord(usage));
+  const usageTotals = $derived(asRecord(usageRecord?.totals));
+  const usageRows = $derived.by(() => normalizeUsageRows(usageRecord?.rows));
+  const integrationRecord = $derived(asRecord(integration));
+  const integrationKind = $derived(asString(integrationRecord?.kind) || component);
+  const integrationCurrentLink = $derived(asRecord(integrationRecord?.current_link));
+  const integrationLinkedTracker = $derived(asRecord(integrationRecord?.linked_tracker));
+  const integrationAvailableTrackers = $derived.by(() =>
+    normalizeAvailableTrackers(integrationRecord?.available_trackers),
+  );
+  const integrationLinkedBoilers = $derived.by(() =>
+    normalizeLinkedBoilers(integrationRecord?.linked_boilers),
+  );
+  const integrationTrackerEntries = $derived.by(() =>
+    summarizeSnapshotEntries(integrationRecord?.tracker),
+  );
+  const integrationQueueEntries = $derived.by(() =>
+    summarizeSnapshotEntries(integrationRecord?.queue),
+  );
+  const usageWindowOptions = $derived.by(() => [
+    { key: "24h" as UsageWindow, label: t("instanceDetail.usage.windows.24h") },
+    { key: "7d" as UsageWindow, label: t("instanceDetail.usage.windows.7d") },
+    { key: "30d" as UsageWindow, label: t("instanceDetail.usage.windows.30d") },
+    { key: "all" as UsageWindow, label: t("instanceDetail.usage.windows.all") },
+  ]);
+  const onboardingStateLabel = $derived(
+    onboardingRecord?.pending
+      ? t("instanceDetail.pending")
+      : onboardingRecord?.completed
+        ? t("instanceDetail.completed")
+        : t("instanceDetail.unknown"),
+  );
 
   function hasVisitedTab(tab: TabKey): boolean {
     return visitedTabs.includes(tab);
@@ -127,6 +185,174 @@
 
   function normalizeError(err: unknown): string {
     return err instanceof Error ? err.message : t("error.requestFailed");
+  }
+
+  function asRecord(value: unknown): Record<string, any> | null {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      return value as Record<string, any>;
+    }
+    return null;
+  }
+
+  function asBoolean(value: unknown): boolean | null {
+    return typeof value === "boolean" ? value : null;
+  }
+
+  function asNumber(value: unknown): number | null {
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+  }
+
+  function asString(value: unknown): string | null {
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim();
+    return trimmed ? trimmed : null;
+  }
+
+  function formatBoolean(value: unknown): string {
+    const bool = asBoolean(value);
+    if (bool === null) return "-";
+    return bool ? t("common.enabled") : t("common.disabled");
+  }
+
+  function formatDateTime(value: unknown): string {
+    const text = asString(value);
+    if (!text) return "-";
+    const date = new Date(text);
+    return Number.isNaN(date.getTime()) ? text : date.toLocaleString();
+  }
+
+  function formatDuration(value: unknown): string {
+    const seconds = asNumber(value);
+    if (seconds === null || seconds < 0) return "-";
+    if (seconds < 60) return `${Math.floor(seconds)}s`;
+
+    const totalMinutes = Math.floor(seconds / 60);
+    const days = Math.floor(totalMinutes / 1440);
+    const hours = Math.floor((totalMinutes % 1440) / 60);
+    const minutes = totalMinutes % 60;
+    const parts: string[] = [];
+
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0 || parts.length === 0) parts.push(`${minutes}m`);
+
+    return parts.join(" ");
+  }
+
+  function formatReason(value: unknown): string {
+    const text = asString(value);
+    if (!text) return "-";
+    return text.replace(/_/g, " ");
+  }
+
+  function providerHealthTone(value: unknown): "success" | "error" | "neutral" {
+    const text = asString(value)?.toLowerCase();
+    if (text === "ok") return "success";
+    if (text === "error") return "error";
+    return "neutral";
+  }
+
+  function formatCount(value: unknown): string {
+    const num = asNumber(value);
+    if (num === null) return "0";
+    return num.toLocaleString();
+  }
+
+  function formatEpochSeconds(value: unknown): string {
+    const seconds = asNumber(value);
+    if (seconds === null || seconds <= 0) return "-";
+    return new Date(seconds * 1000).toLocaleString();
+  }
+
+  function normalizeUsageRows(value: unknown): UsageRow[] {
+    if (!Array.isArray(value)) return [];
+
+    return value
+      .map((entry) => {
+        const row = asRecord(entry);
+        if (!row) return null;
+        return {
+          provider: asString(row.provider) || "unknown",
+          model: asString(row.model) || "unknown",
+          prompt_tokens: asNumber(row.prompt_tokens) ?? 0,
+          completion_tokens: asNumber(row.completion_tokens) ?? 0,
+          total_tokens: asNumber(row.total_tokens) ?? 0,
+          requests: asNumber(row.requests) ?? 0,
+          last_used: asNumber(row.last_used),
+        } satisfies UsageRow;
+      })
+      .filter((row): row is UsageRow => row !== null)
+      .sort((a, b) => {
+        if (b.total_tokens !== a.total_tokens) return b.total_tokens - a.total_tokens;
+        return b.requests - a.requests;
+      });
+  }
+
+  function summarizeScalar(value: unknown): string {
+    if (value === null || value === undefined) return "-";
+    if (typeof value === "string") return value.trim() || "-";
+    if (typeof value === "number") return Number.isFinite(value) ? value.toLocaleString() : "-";
+    if (typeof value === "boolean") return value ? t("common.enabled") : t("common.disabled");
+    if (Array.isArray(value)) return `${value.length} ${t("instanceDetail.integration.items")}`;
+
+    const record = asRecord(value);
+    if (record) {
+      const scalarPairs = Object.entries(record)
+        .filter(([, entry]) => ["string", "number", "boolean"].includes(typeof entry))
+        .slice(0, 2)
+        .map(([key, entry]) => `${key}=${summarizeScalar(entry)}`);
+      if (scalarPairs.length > 0) return scalarPairs.join(" · ");
+      return `${Object.keys(record).length} ${t("instanceDetail.integration.fields")}`;
+    }
+
+    return String(value);
+  }
+
+  function summarizeSnapshotEntries(value: unknown): IntegrationSnapshotEntry[] {
+    const record = asRecord(value);
+    if (!record) return [];
+
+    return Object.entries(record)
+      .slice(0, 12)
+      .map(([key, entry]) => ({
+        key,
+        value: summarizeScalar(entry),
+      }));
+  }
+
+  function normalizeAvailableTrackers(value: unknown): IntegrationTrackerOption[] {
+    if (!Array.isArray(value)) return [];
+
+    return value
+      .map((entry) => {
+        const record = asRecord(entry);
+        if (!record) return null;
+        return {
+          name: asString(record.name) || "-",
+          port: asNumber(record.port),
+          running: asBoolean(record.running),
+          pipelineCount: Array.isArray(record.pipelines) ? record.pipelines.length : 0,
+        } satisfies IntegrationTrackerOption;
+      })
+      .filter((entry): entry is IntegrationTrackerOption => entry !== null)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  function normalizeLinkedBoilers(value: unknown): IntegrationLinkedBoiler[] {
+    if (!Array.isArray(value)) return [];
+
+    return value
+      .map((entry) => {
+        const record = asRecord(entry);
+        if (!record) return null;
+        return {
+          name: asString(record.name) || "-",
+          port: asNumber(record.port),
+          trackerEntries: summarizeSnapshotEntries(record.tracker),
+        } satisfies IntegrationLinkedBoiler;
+      })
+      .filter((entry): entry is IntegrationLinkedBoiler => entry !== null)
+      .sort((a, b) => a.name.localeCompare(b.name));
   }
 
   function resolveRouteRef(): { component: string; name: string } | null {
@@ -299,7 +525,7 @@
             ? withTimeout(api.getOnboarding(targetComponent, targetName), AUX_TIMEOUT_MS)
             : Promise.resolve(onboarding),
           shouldFetchUsage
-            ? withTimeout(api.getUsage(targetComponent, targetName, "all"), AUX_TIMEOUT_MS)
+            ? withTimeout(api.getUsage(targetComponent, targetName, usageWindow), AUX_TIMEOUT_MS)
             : Promise.resolve(usage),
           shouldFetchIntegration
             ? withTimeout(api.getIntegration(targetComponent, targetName), AUX_TIMEOUT_MS)
@@ -561,6 +787,7 @@
   $effect(() => {
     const tab = activeTab;
     const routeKey = activeRouteKey;
+    const currentUsageWindow = usageWindow;
 
     if (tab !== "usage" && tab !== "integration") {
       lastInteractiveAuxKey = "";
@@ -575,7 +802,7 @@
 
     if (!routeKey) return;
 
-    const refreshKey = `${routeKey}:${tab}`;
+    const refreshKey = tab === "usage" ? `${routeKey}:${tab}:${currentUsageWindow}` : `${routeKey}:${tab}`;
     if (refreshKey === lastInteractiveAuxKey) return;
 
     lastInteractiveAuxKey = refreshKey;
@@ -683,20 +910,131 @@
     <section class="section-shell panel tab-panel-shell">
       {#if hasVisitedTab("overview")}
         <div class="tab-pane" hidden={activeTab !== "overview"}>
-        <div class="json-grid">
-          <div class="json-card">
-            <h3>{t("instanceDetail.statusLabel")}</h3>
-            <pre>{JSON.stringify(instanceStatus, null, 2)}</pre>
+          <div class="overview-grid">
+            <section class="overview-card">
+              <div class="overview-card-header">
+                <h3>{t("instanceDetail.overview.runtime")}</h3>
+              </div>
+              <div class="overview-stat-grid">
+                <div class="overview-stat">
+                  <span>{t("instanceDetail.statusLabel")}</span>
+                  <strong>{statusLabel}</strong>
+                </div>
+                <div class="overview-stat">
+                  <span>{t("instanceDetail.overview.pid")}</span>
+                  <strong>{instanceStatus.pid ?? "-"}</strong>
+                </div>
+                <div class="overview-stat">
+                  <span>{t("instanceDetail.portLabel")}</span>
+                  <strong>{instanceStatus.port ?? "-"}</strong>
+                </div>
+                <div class="overview-stat">
+                  <span>{t("instanceDetail.versionLabel")}</span>
+                  <strong>{instanceStatus.version || "-"}</strong>
+                </div>
+                <div class="overview-stat">
+                  <span>{t("instanceDetail.overview.uptime")}</span>
+                  <strong>{formatDuration(instanceStatus.uptime_seconds)}</strong>
+                </div>
+                <div class="overview-stat">
+                  <span>{t("instanceDetail.launchMode")}</span>
+                  <strong>{instanceStatus.launch_mode || "-"}</strong>
+                </div>
+                <div class="overview-stat">
+                  <span>{t("instanceDetail.autoStart")}</span>
+                  <strong>{formatBoolean(instanceStatus.auto_start)}</strong>
+                </div>
+                <div class="overview-stat">
+                  <span>{t("instanceDetail.verboseLog")}</span>
+                  <strong>{formatBoolean(instanceStatus.verbose)}</strong>
+                </div>
+              </div>
+            </section>
+
+            <section class="overview-card">
+              <div class="overview-card-header">
+                <h3>{t("instanceDetail.overview.provider")}</h3>
+                {#if providerHealthRecord}
+                  <span class={`overview-pill ${providerHealthTone(providerHealthRecord.status)}`}>
+                    {String(providerHealthRecord.status || t("instanceDetail.unknown"))}
+                  </span>
+                {/if}
+              </div>
+
+              {#if providerHealthRecord}
+                <div class="overview-stat-grid">
+                  <div class="overview-stat">
+                    <span>{t("instanceDetail.overview.providerName")}</span>
+                    <strong>{providerHealthRecord.provider || "-"}</strong>
+                  </div>
+                  <div class="overview-stat">
+                    <span>{t("instanceDetail.overview.model")}</span>
+                    <strong>{providerHealthRecord.model || "-"}</strong>
+                  </div>
+                  <div class="overview-stat">
+                    <span>{t("instanceDetail.overview.configured")}</span>
+                    <strong>{formatBoolean(providerHealthRecord.configured)}</strong>
+                  </div>
+                  <div class="overview-stat">
+                    <span>{t("instanceDetail.overview.instanceRunning")}</span>
+                    <strong>{formatBoolean(providerHealthRecord.running)}</strong>
+                  </div>
+                  <div class="overview-stat">
+                    <span>{t("instanceDetail.overview.liveProbe")}</span>
+                    <strong>{formatBoolean(providerHealthRecord.live_ok)}</strong>
+                  </div>
+                  <div class="overview-stat">
+                    <span>{t("instanceDetail.overview.statusCode")}</span>
+                    <strong>{providerHealthRecord.status_code ?? "-"}</strong>
+                  </div>
+                  <div class="overview-stat wide">
+                    <span>{t("instanceDetail.overview.reason")}</span>
+                    <strong>{formatReason(providerHealthRecord.reason)}</strong>
+                  </div>
+                </div>
+              {:else}
+                <p class="overview-empty">{t("common.noData")}</p>
+              {/if}
+            </section>
+
+            <section class="overview-card">
+              <div class="overview-card-header">
+                <h3>{t("instanceDetail.overview.onboarding")}</h3>
+                <span class="overview-pill neutral">{onboardingStateLabel}</span>
+              </div>
+
+              {#if onboardingRecord}
+                <div class="overview-stat-grid">
+                  <div class="overview-stat">
+                    <span>{t("instanceDetail.onboardingStatusLabel")}</span>
+                    <strong>{onboardingStateLabel}</strong>
+                  </div>
+                  <div class="overview-stat">
+                    <span>{t("instanceDetail.overview.supported")}</span>
+                    <strong>{formatBoolean(onboardingRecord.supported)}</strong>
+                  </div>
+                  <div class="overview-stat">
+                    <span>{t("instanceDetail.overview.bootstrapExists")}</span>
+                    <strong>{formatBoolean(onboardingRecord.bootstrap_exists)}</strong>
+                  </div>
+                  <div class="overview-stat">
+                    <span>{t("instanceDetail.overview.seededAt")}</span>
+                    <strong>{formatDateTime(onboardingRecord.bootstrap_seeded_at)}</strong>
+                  </div>
+                  <div class="overview-stat">
+                    <span>{t("instanceDetail.overview.completedAt")}</span>
+                    <strong>{formatDateTime(onboardingRecord.onboarding_completed_at)}</strong>
+                  </div>
+                  <div class="overview-stat wide">
+                    <span>{t("instanceDetail.overview.starterMessage")}</span>
+                    <strong>{onboardingRecord.starter_message || "-"}</strong>
+                  </div>
+                </div>
+              {:else}
+                <p class="overview-empty">{t("common.noData")}</p>
+              {/if}
+            </section>
           </div>
-          <div class="json-card">
-            <h3>{t("instanceDetail.providerHealthLabel")}</h3>
-            <pre>{JSON.stringify(providerHealth || {}, null, 2)}</pre>
-          </div>
-          <div class="json-card">
-            <h3>{t("instanceDetail.onboardingStatusLabel")}</h3>
-            <pre>{JSON.stringify(onboarding || {}, null, 2)}</pre>
-          </div>
-        </div>
         </div>
       {/if}
 
@@ -734,9 +1072,83 @@
 
       {#if hasVisitedTab("usage")}
         <div class="tab-pane" hidden={activeTab !== "usage"}>
-          <div class="json-card">
-            <h3>{t("instanceDetail.tabs.usage")}</h3>
-            <pre>{usageJson}</pre>
+          <div class="usage-shell">
+            <div class="usage-toolbar">
+              <div class="usage-heading">
+                <h3>{t("instanceDetail.tabs.usage")}</h3>
+                <p>
+                  {t("instanceDetail.usage.generatedAt")}: {formatEpochSeconds(usageRecord?.generated_at)}
+                </p>
+              </div>
+
+              <div class="usage-window-switch" role="tablist" aria-label={t("instanceDetail.usage.windowLabel")}>
+                {#each usageWindowOptions as option}
+                  <button
+                    type="button"
+                    class:active={usageWindow === option.key}
+                    onclick={() => {
+                      if (usageWindow === option.key) return;
+                      usage = null;
+                      usageWindow = option.key;
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                {/each}
+              </div>
+            </div>
+
+            <div class="usage-summary-grid">
+              <div class="usage-summary-card">
+                <span>{t("instanceDetail.usage.totalRequests")}</span>
+                <strong>{formatCount(usageTotals?.requests)}</strong>
+              </div>
+              <div class="usage-summary-card">
+                <span>{t("instanceDetail.usage.totalTokens")}</span>
+                <strong>{formatCount(usageTotals?.total_tokens)}</strong>
+              </div>
+              <div class="usage-summary-card">
+                <span>{t("instanceDetail.usage.promptTokens")}</span>
+                <strong>{formatCount(usageTotals?.prompt_tokens)}</strong>
+              </div>
+              <div class="usage-summary-card">
+                <span>{t("instanceDetail.usage.completionTokens")}</span>
+                <strong>{formatCount(usageTotals?.completion_tokens)}</strong>
+              </div>
+            </div>
+
+            {#if usageRows.length > 0}
+              <div class="usage-table-wrap">
+                <table class="usage-table">
+                  <thead>
+                    <tr>
+                      <th>{t("instanceDetail.usage.provider")}</th>
+                      <th>{t("instanceDetail.usage.model")}</th>
+                      <th>{t("instanceDetail.usage.requests")}</th>
+                      <th>{t("instanceDetail.usage.promptTokens")}</th>
+                      <th>{t("instanceDetail.usage.completionTokens")}</th>
+                      <th>{t("instanceDetail.usage.totalTokens")}</th>
+                      <th>{t("instanceDetail.usage.lastUsed")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#each usageRows as row}
+                      <tr>
+                        <td>{row.provider}</td>
+                        <td>{row.model}</td>
+                        <td>{formatCount(row.requests)}</td>
+                        <td>{formatCount(row.prompt_tokens)}</td>
+                        <td>{formatCount(row.completion_tokens)}</td>
+                        <td>{formatCount(row.total_tokens)}</td>
+                        <td>{formatEpochSeconds(row.last_used)}</td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            {:else}
+              <p class="overview-empty">{t("instanceDetail.usage.empty")}</p>
+            {/if}
           </div>
         </div>
       {/if}
@@ -761,9 +1173,181 @@
 
       {#if supportsIntegration && hasVisitedTab("integration")}
         <div class="tab-pane" hidden={activeTab !== "integration"}>
-          <div class="json-card">
-            <h3>{t("instanceDetail.tabs.integration")}</h3>
-            <pre>{integrationJson}</pre>
+          <div class="integration-shell">
+            <div class="integration-heading">
+              <h3>{t("instanceDetail.tabs.integration")}</h3>
+              <p>{t("instanceDetail.integration.kind")}: {integrationKind || "-"}</p>
+            </div>
+
+            {#if integrationKind === "nullboiler"}
+              <div class="integration-grid">
+                <section class="integration-card">
+                  <div class="integration-card-header">
+                    <h4>{t("instanceDetail.integration.linkSummary")}</h4>
+                    <span class={`overview-pill ${integrationRecord?.configured ? "success" : "neutral"}`}>
+                      {integrationRecord?.configured
+                        ? t("instanceDetail.integration.configured")
+                        : t("instanceDetail.integration.notConfigured")}
+                    </span>
+                  </div>
+                  <div class="overview-stat-grid">
+                    <div class="overview-stat">
+                      <span>{t("instanceDetail.integration.trackerName")}</span>
+                      <strong>{integrationLinkedTracker?.name || "-"}</strong>
+                    </div>
+                    <div class="overview-stat">
+                      <span>{t("instanceDetail.integration.trackerPort")}</span>
+                      <strong>{integrationLinkedTracker?.port ?? "-"}</strong>
+                    </div>
+                    <div class="overview-stat">
+                      <span>{t("instanceDetail.integration.pipelineId")}</span>
+                      <strong>{integrationCurrentLink?.pipeline_id || "-"}</strong>
+                    </div>
+                    <div class="overview-stat">
+                      <span>{t("instanceDetail.integration.claimRole")}</span>
+                      <strong>{integrationCurrentLink?.claim_role || "-"}</strong>
+                    </div>
+                    <div class="overview-stat">
+                      <span>{t("instanceDetail.integration.successTrigger")}</span>
+                      <strong>{integrationCurrentLink?.success_trigger || "-"}</strong>
+                    </div>
+                    <div class="overview-stat">
+                      <span>{t("instanceDetail.integration.maxConcurrentTasks")}</span>
+                      <strong>{integrationCurrentLink?.max_concurrent_tasks ?? "-"}</strong>
+                    </div>
+                    <div class="overview-stat">
+                      <span>{t("instanceDetail.integration.agentId")}</span>
+                      <strong>{integrationCurrentLink?.agent_id || "-"}</strong>
+                    </div>
+                    <div class="overview-stat">
+                      <span>{t("instanceDetail.integration.workflowFile")}</span>
+                      <strong>{integrationCurrentLink?.workflow_file || "-"}</strong>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="integration-card">
+                  <div class="integration-card-header">
+                    <h4>{t("instanceDetail.integration.availableTrackers")}</h4>
+                  </div>
+                  {#if integrationAvailableTrackers.length > 0}
+                    <div class="integration-list">
+                      {#each integrationAvailableTrackers as tracker}
+                        <article class="integration-list-card">
+                          <div class="integration-list-header">
+                            <strong>{tracker.name}</strong>
+                            <span class={`overview-pill ${tracker.running ? "success" : "neutral"}`}>
+                              {tracker.running
+                                ? t("instanceDetail.integration.running")
+                                : t("instanceDetail.integration.stopped")}
+                            </span>
+                          </div>
+                          <div class="integration-list-meta">
+                            <span>{t("instanceDetail.integration.trackerPort")}: {tracker.port ?? "-"}</span>
+                            <span>{t("instanceDetail.integration.pipelineCount")}: {formatCount(tracker.pipelineCount)}</span>
+                          </div>
+                        </article>
+                      {/each}
+                    </div>
+                  {:else}
+                    <p class="overview-empty">{t("instanceDetail.integration.noTrackers")}</p>
+                  {/if}
+                </section>
+
+                <section class="integration-card">
+                  <div class="integration-card-header">
+                    <h4>{t("instanceDetail.integration.trackerSnapshot")}</h4>
+                  </div>
+                  {#if integrationTrackerEntries.length > 0}
+                    <div class="integration-snapshot-grid">
+                      {#each integrationTrackerEntries as entry}
+                        <div class="integration-snapshot-item">
+                          <span>{entry.key}</span>
+                          <strong>{entry.value}</strong>
+                        </div>
+                      {/each}
+                    </div>
+                  {:else}
+                    <p class="overview-empty">{t("instanceDetail.integration.noTrackerSnapshot")}</p>
+                  {/if}
+                </section>
+
+                <section class="integration-card">
+                  <div class="integration-card-header">
+                    <h4>{t("instanceDetail.integration.queueSnapshot")}</h4>
+                  </div>
+                  {#if integrationQueueEntries.length > 0}
+                    <div class="integration-snapshot-grid">
+                      {#each integrationQueueEntries as entry}
+                        <div class="integration-snapshot-item">
+                          <span>{entry.key}</span>
+                          <strong>{entry.value}</strong>
+                        </div>
+                      {/each}
+                    </div>
+                  {:else}
+                    <p class="overview-empty">{t("instanceDetail.integration.noQueueSnapshot")}</p>
+                  {/if}
+                </section>
+              </div>
+            {:else if integrationKind === "nulltickets"}
+              <div class="integration-grid">
+                <section class="integration-card">
+                  <div class="integration-card-header">
+                    <h4>{t("instanceDetail.integration.queueSnapshot")}</h4>
+                  </div>
+                  {#if integrationQueueEntries.length > 0}
+                    <div class="integration-snapshot-grid">
+                      {#each integrationQueueEntries as entry}
+                        <div class="integration-snapshot-item">
+                          <span>{entry.key}</span>
+                          <strong>{entry.value}</strong>
+                        </div>
+                      {/each}
+                    </div>
+                  {:else}
+                    <p class="overview-empty">{t("instanceDetail.integration.noQueueSnapshot")}</p>
+                  {/if}
+                </section>
+
+                <section class="integration-card">
+                  <div class="integration-card-header">
+                    <h4>{t("instanceDetail.integration.linkedBoilers")}</h4>
+                  </div>
+                  {#if integrationLinkedBoilers.length > 0}
+                    <div class="integration-list">
+                      {#each integrationLinkedBoilers as boiler}
+                        <article class="integration-list-card">
+                          <div class="integration-list-header">
+                            <strong>{boiler.name}</strong>
+                            <span class="overview-pill neutral">
+                              {t("instanceDetail.integration.trackerPort")}: {boiler.port ?? "-"}
+                            </span>
+                          </div>
+
+                          {#if boiler.trackerEntries.length > 0}
+                            <div class="integration-snapshot-grid compact">
+                              {#each boiler.trackerEntries as entry}
+                                <div class="integration-snapshot-item">
+                                  <span>{entry.key}</span>
+                                  <strong>{entry.value}</strong>
+                                </div>
+                              {/each}
+                            </div>
+                          {:else}
+                            <p class="overview-empty">{t("instanceDetail.integration.noTrackerSnapshot")}</p>
+                          {/if}
+                        </article>
+                      {/each}
+                    </div>
+                  {:else}
+                    <p class="overview-empty">{t("instanceDetail.integration.noLinkedBoilers")}</p>
+                  {/if}
+                </section>
+              </div>
+            {:else}
+              <p class="overview-empty">{t("common.noData")}</p>
+            {/if}
           </div>
         </div>
       {/if}
@@ -1143,48 +1727,372 @@
     padding: 2.6rem 1.2rem;
   }
 
-  .tab-panel-shell .json-card h3 {
+  .tab-panel-shell .overview-card h3 {
     color: var(--shell-text);
     font-size: var(--text-sm);
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
 
-  .tab-panel-shell .json-card pre {
-    border-color: rgba(116, 136, 173, 0.2);
-    background: linear-gradient(180deg, rgba(12, 19, 33, 0.82), rgba(16, 25, 42, 0.76));
-    color: #dce8ff;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
-  }
-
-  .json-grid {
+  .overview-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: var(--spacing-md);
   }
 
-  .json-card {
+  .overview-card {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
-  }
-
-  .json-card h3 {
-    margin: 0;
-    color: var(--slate-900);
-    font-size: var(--text-base);
-  }
-
-  pre {
-    margin: 0;
-    border: 1px solid rgba(141, 154, 178, 0.18);
-    background: rgba(255, 255, 255, 0.72);
+    gap: 0.95rem;
+    padding: 1rem 1.05rem;
+    border: 1px solid rgba(116, 136, 173, 0.2);
     border-radius: var(--radius-lg);
-    padding: 0.9rem 1rem;
-    max-height: 320px;
-    overflow: auto;
-    font-size: 12px;
-    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+    background: linear-gradient(180deg, rgba(12, 19, 33, 0.82), rgba(16, 25, 42, 0.76));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  .overview-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .overview-card h3 {
+    margin: 0;
+  }
+
+  .overview-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .overview-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.22rem;
+    min-width: 0;
+    padding: 0.72rem 0.78rem;
+    border: 1px solid rgba(116, 136, 173, 0.16);
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .overview-stat.wide {
+    grid-column: 1 / -1;
+  }
+
+  .overview-stat span {
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--shell-text-dim);
+  }
+
+  .overview-stat strong {
+    min-width: 0;
+    font-size: 0.96rem;
+    line-height: 1.45;
+    color: var(--shell-text);
+    overflow-wrap: anywhere;
+  }
+
+  .overview-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    border: 1px solid rgba(116, 136, 173, 0.2);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--shell-text);
+    font-size: 0.74rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .overview-pill.success {
+    border-color: rgba(16, 185, 129, 0.28);
+    background: rgba(10, 48, 37, 0.4);
+    color: #9af3cf;
+  }
+
+  .overview-pill.error {
+    border-color: rgba(245, 158, 11, 0.28);
+    background: rgba(58, 36, 14, 0.4);
+    color: #ffd089;
+  }
+
+  .overview-pill.neutral {
+    color: var(--shell-text-dim);
+  }
+
+  .overview-empty {
+    margin: 0;
+    padding: 0.95rem 1rem;
+    border: 1px solid rgba(116, 136, 173, 0.18);
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--shell-text-dim);
+  }
+
+  .usage-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .usage-toolbar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .usage-heading h3 {
+    margin: 0;
+    color: var(--shell-text);
+    font-size: var(--text-sm);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .usage-heading p {
+    margin: 0.28rem 0 0;
+    color: var(--shell-text-dim);
+    font-size: 0.8rem;
+  }
+
+  .usage-window-switch {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .usage-window-switch button {
+    border: 1px solid rgba(116, 136, 173, 0.22);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--shell-text-dim);
+    border-radius: 999px;
+    min-height: 34px;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    transition:
+      color var(--transition-fast),
+      background-color var(--transition-fast),
+      border-color var(--transition-fast);
+  }
+
+  .usage-window-switch button.active {
+    border-color: rgba(34, 211, 238, 0.28);
+    background: rgba(34, 211, 238, 0.12);
+    color: var(--shell-text);
+  }
+
+  .usage-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.8rem;
+  }
+
+  .usage-summary-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.28rem;
+    padding: 0.9rem 0.95rem;
+    border: 1px solid rgba(116, 136, 173, 0.18);
+    border-radius: var(--radius-lg);
+    background: linear-gradient(180deg, rgba(12, 19, 33, 0.82), rgba(16, 25, 42, 0.76));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  .usage-summary-card span {
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--shell-text-dim);
+  }
+
+  .usage-summary-card strong {
+    color: var(--shell-text);
+    font-size: 1.08rem;
+    line-height: 1.3;
+  }
+
+  .usage-table-wrap {
+    overflow-x: auto;
+    border: 1px solid rgba(116, 136, 173, 0.18);
+    border-radius: var(--radius-lg);
+    background: linear-gradient(180deg, rgba(12, 19, 33, 0.82), rgba(16, 25, 42, 0.76));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  .usage-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 760px;
+  }
+
+  .usage-table th,
+  .usage-table td {
+    padding: 0.82rem 0.9rem;
+    text-align: left;
+    border-bottom: 1px solid rgba(116, 136, 173, 0.14);
+    font-size: 0.88rem;
+  }
+
+  .usage-table th {
+    color: var(--shell-text-dim);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: rgba(255, 255, 255, 0.04);
+    white-space: nowrap;
+  }
+
+  .usage-table td {
+    color: var(--shell-text);
+    vertical-align: top;
+    overflow-wrap: anywhere;
+  }
+
+  .usage-table tbody tr:hover {
+    background: rgba(34, 211, 238, 0.06);
+  }
+
+  .usage-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .integration-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .integration-heading h3 {
+    margin: 0;
+    color: var(--shell-text);
+    font-size: var(--text-sm);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .integration-heading p {
+    margin: 0.28rem 0 0;
+    color: var(--shell-text-dim);
+    font-size: 0.8rem;
+  }
+
+  .integration-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 0.9rem;
+  }
+
+  .integration-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    padding: 1rem 1.05rem;
+    border: 1px solid rgba(116, 136, 173, 0.2);
+    border-radius: var(--radius-lg);
+    background: linear-gradient(180deg, rgba(12, 19, 33, 0.82), rgba(16, 25, 42, 0.76));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  .integration-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .integration-card h4 {
+    margin: 0;
+    color: var(--shell-text);
+    font-size: 0.86rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .integration-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .integration-list-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    padding: 0.85rem 0.9rem;
+    border: 1px solid rgba(116, 136, 173, 0.16);
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .integration-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .integration-list-header strong {
+    color: var(--shell-text);
+    font-size: 0.96rem;
+    overflow-wrap: anywhere;
+  }
+
+  .integration-list-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    color: var(--shell-text-dim);
+    font-size: 0.82rem;
+  }
+
+  .integration-snapshot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.7rem;
+  }
+
+  .integration-snapshot-grid.compact {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+
+  .integration-snapshot-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.22rem;
+    min-width: 0;
+    padding: 0.72rem 0.78rem;
+    border: 1px solid rgba(116, 136, 173, 0.16);
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .integration-snapshot-item span {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--shell-text-dim);
+    overflow-wrap: anywhere;
+  }
+
+  .integration-snapshot-item strong {
+    color: var(--shell-text);
+    font-size: 0.9rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
   }
 
   .modal-backdrop {
@@ -1249,6 +2157,18 @@
 
     .modal-actions .control-btn {
       width: 100%;
+    }
+
+    .overview-stat-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .usage-window-switch {
+      width: 100%;
+    }
+
+    .integration-list-header {
+      align-items: flex-start;
     }
   }
 </style>
