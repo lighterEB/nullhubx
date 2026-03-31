@@ -185,7 +185,7 @@
                 onchange={(e) => updateItemField(index, field.key, e.currentTarget.value)}
               >
                 {#each field.options ?? [] as option}
-                  <option value={option}>{option}</option>
+                  <option value={option}>{field.optionLabels?.[option] ?? option}</option>
                 {/each}
               </select>
             {:else if field.type === "number"}

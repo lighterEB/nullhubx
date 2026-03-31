@@ -102,16 +102,20 @@
   .wizard-page {
     display: flex;
     min-height: calc(100vh - 60px);
+    background:
+      radial-gradient(circle at top right, rgba(34, 211, 238, 0.08), transparent 30%),
+      linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(241, 245, 249, 0.92));
   }
 
   .wizard-sidebar {
     width: 240px;
     flex-shrink: 0;
-    background: white;
-    border-right: 1px solid var(--slate-200);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(244, 248, 255, 0.82));
+    border-right: 1px solid rgba(141, 154, 178, 0.16);
     padding: 20px 16px;
     display: flex;
     flex-direction: column;
+    backdrop-filter: blur(16px);
   }
 
   .back-link {
@@ -130,8 +134,8 @@
   }
 
   .back-link:hover {
-    background: var(--slate-100);
-    color: var(--slate-700);
+    background: rgba(34, 211, 238, 0.08);
+    color: var(--cyan-700);
   }
 
   .back-icon {
@@ -186,8 +190,9 @@
   }
 
   .nav-item.active {
-    background: var(--indigo-50);
-    color: var(--indigo-700);
+    background: rgba(34, 211, 238, 0.08);
+    color: var(--cyan-700);
+    border: 1px solid rgba(34, 211, 238, 0.16);
   }
 
   .nav-icon {
@@ -214,7 +219,6 @@
   .wizard-content {
     flex: 1;
     padding: 24px 32px;
-    background: var(--slate-50);
     overflow-y: auto;
   }
 
@@ -222,10 +226,12 @@
     max-width: 400px;
     margin: 60px auto;
     text-align: center;
-    background: white;
-    border: 1px solid var(--red-200);
-    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(254, 242, 242, 0.88));
+    border: 1px solid rgba(248, 113, 113, 0.2);
+    border-radius: var(--radius-xl);
     padding: 40px 32px;
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(14px);
   }
 
   .error-icon {
@@ -248,20 +254,22 @@
   }
 
   .back-btn {
-    padding: 10px 24px;
-    background: var(--indigo-600);
+    padding: 0.72rem 1.2rem;
+    background: linear-gradient(135deg, var(--cyan-600), var(--cyan-500));
     color: white;
-    border: none;
-    border-radius: 6px;
-    font-family: var(--font-mono);
-    font-size: 12px;
+    border: 1px solid rgba(8, 145, 178, 0.22);
+    border-radius: 999px;
+    font-family: var(--font-sans);
+    font-size: 0.82rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
+    box-shadow: 0 12px 24px rgba(8, 145, 178, 0.18);
   }
 
   .back-btn:hover {
-    background: var(--indigo-700);
+    transform: translateY(-1px);
+    filter: brightness(1.04);
   }
 
   .loading-state {
@@ -277,7 +285,7 @@
     width: 32px;
     height: 32px;
     border: 2px solid var(--slate-200);
-    border-top-color: var(--indigo-500);
+    border-top-color: var(--cyan-500);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
@@ -299,7 +307,7 @@
     .wizard-sidebar {
       width: 100%;
       border-right: none;
-      border-bottom: 1px solid var(--slate-200);
+      border-bottom: 1px solid rgba(141, 154, 178, 0.16);
       padding: 16px;
     }
 

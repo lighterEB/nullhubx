@@ -7,7 +7,7 @@
     getFieldValue,
     type ConfigFieldDef,
   } from "../configSchemaContract";
-  import { staticSections } from "../configSchemas";
+  import { getStaticSections } from "../configSchemas";
 
   type ConfigObject = Record<string, unknown>;
 
@@ -20,6 +20,7 @@
   } = $props();
 
   let open = $state(false);
+  let staticSections = $derived(getStaticSections());
 
   const section = $derived(staticSections.find((entry) => entry.key === "peripherals") ?? null);
   const boardCount = $derived(
@@ -185,7 +186,7 @@
               <label for={inputId}>{field.label}</label>
               <select id={inputId} onchange={(e) => updateSchemaField(field, e.currentTarget.value)}>
                 {#each field.options ?? [] as option}
-                  <option value={option} selected={value === option}>{option}</option>
+                  <option value={option} selected={value === option}>{field.optionLabels?.[option] ?? option}</option>
                 {/each}
               </select>
               {#if field.hint}

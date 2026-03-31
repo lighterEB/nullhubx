@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t } from "$lib/i18n/index.svelte";
+
   type StepOption = {
     value: string;
     label: string;
@@ -53,7 +55,7 @@
   let selectedLabel = $derived(
     selectedOption
       ? selectedOption.recommended
-        ? `${selectedOption.label} (recommended)`
+        ? `${selectedOption.label} (${t("wizardStep.recommended")})`
         : selectedOption.label
       : "",
   );
@@ -93,7 +95,7 @@
       <input
         type="text"
         class="search-input"
-        placeholder={selectedLabel || "Search..."}
+        placeholder={selectedLabel || t("common.search")}
         value={dropdownOpen ? searchQuery : selectedLabel}
         oninput={handleSearchInput}
         onfocus={handleSearchFocus}
@@ -110,7 +112,7 @@
               <div class="dropdown-item-header">
                 <strong>{option.label}</strong>
                 {#if option.recommended}
-                  <span class="rec-badge">recommended</span>
+                  <span class="rec-badge">{t("wizardStep.recommended")}</span>
                 {/if}
               </div>
               {#if option.description}
@@ -118,7 +120,7 @@
               {/if}
             </button>
           {:else}
-            <div class="dropdown-empty">No matches</div>
+            <div class="dropdown-empty">{t("wizardStep.noMatches")}</div>
           {/each}
         </div>
       {/if}
@@ -134,7 +136,7 @@
           <div class="option-header">
             <strong>{option.label}</strong>
             {#if option.recommended}
-              <span class="rec-badge">recommended</span>
+              <span class="rec-badge">{t("wizardStep.recommended")}</span>
             {/if}
           </div>
           {#if option.description}<span>{option.description}</span>{/if}
@@ -165,7 +167,7 @@
       type="password"
       {value}
       oninput={(e) => onchange(e.currentTarget.value)}
-      placeholder="Enter secret..."
+      placeholder={t("wizardStep.enterSecret")}
     />
   {:else if step.type === "number"}
     <input
@@ -187,7 +189,7 @@
       type="text"
       {value}
       oninput={(e) => onchange(e.currentTarget.value)}
-      placeholder="Enter value..."
+      placeholder={t("wizardStep.enterValue")}
     />
   {/if}
 </div>

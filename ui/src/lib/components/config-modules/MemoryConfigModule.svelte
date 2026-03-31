@@ -7,7 +7,7 @@
     getFieldValue,
     type ConfigFieldDef,
   } from "../configSchemaContract";
-  import { memorySections } from "../configSchemas";
+  import { getMemorySections } from "../configSchemas";
 
   type ConfigObject = Record<string, unknown>;
 
@@ -24,6 +24,7 @@
   let draft = $state("");
   let parseError = $state("");
   let suppressNextSync = $state(false);
+  let memorySections = $derived(getMemorySections());
 
   function isRecord(input: unknown): input is ConfigObject {
     return typeof input === "object" && input !== null && !Array.isArray(input);
@@ -281,7 +282,7 @@
                       <label for={inputId}>{field.label}</label>
                       <select id={inputId} onchange={(e) => updateSchemaField(field, e.currentTarget.value)}>
                         {#each field.options ?? [] as option}
-                          <option value={option} selected={value === option}>{option}</option>
+                          <option value={option} selected={value === option}>{field.optionLabels?.[option] ?? option}</option>
                         {/each}
                       </select>
                       {#if field.hint}

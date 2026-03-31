@@ -108,9 +108,9 @@
     } catch (e) {
       const err = (e as Error).message;
       if (saved && restartAfterSave) {
-        message = `${t("configEditor.saved")}，${t("common.restart")}：${err}`;
+        message = `${t("configEditor.saved")}, ${t("common.restart")}: ${err}`;
       } else {
-        message = `${t("common.error")}：${err}`;
+        message = `${t("common.error")}: ${err}`;
       }
       error = true;
     } finally {

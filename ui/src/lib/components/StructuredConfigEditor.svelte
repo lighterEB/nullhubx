@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "$lib/i18n/index.svelte";
   import { getFieldPath, getFieldValue } from "./configSchemaContract";
   import {
     getComponentConfigSchema,
@@ -93,7 +94,7 @@
       delete errors[path];
       updateField(path, parsed);
     } catch {
-      errors[path] = "Invalid JSON";
+      errors[path] = t("configEditor.invalidJson");
     }
   }
 
@@ -143,7 +144,7 @@
                     checked={!!getFieldValue(config, field)}
                     onchange={(e) => updateField(fieldPath, e.currentTarget.checked)}
                   />
-                  <span>{getFieldValue(config, field) ? "Enabled" : "Disabled"}</span>
+                  <span>{getFieldValue(config, field) ? t("common.enabled") : t("common.disabled")}</span>
                 </label>
               {:else if field.type === "select"}
                 <select
@@ -152,7 +153,7 @@
                   onchange={(e) => updateField(fieldPath, e.currentTarget.value)}
                 >
                   {#each field.options ?? [] as option}
-                    <option value={option}>{option}</option>
+                    <option value={option}>{field.optionLabels?.[option] ?? option}</option>
                   {/each}
                 </select>
               {:else if field.type === "number"}

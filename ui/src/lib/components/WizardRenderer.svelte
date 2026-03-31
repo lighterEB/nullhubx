@@ -9,6 +9,7 @@
     type ValidationResultPayload,
     type VersionOptionPayload,
   } from "$lib/api/client";
+  import { t } from "$lib/i18n/index.svelte";
 
   type WizardOption = {
     value: string;
@@ -78,6 +79,7 @@
   let validationError = $state("");
   let validationWarning = $state("");
   let existingInstanceNames = $state<string[]>([]);
+  let showProviderRequiredError = $state(false);
   const providerValidationView = $derived(
     providerValidationResults.map((result) => ({
       provider: result.provider ?? "",
@@ -117,9 +119,9 @@
   let trimmedInstanceName = $derived(instanceName.trim());
   let instanceNameError = $derived(
     !trimmedInstanceName
-      ? "Instance name is required"
+      ? t("wizard.instanceNameRequired")
       : existingInstanceNames.includes(trimmedInstanceName)
-        ? "Instance name must be unique for this component"
+        ? t("wizard.instanceNameUnique")
         : "",
   );
 
@@ -142,7 +144,7 @@
           }
         })
         .catch(() => {
-          versions = [{ value: "latest", label: "latest", recommended: true }];
+          versions = [{ value: "latest", label: t("wizard.latest"), recommended: true }];
           selectedVersion = "latest";
         });
     }
@@ -228,7 +230,7 @@
   );
   let pageLabels = $derived(
     pageKinds.map((kind) =>
-      kind === "setup" ? "Setup" : kind === "channels" ? "Channels" : "Settings",
+      kind === "setup" ? t("wizard.setupPage") : kind === "channels" ? t("wizard.channelsPage") : t("wizard.settingsPage"),
     ),
   );
 
@@ -249,11 +251,13 @@
     validationError = "";
     validationWarning = "";
     providerValidationResults = [];
+    showProviderRequiredError = false;
 
     try {
       const providers = JSON.parse(answers["_providers"] || "[]") as WizardProviderEntry[];
       if (providers.length === 0) {
-        validationError = "Add at least one provider";
+        validationError = t("wizard.providerRequired");
+        showProviderRequiredError = true;
         return false;
       }
       const result = await api.validateProviders(component, providers);
@@ -261,7 +265,7 @@
       validationWarning = result.saved_providers_warning || "";
       return providerValidationResults.every((result) => !!result.live_ok);
     } catch (e) {
-      validationError = `Validation failed: ${(e as Error).message}`;
+      validationError = t("wizard.validationFailed").replace("{error}", (e as Error).message);
       return false;
     } finally {
       validating = false;
@@ -273,6 +277,7 @@
     validationError = "";
     validationWarning = "";
     channelValidationResults = [];
+    showProviderRequiredError = false;
 
     const hasNonDefaultChannels = Object.keys(channels).some(
       (k) => k !== "web" && k !== "cli",
@@ -288,7 +293,7 @@
       validationWarning = result.saved_channels_warning || "";
       return channelValidationResults.every((result) => !!result.live_ok);
     } catch (e) {
-      validationError = `Validation failed: ${(e as Error).message}`;
+      validationError = t("wizard.validationFailed").replace("{error}", (e as Error).message);
       return false;
     } finally {
       validating = false;
@@ -300,6 +305,7 @@
     if (page === "setup") {
       if (instanceNameError) {
         validationError = instanceNameError;
+        showProviderRequiredError = false;
         return;
       }
       if (providerStep) {
@@ -308,6 +314,7 @@
       }
       currentPage += 1;
       validationError = "";
+      showProviderRequiredError = false;
       return;
     }
 
@@ -316,6 +323,7 @@
       if (!valid) return;
       currentPage += 1;
       validationError = "";
+      showProviderRequiredError = false;
     }
   }
 
@@ -323,12 +331,13 @@
     if (currentPage > 0) {
       currentPage -= 1;
       validationError = "";
+      showProviderRequiredError = false;
     }
   }
 
   async function submit() {
     installing = true;
-    installMessage = "Installing...";
+    installMessage = t("wizard.installing");
     try {
       const { _providers, ...rest } = answers;
       const payload: JsonObject = {
@@ -353,10 +362,10 @@
         payload.channels = channels;
       }
       const result = await api.postWizard(component, payload);
-      installMessage = result.message || "Installation complete!";
+      installMessage = result.message || t("wizard.installComplete");
       setTimeout(() => onComplete?.(), 1500);
     } catch (e) {
-      installMessage = `Error: ${(e as Error).message}`;
+      installMessage = `${t("common.error")}: ${(e as Error).message}`;
     } finally {
       installing = false;
     }
@@ -365,7 +374,7 @@
 
 <div class="wizard">
   <div class="wizard-header">
-    <h2>Install {component}</h2>
+    <h2>{t("wizard.title").replace("{component}", component)}</h2>
       <div class="step-indicator">
       {#each pageLabels as label, i}
         <button
@@ -388,13 +397,13 @@
   <div class="wizard-body">
     {#if pageKinds[currentPage] === "setup"}
       <div class="name-step">
-        <label for={instanceNameId}>Instance Name</label>
-        <p class="name-hint">Name doesn't matter, just needs to be unique</p>
+        <label for={instanceNameId}>{t("wizard.instanceName")}</label>
+        <p class="name-hint">{t("wizard.instanceNameHint")}</p>
         <input
           id={instanceNameId}
           type="text"
           bind:value={instanceName}
-          placeholder="instance-1"
+          placeholder={t("wizard.instanceNamePlaceholder")}
         />
         {#if instanceNameError}
           <p class="name-error">{instanceNameError}</p>
@@ -403,11 +412,11 @@
 
       {#if versions.length > 0}
         <div class="version-select">
-          <label for="version-picker">Version</label>
+          <label for="version-picker">{t("wizard.version")}</label>
           <select id="version-picker" bind:value={selectedVersion}>
             {#each versions as v, i}
               <option value={v.value}>
-                {v.label}{i === 0 ? " (latest, recommended)" : ""}
+                {v.label}{i === 0 ? ` (${t("wizard.latestRecommended")})` : ""}
               </option>
             {/each}
           </select>
@@ -415,10 +424,10 @@
       {/if}
 
       {#if providerStep}
-        {#if validationError === "Add at least one provider"}
+        {#if showProviderRequiredError}
           <div class="provider-validation-error visible">{validationError}</div>
         {:else}
-          <div class="provider-validation-error">Add at least one provider</div>
+          <div class="provider-validation-error">{t("wizard.providerRequired")}</div>
         {/if}
         <ProviderList
           providers={providerStep.options || []}
@@ -446,7 +455,7 @@
       {#if advancedSteps.length > 0}
         <button class="advanced-toggle" onclick={() => (showAdvanced = !showAdvanced)}>
           <span class="advanced-arrow">{showAdvanced ? "\u25BC" : "\u25B6"}</span>
-          Advanced
+          {t("wizard.advanced")}
         </button>
 
         {#if showAdvanced}
@@ -479,7 +488,7 @@
   <div class="wizard-footer">
     {#if currentPage > 0}
       <button class="secondary-btn" onclick={handleBack} disabled={validating || installing}>
-        Back
+        {t("common.back")}
       </button>
     {/if}
     <div class="footer-spacer"></div>
@@ -489,7 +498,7 @@
         onclick={handleNext}
         disabled={validating || !!instanceNameError}
       >
-        {validating ? "Validating..." : "Next →"}
+        {validating ? t("wizard.validating") : `${t("common.next")} ->`}
       </button>
     {:else}
       <button
@@ -497,7 +506,7 @@
         onclick={submit}
         disabled={installing || !!instanceNameError}
       >
-        {installing ? "Installing..." : "INSTALL →"}
+        {installing ? t("wizard.installing") : `${t("common.install")} ->`}
       </button>
     {/if}
   </div>
@@ -508,27 +517,29 @@
     width: 100%;
     max-width: 800px;
     margin: 0 auto;
-    padding: 32px 40px;
-    background: white;
-    border: 1px solid var(--slate-200);
-    border-radius: 8px;
-    box-shadow: var(--shadow-sm);
+    padding: 1.9rem 2rem;
+    border: 1px solid rgba(141, 154, 178, 0.18);
+    border-radius: var(--radius-xl);
+    background:
+      radial-gradient(circle at top right, rgba(34, 211, 238, 0.12), transparent 34%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(244, 248, 255, 0.8));
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(16px);
   }
 
   .wizard-header {
-    padding: 0 0 24px 0;
-    border-bottom: 1px solid var(--slate-200);
-    margin-bottom: 24px;
+    padding: 0 0 1.4rem 0;
+    border-bottom: 1px solid rgba(141, 154, 178, 0.16);
+    margin-bottom: 1.4rem;
   }
 
   .wizard-header h2 {
-    font-family: var(--font-mono);
-    font-size: 12px;
+    font-family: var(--font-display);
+    font-size: clamp(1.1rem, 1rem + 0.5vw, 1.35rem);
     font-weight: 700;
-    color: var(--slate-700);
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    margin: 0 0 20px 0;
+    color: var(--slate-900);
+    letter-spacing: -0.02em;
+    margin: 0 0 1rem 0;
   }
 
   .step-indicator {
@@ -565,21 +576,22 @@
   }
 
   .step-dot.active .step-num {
-    background: var(--indigo-600);
+    background: linear-gradient(135deg, var(--cyan-500), var(--cyan-600));
     color: white;
     font-weight: 700;
+    box-shadow: 0 10px 20px rgba(8, 145, 178, 0.24);
   }
 
   .step-dot.completed .step-num {
-    background: var(--indigo-50);
-    color: var(--indigo-600);
-    border: 1px solid var(--indigo-200);
+    background: rgba(34, 211, 238, 0.08);
+    color: var(--cyan-700);
+    border: 1px solid rgba(34, 211, 238, 0.18);
   }
 
   .step-dot:not(.active):not(.completed) .step-num {
-    background: white;
+    background: rgba(255, 255, 255, 0.9);
     color: var(--slate-400);
-    border: 1px solid var(--slate-200);
+    border: 1px solid rgba(141, 154, 178, 0.18);
   }
 
   .step-label {
@@ -592,12 +604,12 @@
   }
 
   .step-dot.active .step-label {
-    color: var(--indigo-600);
+    color: var(--cyan-700);
     font-weight: 600;
   }
 
   .step-dot.completed .step-label {
-    color: var(--indigo-600);
+    color: var(--cyan-700);
   }
 
   .step-dot:not(.active):not(.completed) .step-label {
@@ -612,14 +624,14 @@
   }
 
   .step-line.completed-before {
-    background: var(--indigo-200);
+    background: rgba(34, 211, 238, 0.26);
   }
 
   .step-line:not(.completed-before) {
     background: var(--slate-200);
   }
 
-  .wizard-body { padding: 0 0 24px 0; }
+  .wizard-body { padding: 0 0 1.5rem 0; }
 
   .name-step { margin-bottom: 2rem; }
 
@@ -698,17 +710,17 @@
   }
 
   .provider-validation-error {
-    font-family: 'DM Sans', sans-serif;
-    font-size: 12px;
-    color: var(--red-600);
-    background: var(--red-50);
-    border: 1px solid var(--red-200);
-    border-radius: 6px;
-    padding: 8px 12px;
-    margin-bottom: 12px;
+    font-size: 0.8rem;
+    color: var(--red-700);
+    background: rgba(254, 242, 242, 0.92);
+    border: 1px solid rgba(248, 113, 113, 0.24);
+    border-radius: var(--radius-md);
+    padding: 0.7rem 0.9rem;
+    margin-bottom: 0.9rem;
     display: none;
     gap: 6px;
     align-items: center;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
   }
 
   .provider-validation-error.visible {
@@ -747,10 +759,10 @@
 
   .advanced-section {
     margin-top: 1rem;
-    padding: 1rem;
-    border: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--bg-surface) 50%, transparent);
+    padding: 1rem 1.1rem;
+    border: 1px solid rgba(141, 154, 178, 0.18);
+    border-radius: var(--radius-lg);
+    background: rgba(255, 255, 255, 0.5);
   }
 
   .validation-error {
@@ -792,38 +804,42 @@
     bottom: 0;
     left: 0;
     right: 0;
-    background: white;
-    border-top: 1px solid var(--slate-200);
-    padding: 16px 0 0 0;
+    background: linear-gradient(180deg, rgba(250, 252, 255, 0.82), rgba(255, 255, 255, 0.96));
+    border-top: 1px solid rgba(141, 154, 178, 0.16);
+    padding: 1rem 0 0 0;
     margin-top: 24px;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    backdrop-filter: blur(14px);
   }
 
   .footer-spacer { flex: 1; }
 
   .primary-btn {
-    background: var(--indigo-600);
+    background: linear-gradient(135deg, var(--cyan-600), var(--cyan-500));
     color: white;
-    border: 1px solid var(--indigo-600);
-    border-radius: 8px;
-    padding: 10px 28px;
-    font-size: 14px;
+    border: 1px solid rgba(8, 145, 178, 0.28);
+    border-radius: 999px;
+    padding: 0.72rem 1.35rem;
+    font-size: 0.82rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
-    font-family: var(--font-mono);
-    letter-spacing: 1.5px;
+    font-family: var(--font-sans);
+    letter-spacing: 0.02em;
+    box-shadow: 0 14px 28px rgba(8, 145, 178, 0.18);
   }
 
   .primary-btn.install-btn {
-    background: var(--emerald-600);
-    border-color: var(--emerald-600);
+    background: linear-gradient(135deg, var(--emerald-600), var(--emerald-500));
+    border-color: rgba(5, 150, 105, 0.28);
+    box-shadow: 0 14px 28px rgba(5, 150, 105, 0.18);
   }
 
   .primary-btn:hover:not(:disabled) {
-    filter: brightness(1.1);
+    transform: translateY(-1px);
+    filter: brightness(1.04);
   }
 
   .primary-btn:disabled {
@@ -832,22 +848,23 @@
   }
 
   .secondary-btn {
-    background: white;
-    color: var(--slate-500);
-    border: 1px solid var(--slate-200);
-    border-radius: 8px;
-    padding: 10px 24px;
-    font-size: 11px;
+    background: rgba(255, 255, 255, 0.88);
+    color: var(--slate-700);
+    border: 1px solid rgba(141, 154, 178, 0.2);
+    border-radius: 999px;
+    padding: 0.72rem 1.2rem;
+    font-size: 0.78rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
-    font-family: var(--font-mono);
-    letter-spacing: 1.5px;
+    font-family: var(--font-sans);
+    letter-spacing: 0.02em;
   }
 
   .secondary-btn:hover:not(:disabled) {
-    border-color: var(--indigo-200);
-    color: var(--indigo-600);
+    border-color: rgba(34, 211, 238, 0.28);
+    color: var(--cyan-700);
+    box-shadow: var(--focus-ring);
   }
 
   .secondary-btn:disabled {

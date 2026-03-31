@@ -7,7 +7,7 @@
     type AgentProfilesResponse,
     type AnyRecord,
   } from "$lib/api/client";
-  import { channelSchemas } from "$lib/components/configSchemas";
+  import { getChannelSchemas } from "$lib/components/configSchemas";
   import { t } from "$lib/i18n/index.svelte";
 
   type AgentProfile = {
@@ -93,6 +93,7 @@
   let savingAll = $state(false);
   let error = $state("");
   let saveNotice = $state<SaveNotice | null>(null);
+  let channelSchemas = $derived(getChannelSchemas());
 
   let activeTab = $state<AgentTab>("profiles");
 
@@ -115,7 +116,7 @@
     roles: "",
   });
 
-  const channelOptions = Object.keys(channelSchemas).sort();
+  const channelOptions = $derived(Object.keys(channelSchemas).sort());
   const peerKindOptions = ["direct", "group", "channel"];
   const peerExamples: Record<string, Record<string, string>> = {
     telegram: {

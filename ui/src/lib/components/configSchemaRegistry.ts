@@ -1,5 +1,5 @@
 import { getComponentConfigSchema, type GenericSectionDef } from "./componentConfigSchemas";
-import { staticSections } from "./configSchemas";
+import { getStaticSections } from "./configSchemas";
 
 export type ConfigUiKind = "nullclaw" | "structured" | "raw";
 export type NullclawConfigGroup =
@@ -33,7 +33,7 @@ export function supportsVisualConfig(component: string): boolean {
 }
 
 export function getVisualConfigSectionCount(component: string): number {
-  if (component === "nullclaw") return staticSections.length;
+  if (component === "nullclaw") return getStaticSections().length;
   return getComponentConfigSchema(component).length;
 }
 
@@ -44,7 +44,7 @@ export function getNullclawSectionGroups(): Array<{
 }> {
   const grouped = new Map<NullclawConfigGroup, GenericSectionDef[]>();
 
-  for (const section of staticSections) {
+  for (const section of getStaticSections()) {
     const group = (section.group as NullclawConfigGroup | undefined) ?? "advanced";
     const current = grouped.get(group) ?? [];
     current.push(section);

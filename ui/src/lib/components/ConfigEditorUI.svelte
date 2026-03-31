@@ -5,7 +5,7 @@
     getFieldValue,
     type ConfigFieldDef
   } from './configSchemaContract';
-  import { channelSchemas, staticSections } from './configSchemas';
+  import { getChannelSchemas, getStaticSections } from './configSchemas';
   import KeyValueEditor from './config-editors/KeyValueEditor.svelte';
   import ObjectListEditor from './config-editors/ObjectListEditor.svelte';
   import MemoryConfigModule from './config-modules/MemoryConfigModule.svelte';
@@ -21,6 +21,8 @@
   let addChannelOpen = $state(false);
   let drafts = $state<Record<string, string>>({});
   let fieldErrors = $state<Record<string, string>>({});
+  let channelSchemas = $derived(getChannelSchemas());
+  let staticSections = $derived(getStaticSections());
 
   function toggle(key: string) {
     openSections[key] = !openSections[key];
@@ -174,7 +176,7 @@
       delete fieldErrors[path];
       updateSchemaField(field, parsed);
     } catch {
-      fieldErrors[path] = 'Invalid JSON';
+      fieldErrors[path] = t('configEditor.invalidJson');
     }
   }
 
@@ -287,7 +289,7 @@
               <label for={inputId}>{field.label}</label>
               <select id={inputId} onchange={(e) => updateSchemaField(field, e.currentTarget.value)}>
                 {#each field.options ?? [] as opt}
-                  <option value={opt} selected={value === opt}>{opt}</option>
+                  <option value={opt} selected={value === opt}>{field.optionLabels?.[opt] ?? opt}</option>
                 {/each}
               </select>
               {#if field.hint}
@@ -348,7 +350,7 @@
           <div class="provider-row">
             <div class="provider-name">{provider}</div>
             <div class="field">
-              <label for={apiKeyId}>API Key</label>
+              <label for={apiKeyId}>{t('configEditorUi.apiKey')}</label>
               <input
                 id={apiKeyId}
                 type="password"
@@ -357,7 +359,7 @@
               />
             </div>
             <div class="field">
-              <label for={baseUrlId}>Base URL</label>
+              <label for={baseUrlId}>{t('configEditorUi.baseUrl')}</label>
               <input
                 id={baseUrlId}
                 type="text"
@@ -366,7 +368,7 @@
               />
             </div>
             <div class="field">
-              <label for={userAgentId}>User-Agent</label>
+              <label for={userAgentId}>{t('configEditorUi.userAgent')}</label>
               <input
                 id={userAgentId}
                 type="text"
@@ -381,7 +383,7 @@
                 checked={getPath(config, `models.providers.${provider}.native_tools`) ?? true}
                 onchange={(e) => updateField(`models.providers.${provider}.native_tools`, e.currentTarget.checked)}
               />
-              <span>Native Tools</span>
+              <span>{t('configEditorUi.nativeTools')}</span>
             </label>
           </div>
         {/each}
@@ -410,10 +412,10 @@
     {#if openSections[`channel-${channelType}`]}
           <div class="accordion-body">
             {#if channelType === 'cli'}
-              <p class="cli-note">CLI channel enabled</p>
+              <p class="cli-note">{t('configEditorUi.cliChannelEnabled')}</p>
             {:else if schema.hasAccounts}
               {#each getChannelAccounts(channelType) as accountId}
-                <div class="account-label">Account: {accountId}</div>
+                <div class="account-label">{t('configEditorUi.accountLabel')}: {accountId}</div>
                 {#each schema.fields as field}
                   {@const path = `channels.${channelType}.accounts.${accountId}.${fieldPath(field)}`}
                   {@const value = getPath(config, path)}
@@ -502,7 +504,7 @@
                       <label for={inputId}>{field.label}</label>
                       <select id={inputId} onchange={(e) => updateField(path, e.currentTarget.value)}>
                         {#each field.options ?? [] as opt}
-                          <option value={opt} selected={value === opt}>{opt}</option>
+                          <option value={opt} selected={value === opt}>{field.optionLabels?.[opt] ?? opt}</option>
                         {/each}
                       </select>
                       {#if field.hint}
@@ -614,7 +616,7 @@
                     <label for={inputId}>{field.label}</label>
                     <select id={inputId} onchange={(e) => updateField(path, e.currentTarget.value)}>
                       {#each field.options ?? [] as opt}
-                        <option value={opt} selected={value === opt}>{opt}</option>
+                        <option value={opt} selected={value === opt}>{field.optionLabels?.[opt] ?? opt}</option>
                       {/each}
                     </select>
                     {#if field.hint}

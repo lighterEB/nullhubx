@@ -4,6 +4,11 @@ import {
   type ConfigChannelSchema as ChannelSchema,
   type ConfigSectionDef as SectionDef,
 } from "./configSchemaContract";
+import {
+  localizeChannelSchemas,
+  localizeMemorySections,
+  localizeNullclawSections,
+} from "./configSchemaI18n";
 
 export type {
   ConfigChannelSchema as ChannelSchema,
@@ -396,7 +401,7 @@ const rawChannelSchemas = {
   }
 } satisfies Record<string, ChannelSchema>;
 
-export const channelSchemas: Record<string, ChannelSchema> = Object.fromEntries(
+const normalizedChannelSchemas: Record<string, ChannelSchema> = Object.fromEntries(
   Object.entries(rawChannelSchemas).map(([key, schema]) => [key, normalizeChannelSchema(schema, key)]),
 ) as Record<string, ChannelSchema>;
 
@@ -1015,5 +1020,16 @@ const rawStaticSections: SectionDef[] = [
   }
 ];
 
-export const staticSections: SectionDef[] = rawStaticSections.map(normalizeConfigSection);
-export const memorySections: SectionDef[] = staticSections.filter((section) => section.group === 'memory');
+const normalizedStaticSections: SectionDef[] = rawStaticSections.map(normalizeConfigSection);
+
+export function getChannelSchemas(): Record<string, ChannelSchema> {
+  return localizeChannelSchemas(normalizedChannelSchemas);
+}
+
+export function getStaticSections(): SectionDef[] {
+  return localizeNullclawSections(normalizedStaticSections);
+}
+
+export function getMemorySections(): SectionDef[] {
+  return localizeMemorySections(normalizedStaticSections.filter((section) => section.group === 'memory'));
+}

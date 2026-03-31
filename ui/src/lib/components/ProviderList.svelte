@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
   import { api } from "$lib/api/client";
+  import { t } from "$lib/i18n/index.svelte";
 
   let {
     providers = [],
@@ -173,7 +174,7 @@
   function formatRecommendedLabel(label: string, recommended = false) {
     const cleaned = recommended ? normalizeRecommendedLabel(label) : label;
     return recommended && !/recommended/i.test(cleaned)
-      ? `${cleaned} (recommended)`
+      ? `${cleaned} (${t("wizardStep.recommended")})`
       : cleaned;
   }
 
@@ -215,7 +216,7 @@
     } catch (error) {
       modelErrorsByKey = {
         ...modelErrorsByKey,
-        [key]: error instanceof Error ? error.message : "Unable to load models",
+        [key]: error instanceof Error ? error.message : t("providerList.unableToLoadModels"),
       };
     } finally {
       modelLoadingByKey = { ...modelLoadingByKey, [key]: false };
@@ -289,26 +290,26 @@
 
   function modelPlaceholder(entry: ProviderEntry) {
     if (entry.provider === "codex-cli" || entry.provider === "openai-codex") {
-      return "e.g. gpt-5.4";
+      return t("providerList.codexModelPlaceholder");
     }
-    return "e.g. anthropic/claude-sonnet-4";
+    return t("providerList.modelPlaceholder");
   }
 
   function modelFieldHint(entry: ProviderEntry) {
     if (entry.provider === "codex-cli") {
-      return "Loads models from your local Codex cache in ~/.codex/models_cache.json.";
+      return t("providerList.codexCliHint");
     }
     if (entry.provider === "openai-codex") {
-      return "Uses ChatGPT/Codex auth from ~/.codex/auth.json. No API key required here.";
+      return t("providerList.openaiCodexHint");
     }
-    return "Click to load models, then filter as you type.";
+    return t("providerList.modelHint");
   }
 </script>
 
 <div class="provider-list">
-  <div class="step-title">Providers</div>
+  <div class="step-title">{t("providerList.title")}</div>
   <p class="step-description">
-    Configure AI providers in fallback order. First provider is primary.
+    {t("providerList.description")}
   </p>
 
   {#each entries as entry, i}
@@ -336,37 +337,37 @@
             class="icon-btn"
             onclick={() => moveUp(i)}
             disabled={i === 0}
-            title="Move up">&#8593;</button
+            title={t("configEditorUi.moveUp")}>&#8593;</button
           >
           <button
             class="icon-btn"
             onclick={() => moveDown(i)}
             disabled={i === entries.length - 1}
-            title="Move down">&#8595;</button
+            title={t("configEditorUi.moveDown")}>&#8595;</button
           >
           <button
             class="icon-btn remove-btn"
             onclick={() => removeEntry(i)}
-            title="Remove">&#215;</button
+            title={t("common.delete")}>&#215;</button
           >
         </div>
       </div>
 
       {#if !isLocal(entry.provider)}
         <div class="provider-field">
-          <label for={`provider-api-key-${i}`}>API Key</label>
+          <label for={`provider-api-key-${i}`}>{t("providerList.apiKey")}</label>
           <input
             id={`provider-api-key-${i}`}
             type="password"
             value={entry.api_key}
             oninput={(e) => updateEntry(i, "api_key", e.currentTarget.value)}
-            placeholder="Enter API key..."
+            placeholder={t("providerList.enterApiKey")}
           />
         </div>
       {/if}
 
       <div class="provider-field">
-        <label for={`provider-model-${i}`}>Model</label>
+        <label for={`provider-model-${i}`}>{t("providerList.model")}</label>
         <div class="model-picker">
           <input
             id={`provider-model-${i}`}
@@ -386,7 +387,7 @@
             {@const totalMatches = getFilteredModelCount(entry)}
             <div class="model-dropdown">
               {#if isModelLoading(entry)}
-                <div class="model-empty">Loading models...</div>
+                <div class="model-empty">{t("providerList.loadingModels")}</div>
               {:else if filteredModels.length > 0}
                 {#each filteredModels as model}
                   <button
@@ -403,18 +404,20 @@
                 {/each}
                 {#if totalMatches > filteredModels.length}
                   <div class="model-summary">
-                    Showing {filteredModels.length} of {totalMatches}. Keep typing to narrow.
+                    {t("providerList.showingMatches")
+                      .replace("{shown}", String(filteredModels.length))
+                      .replace("{total}", String(totalMatches))}
                   </div>
                 {/if}
               {:else if getModelError(entry)}
                 <div class="model-empty model-error">
-                  {getModelError(entry)}. You can still type a model manually.
+                  {t("providerList.modelError").replace("{error}", getModelError(entry))}
                 </div>
               {:else if getModelOptions(entry).length > 0}
-                <div class="model-empty">No matches for "{entry.model}".</div>
+                <div class="model-empty">{t("providerList.noMatches").replace("{query}", entry.model)}</div>
               {:else}
                 <div class="model-empty">
-                  No model list returned for {entry.provider}. You can still type one manually.
+                  {t("providerList.noModelList").replace("{provider}", entry.provider)}
                 </div>
               {/if}
             </div>
@@ -426,18 +429,18 @@
   {/each}
 
   <div class="add-row">
-    <button class="add-btn" onclick={addEntry}>+ Add Provider</button>
+    <button class="add-btn" onclick={addEntry}>+ {t("providerList.addProvider")}</button>
     {#if savedProviders.length > 0}
       <div class="saved-dropdown-container">
         <button class="add-btn saved-btn" onclick={toggleSavedDropdown} disabled={loadingSavedProviders}>
-          {loadingSavedProviders ? "Loading..." : "Use Saved"}
+          {loadingSavedProviders ? t("common.loading") : t("providerList.useSaved")}
         </button>
         {#if showSavedDropdown}
           <div class="saved-dropdown">
             {#each savedProviders as sp}
               <button class="saved-item" onclick={() => useSaved(sp)}>
                 <span class="saved-name">{sp.name}</span>
-                <span class="saved-detail">{sp.model || "no model"}</span>
+                <span class="saved-detail">{sp.model || t("providerList.noModel")}</span>
               </button>
             {/each}
           </div>
@@ -471,20 +474,21 @@
   }
 
   .provider-row {
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-left: 4px solid var(--indigo-500);
-    border-radius: var(--radius-sm);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(244, 248, 255, 0.72));
+    border: 1px solid rgba(141, 154, 178, 0.18);
+    border-left: 4px solid rgba(34, 211, 238, 0.72);
+    border-radius: var(--radius-lg);
     padding: 1rem;
     margin-bottom: 0.75rem;
-    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
+    box-shadow: var(--shadow-sm);
     transition: all 0.2s ease;
+    backdrop-filter: blur(10px);
   }
 
   .provider-row:hover {
     border-color: color-mix(in srgb, var(--accent) 50%, transparent);
-    border-left-color: var(--indigo-600);
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    border-left-color: var(--cyan-600);
+    box-shadow: var(--shadow-md);
   }
 
   .provider-row-header {
@@ -615,11 +619,12 @@
     z-index: 100;
     max-height: 200px;
     overflow-y: auto;
-    background: white;
-    border: 1px solid var(--slate-200);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(244, 248, 255, 0.92));
+    border: 1px solid rgba(141, 154, 178, 0.18);
     border-top: none;
-    border-radius: 0 0 8px 8px;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
     box-shadow: var(--shadow-md);
+    backdrop-filter: blur(14px);
   }
 
   .model-option {

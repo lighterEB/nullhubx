@@ -2,6 +2,7 @@ import {
   normalizeConfigSection,
   type ConfigSectionDef as GenericSectionDef,
 } from "./configSchemaContract";
+import { localizeComponentSections } from "./configSchemaI18n";
 
 export type {
   ConfigFieldDef as GenericFieldDef,
@@ -148,7 +149,8 @@ const componentSchemas: Record<string, GenericSectionDef[]> = {
 };
 
 export function getComponentConfigSchema(component: string): GenericSectionDef[] {
-  return componentSchemas[component] ?? [];
+  const sections = componentSchemas[component] ?? [];
+  return localizeComponentSections(component, sections);
 }
 
 export function supportsStructuredConfig(component: string): boolean {

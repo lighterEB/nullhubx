@@ -37,6 +37,7 @@ export default {
     error: 'Error',
     close: 'Close',
     save: 'Save',
+    saving: 'Saving...',
     cancel: 'Cancel',
     delete: 'Delete',
     edit: 'Edit',
@@ -49,10 +50,13 @@ export default {
     start: 'Start',
     stop: 'Stop',
     restart: 'Restart',
+    restarting: 'Restarting...',
     refresh: 'Refresh',
     search: 'Search',
     noData: 'No data',
-    comingSoon: 'Coming Soon'
+    comingSoon: 'Coming Soon',
+    enabled: 'Enabled',
+    disabled: 'Disabled'
   },
   status: {
     pending: 'Pending',
@@ -113,7 +117,70 @@ export default {
     memoryObjectError: 'Memory configuration must be a JSON object',
     peripheralsTitle: 'Peripherals',
     peripheralsDesc: 'Manage datasheet paths and peripheral board declarations in one dedicated module.',
-    peripheralsBoardsLabel: 'boards'
+    peripheralsBoardsLabel: 'boards',
+    apiKey: 'API Key',
+    baseUrl: 'Base URL',
+    userAgent: 'User-Agent',
+    nativeTools: 'Native Tools',
+    cliChannelEnabled: 'CLI channel enabled',
+    accountLabel: 'Account'
+  },
+  channelList: {
+    title: 'Channels',
+    description: 'Where would you like to talk to your bot? Web and CLI are available by default.',
+    defaultBadge: 'default',
+    advanced: 'Advanced',
+    addChannel: 'Add Channel',
+    useSaved: 'Use Saved',
+    enterValue: 'Enter value...',
+    commaSeparatedValues: 'Comma-separated values...'
+  },
+  providerList: {
+    title: 'Providers',
+    description: 'Configure AI providers in fallback order. First provider is primary.',
+    apiKey: 'API Key',
+    model: 'Model',
+    addProvider: 'Add Provider',
+    useSaved: 'Use Saved',
+    noModel: 'no model',
+    enterApiKey: 'Enter API key...',
+    loadingModels: 'Loading models...',
+    unableToLoadModels: 'Unable to load models',
+    showingMatches: 'Showing {shown} of {total}. Keep typing to narrow.',
+    modelError: '{error}. You can still type a model manually.',
+    noMatches: 'No matches for "{query}".',
+    noModelList: 'No model list returned for {provider}. You can still type one manually.',
+    modelHint: 'Click to load models, then filter as you type.',
+    codexCliHint: 'Loads models from your local Codex cache in ~/.codex/models_cache.json.',
+    openaiCodexHint: 'Uses ChatGPT/Codex auth from ~/.codex/auth.json. No API key required here.',
+    modelPlaceholder: 'e.g. anthropic/claude-sonnet-4',
+    codexModelPlaceholder: 'e.g. gpt-5.4'
+  },
+  wizardStep: {
+    recommended: 'recommended',
+    noMatches: 'No matches',
+    enterSecret: 'Enter secret...',
+    enterValue: 'Enter value...'
+  },
+  wizard: {
+    title: 'Install {component}',
+    instanceName: 'Instance Name',
+    instanceNameHint: "Name doesn't matter, just needs to be unique",
+    instanceNamePlaceholder: 'instance-1',
+    instanceNameRequired: 'Instance name is required',
+    instanceNameUnique: 'Instance name must be unique for this component',
+    version: 'Version',
+    latest: 'latest',
+    latestRecommended: 'latest, recommended',
+    setupPage: 'Setup',
+    channelsPage: 'Channels',
+    settingsPage: 'Settings',
+    providerRequired: 'Add at least one provider',
+    validationFailed: 'Validation failed: {error}',
+    advanced: 'Advanced',
+    validating: 'Validating...',
+    installing: 'Installing...',
+    installComplete: 'Installation complete!'
   },
   hub: {
     title: 'Hub',
@@ -657,6 +724,10 @@ export default {
     autoScroll: 'Auto Scroll',
     loadFailed: 'Failed to load logs',
     emptyLogs: 'No {source} logs available'
+  },
+  configSchema: {
+    options: {},
+    literals: {}
   },
   error: {
     requestFailed: 'Request Failed',

@@ -3,7 +3,7 @@ import enUS from './en-US';
 import { setErrorLocale } from '$lib/api/errorMessages';
 
 export type Locale = 'zh-CN' | 'en-US';
-export type Dictionary = typeof zhCN;
+export type Dictionary = Record<string, unknown>;
 
 const dictionaries: Record<Locale, Dictionary> = {
   'zh-CN': zhCN,

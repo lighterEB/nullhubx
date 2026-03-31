@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { api } from "$lib/api/client";
-  import { channelSchemas } from './configSchemas';
+  import { t } from "$lib/i18n/index.svelte";
+  import { getChannelSchemas } from './configSchemas';
 
   let {
     value = {} as Record<string, Record<string, Record<string, any>>>,
@@ -17,6 +18,7 @@
   let showSavedDropdown = $state(false);
   let savedChannelsRevealed = $state(false);
   let loadingSavedChannels = $state(false);
+  let channelSchemas = $derived(getChannelSchemas());
 
   function sameEntries(
     a: Array<{ type: string; account: string }>,
@@ -153,7 +155,7 @@
         type="password"
         value={getFieldValue(entry.type, entry.account, field.key, field.default)}
         oninput={(e) => updateField(entry.type, entry.account, field.key, e.currentTarget.value)}
-        placeholder="Enter value..."
+        placeholder={t("channelList.enterValue")}
       />
     {:else if field.type === 'number'}
       <input
@@ -178,7 +180,7 @@
         onchange={(e) => updateField(entry.type, entry.account, field.key, e.currentTarget.value)}
       >
         {#each field.options || [] as opt}
-          <option value={opt}>{opt}</option>
+          <option value={opt}>{field.optionLabels?.[opt] ?? opt}</option>
         {/each}
       </select>
     {:else if field.type === 'list'}
@@ -187,7 +189,7 @@
         type="text"
         value={(getFieldValue(entry.type, entry.account, field.key, field.default) || []).join(', ')}
         oninput={(e) => updateField(entry.type, entry.account, field.key, e.currentTarget.value.split(',').map((s: string) => s.trim()).filter(Boolean))}
-        placeholder={field.hint || "Comma-separated values..."}
+        placeholder={field.hint || t("channelList.commaSeparatedValues")}
       />
     {:else}
       <input
@@ -195,16 +197,16 @@
         type="text"
         value={getFieldValue(entry.type, entry.account, field.key, field.default)}
         oninput={(e) => updateField(entry.type, entry.account, field.key, e.currentTarget.value)}
-        placeholder={field.hint || "Enter value..."}
+        placeholder={field.hint || t("channelList.enterValue")}
       />
     {/if}
   </div>
 {/snippet}
 
 <div class="channel-list">
-  <div class="step-title">Channels</div>
+  <div class="step-title">{t("channelList.title")}</div>
   <p class="step-description">
-    Where would you like to talk to your bot? Web and CLI are available by default.
+    {t("channelList.description")}
   </p>
 
   {#each DEFAULT_CHANNELS as ch}
@@ -212,7 +214,7 @@
       <label class="toggle-row">
         <input type="checkbox" checked disabled />
         <span class="channel-label">{channelSchemas[ch]?.label || ch.toUpperCase()}</span>
-        <span class="default-badge">default</span>
+        <span class="default-badge">{t("channelList.defaultBadge")}</span>
       </label>
     </div>
   {/each}
@@ -230,7 +232,7 @@
         {#if schema?.hasAccounts && isNamedAccount(entry.account)}
           <span class="account-name">{entry.account}</span>
         {/if}
-        <button class="icon-btn remove-btn" onclick={() => removeChannel(i)} title="Remove">&#215;</button>
+        <button class="icon-btn remove-btn" onclick={() => removeChannel(i)} title={t("common.delete")}>&#215;</button>
       </div>
 
       <div class="channel-fields">
@@ -239,7 +241,7 @@
         {/each}
         {#if (schema?.fields || []).some((field) => field.advanced)}
           <details class="advanced-section">
-            <summary>Advanced</summary>
+            <summary>{t("channelList.advanced")}</summary>
             <div class="advanced-fields">
               {#each (schema?.fields || []).filter((field) => field.advanced) as field}
                 {@render channelField(entry, field)}
@@ -258,15 +260,15 @@
           {ct.label}
         </button>
       {/each}
-      <button class="picker-cancel" onclick={() => (showAddPicker = false)}>Cancel</button>
+      <button class="picker-cancel" onclick={() => (showAddPicker = false)}>{t("common.cancel")}</button>
     </div>
   {:else}
     <div class="add-row">
-      <button class="add-btn" onclick={() => (showAddPicker = true)}>+ Add Channel</button>
+      <button class="add-btn" onclick={() => (showAddPicker = true)}>+ {t("channelList.addChannel")}</button>
       {#if savedChannels.length > 0}
         <div class="saved-dropdown-container">
           <button class="add-btn saved-btn" onclick={toggleSavedDropdown} disabled={loadingSavedChannels}>
-            {loadingSavedChannels ? "Loading..." : showSavedDropdown ? "Close" : "Use Saved"}
+            {loadingSavedChannels ? t("common.loading") : showSavedDropdown ? t("common.close") : t("channelList.useSaved")}
           </button>
           {#if showSavedDropdown}
             <div class="saved-dropdown">

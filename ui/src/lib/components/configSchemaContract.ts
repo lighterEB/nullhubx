@@ -25,6 +25,7 @@ export interface ConfigFieldDef {
   type: ConfigFieldType;
   default?: unknown;
   options?: string[];
+  optionLabels?: Record<string, string>;
   step?: number;
   min?: number;
   max?: number;
