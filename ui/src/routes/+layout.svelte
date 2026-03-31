@@ -1,6 +1,7 @@
 <script>
   import '../app.css';
   import { onMount } from 'svelte';
+  import { preloadCode } from '$app/navigation';
   import TopBar from '$lib/components/TopBar.svelte';
   import StatusBar from '$lib/components/StatusBar.svelte';
   import { redirectToPreferredOrigin } from '$lib/nullhubxAccess';
@@ -11,12 +12,17 @@
 
   // Run redirect check in background - don't block initial render
   onMount(() => {
+    void redirectToPreferredOrigin(window.location);
+
     const unsubscribeStatus = subscribeStatus();
 
-    // Delay redirect check to let page render first
-    setTimeout(() => {
-      void redirectToPreferredOrigin(window.location);
-    }, 100);
+    void Promise.allSettled([
+      preloadCode('/'),
+      preloadCode('/instances'),
+      preloadCode('/connections'),
+      preloadCode('/orchestration'),
+      preloadCode('/settings')
+    ]);
 
     return () => {
       unsubscribeStatus();

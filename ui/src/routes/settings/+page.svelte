@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { api, type JsonObject, type ServiceStatusResponse } from "$lib/api/client";
   import { t } from "$lib/i18n/index.svelte";
+  import type { PageData } from "./$types";
 
   type ServiceInfo = {
     status: string;
@@ -20,25 +20,57 @@
     access?: JsonObject | null;
   };
 
-  let settings = $state<SettingsPayload>({
+  let { data }: { data: PageData } = $props();
+
+  const defaultSettings: SettingsPayload = {
     port: 19800,
     host: "127.0.0.1",
     auth_token: null,
     auto_update_check: true,
     access: null,
-  });
+  };
+
+  const initialSettings = (() => {
+    const pageData = data;
+    return {
+      ...defaultSettings,
+      ...(((pageData.settings as SettingsPayload | null) ?? {})),
+    };
+  })();
+  const initialSettingsReady = (() => {
+    const pageData = data;
+    return Boolean(pageData.settings);
+  })();
+  const initialSettingsLoadError = (() => {
+    const pageData = data;
+    return pageData.settingsLoadError || "";
+  })();
+  const initialService: ServiceInfo = (() => {
+    const pageData = data;
+    return {
+      status: typeof pageData.serviceStatus?.status === "string" ? pageData.serviceStatus.status : "ok",
+      message:
+        typeof pageData.serviceStatus?.message === "string"
+          ? pageData.serviceStatus.message
+          : pageData.serviceStatusError || "",
+      registered: !!pageData.serviceStatus?.registered,
+      running: !!pageData.serviceStatus?.running,
+      service_type:
+        typeof pageData.serviceStatus?.service_type === "string" ? pageData.serviceStatus.service_type : "",
+      unit_path:
+        typeof pageData.serviceStatus?.unit_path === "string" ? pageData.serviceStatus.unit_path : "",
+    };
+  })();
+
+  let settings = $state<SettingsPayload>(initialSettings);
   let saving = $state(false);
+  let settingsInitializing = $state(false);
+  let settingsReady = $state(initialSettingsReady);
+  let settingsLoadError = $state(initialSettingsLoadError);
   let serviceLoading = $state(false);
   let messageTone = $state<"success" | "error">("success");
   let message = $state("");
-  let service = $state<ServiceInfo>({
-    status: "ok",
-    message: "",
-    registered: false,
-    running: false,
-    service_type: "",
-    unit_path: "",
-  });
+  let service = $state<ServiceInfo>(initialService);
 
   const serviceButtonLabel = $derived.by(() => {
     if (serviceLoading) {
@@ -47,14 +79,34 @@
     return service.registered ? t('settings.disableAutostart') : t('settings.enableAutostart');
   });
 
-  onMount(async () => {
-    try {
-      settings = await api.getSettings();
-    } catch (e) {
-      console.error(e);
+  async function initializePage() {
+    settingsInitializing = true;
+    settingsLoadError = "";
+
+    const [settingsResult, serviceResult] = await Promise.allSettled([
+      api.getSettings(),
+      api.serviceStatus(),
+    ]);
+
+    if (settingsResult.status === "fulfilled") {
+      settings = settingsResult.value as SettingsPayload;
+      settingsReady = true;
+    } else {
+      settingsReady = false;
+      settingsLoadError = (settingsResult.reason as Error)?.message || t('error.requestFailed');
     }
-    await refreshServiceStatus();
-  });
+
+    if (serviceResult.status === "fulfilled") {
+      applyServiceStatus(serviceResult.value);
+    } else {
+      applyServiceStatus({
+        status: "error",
+        message: (serviceResult.reason as Error)?.message || t('settings.serviceStatusLoadFailed'),
+      });
+    }
+
+    settingsInitializing = false;
+  }
 
   function setMessage(text: string, tone: "success" | "error" = "success") {
     message = text;
@@ -155,93 +207,110 @@
     </div>
   {/if}
 
-  <div class="settings-grid">
-    <section class="section-shell settings-section">
-      <div class="settings-section-head">
-        <h2>{t('settings.server')}</h2>
-      </div>
-      <div class="field">
-        <label for="settings-port">{t('settings.port')}</label>
-        <input id="settings-port" type="number" bind:value={settings.port} />
-        <p class="hint">{t('settings.portHint')}</p>
-      </div>
-      <div class="field">
-        <label for="settings-host">{t('settings.host')}</label>
-        <input id="settings-host" type="text" bind:value={settings.host} />
-        <p class="hint">{t('settings.hostHint')}</p>
+  {#if settingsInitializing}
+    <section class="section-shell settings-loading-shell" aria-busy="true">
+      <h2>{t('common.loading')}</h2>
+      <p>{t('settings.subtitle')}</p>
+    </section>
+  {:else if !settingsReady}
+    <section class="section-shell settings-loading-shell">
+      <h2>{t('error.requestFailed')}</h2>
+      <p>{settingsLoadError || t('error.requestFailed')}</p>
+      <div class="service-actions">
+        <button class="control-btn primary service-btn" onclick={() => void initializePage()}>
+          {t('instanceDetail.retryNow')}
+        </button>
       </div>
     </section>
-
-    <section class="section-shell settings-section">
-      <div class="settings-section-head">
-        <h2>{t('settings.security')}</h2>
-      </div>
-      <div class="field">
-        <label for="settings-auth-token">{t('settings.authToken')}</label>
-        <input id="settings-auth-token" type="password" bind:value={settings.auth_token} placeholder="" />
-        <p class="hint">{t('settings.authTokenHint')}</p>
-      </div>
-    </section>
-
-    <section class="section-shell settings-section updates-section">
-      <div class="settings-section-head">
-        <h2>{t('settings.updates')}</h2>
-      </div>
-      <label class="toggle-field">
-        <input type="checkbox" bind:checked={settings.auto_update_check} />
-        <span class="toggle-slider"></span>
-        <span class="toggle-label">{t('settings.autoUpdateCheck')}</span>
-      </label>
-    </section>
-
-    <section class="section-shell settings-section service-section">
-      <div class="settings-section-head">
-        <h2>{t('settings.service')}</h2>
-        <p class="section-hint">{t('settings.serviceHint')}</p>
-      </div>
-
-      <div class="service-panel">
-        <div class="service-row">
-          <span class="service-label">{t('settings.autostart')}</span>
-          <span class="service-badge" class:active={service.registered}>
-            {service.registered ? t('settings.enabled') : t('settings.disabled')}
-          </span>
+  {:else}
+    <div class="settings-grid">
+      <section class="section-shell settings-section">
+        <div class="settings-section-head">
+          <h2>{t('settings.server')}</h2>
         </div>
-        <div class="service-row">
-          <span class="service-label">{t('settings.serviceStatus')}</span>
-          <span class="service-badge" class:active={service.running}>
-            {service.running ? t('settings.running') : t('settings.stopped')}
-          </span>
+        <div class="field">
+          <label for="settings-port">{t('settings.port')}</label>
+          <input id="settings-port" type="number" bind:value={settings.port} />
+          <p class="hint">{t('settings.portHint')}</p>
         </div>
-        {#if service.service_type}
-          <div class="service-detail">
-            <span class="service-label">{t('settings.serviceType')}</span>
-            <code>{service.service_type}</code>
+        <div class="field">
+          <label for="settings-host">{t('settings.host')}</label>
+          <input id="settings-host" type="text" bind:value={settings.host} />
+          <p class="hint">{t('settings.hostHint')}</p>
+        </div>
+      </section>
+
+      <section class="section-shell settings-section">
+        <div class="settings-section-head">
+          <h2>{t('settings.security')}</h2>
+        </div>
+        <div class="field">
+          <label for="settings-auth-token">{t('settings.authToken')}</label>
+          <input id="settings-auth-token" type="password" bind:value={settings.auth_token} placeholder="" />
+          <p class="hint">{t('settings.authTokenHint')}</p>
+        </div>
+      </section>
+
+      <section class="section-shell settings-section updates-section">
+        <div class="settings-section-head">
+          <h2>{t('settings.updates')}</h2>
+        </div>
+        <label class="toggle-field">
+          <input type="checkbox" bind:checked={settings.auto_update_check} />
+          <span class="toggle-slider"></span>
+          <span class="toggle-label">{t('settings.autoUpdateCheck')}</span>
+        </label>
+      </section>
+
+      <section class="section-shell settings-section service-section">
+        <div class="settings-section-head">
+          <h2>{t('settings.service')}</h2>
+          <p class="section-hint">{t('settings.serviceHint')}</p>
+        </div>
+
+        <div class="service-panel">
+          <div class="service-row">
+            <span class="service-label">{t('settings.autostart')}</span>
+            <span class="service-badge" class:active={service.registered}>
+              {service.registered ? t('settings.enabled') : t('settings.disabled')}
+            </span>
           </div>
-        {/if}
-        {#if service.unit_path}
-          <div class="service-detail">
-            <span class="service-label">{t('settings.unitPath')}</span>
-            <code>{service.unit_path}</code>
+          <div class="service-row">
+            <span class="service-label">{t('settings.serviceStatus')}</span>
+            <span class="service-badge" class:active={service.running}>
+              {service.running ? t('settings.running') : t('settings.stopped')}
+            </span>
           </div>
-        {/if}
-        <div class="service-actions">
-          <button class="control-btn primary service-btn" onclick={toggleService} disabled={serviceLoading}>
-            {serviceButtonLabel}
-          </button>
-          <button class="control-btn secondary service-btn" onclick={() => refreshServiceStatus()} disabled={serviceLoading}>
-            {t('common.refresh')}
-          </button>
+          {#if service.service_type}
+            <div class="service-detail">
+              <span class="service-label">{t('settings.serviceType')}</span>
+              <code>{service.service_type}</code>
+            </div>
+          {/if}
+          {#if service.unit_path}
+            <div class="service-detail">
+              <span class="service-label">{t('settings.unitPath')}</span>
+              <code>{service.unit_path}</code>
+            </div>
+          {/if}
+          <div class="service-actions">
+            <button class="control-btn primary service-btn" onclick={toggleService} disabled={serviceLoading}>
+              {serviceButtonLabel}
+            </button>
+            <button class="control-btn secondary service-btn" onclick={() => refreshServiceStatus()} disabled={serviceLoading}>
+              {t('common.refresh')}
+            </button>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <div class="section-shell actions-shell">
-      <button class="control-btn primary save-btn" onclick={save} disabled={saving}>
-        {saving ? t('settings.saving') : t('settings.saveSettings')}
-      </button>
+      <div class="section-shell actions-shell">
+        <button class="control-btn primary save-btn" onclick={save} disabled={saving}>
+          {saving ? t('settings.saving') : t('settings.saveSettings')}
+        </button>
+      </div>
     </div>
-  </div>
+  {/if}
 </div>
 
 <style>
@@ -263,8 +332,15 @@
     color: var(--red-700);
   }
 
+  .feedback-banner :global(*) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
   .status-summary {
-    white-space: nowrap;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .status-summary.is-active {
@@ -277,6 +353,19 @@
     border-color: rgba(34, 211, 238, 0.2);
     background: rgba(239, 250, 255, 0.82);
     color: var(--cyan-700, var(--cyan-600));
+  }
+
+  .settings-loading-shell {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-height: 220px;
+    justify-content: center;
+  }
+
+  .settings-loading-shell h2,
+  .settings-loading-shell p {
+    margin: 0;
   }
 
   .settings-grid {
@@ -367,7 +456,9 @@
     height: 24px;
     background: rgba(141, 154, 178, 0.34);
     border-radius: 12px;
-    transition: all var(--transition-fast);
+    transition:
+      background-color var(--transition-fast),
+      box-shadow var(--transition-fast);
   }
 
   .toggle-slider::before {
@@ -379,7 +470,10 @@
     top: 3px;
     background: rgba(255, 255, 255, 0.96);
     border-radius: 50%;
-    transition: all var(--transition-fast);
+    transition:
+      transform var(--transition-fast),
+      background-color var(--transition-fast),
+      box-shadow var(--transition-fast);
     box-shadow: var(--shadow-sm);
   }
 
@@ -410,19 +504,24 @@
   .service-row {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
+    flex-wrap: wrap;
     gap: var(--spacing-sm);
   }
 
   .service-label {
+    min-width: 0;
     font-size: var(--text-xs);
     color: var(--slate-500);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-weight: 600;
+    overflow-wrap: anywhere;
   }
 
   .service-badge {
+    min-width: 0;
+    max-width: 100%;
     font-size: var(--text-xs);
     font-weight: 600;
     padding: 5px 10px;
@@ -432,6 +531,8 @@
     border: 1px solid rgba(141, 154, 178, 0.18);
     text-transform: uppercase;
     letter-spacing: 0.06em;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .service-badge.active {

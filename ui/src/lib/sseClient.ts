@@ -51,7 +51,7 @@ export class SseClient {
     this.isClosed = false;
     this.isConnecting = true;
     this.currentSource = source;
-    this.url = `/api/instances/${encodeURIComponent(component)}/${encodeURIComponent(name)}/logs/sse?source=${source}`;
+    this.url = `/api/instances/${encodeURIComponent(component)}/${encodeURIComponent(name)}/logs/stream?source=${source}`;
 
     this.setupConnection();
   }

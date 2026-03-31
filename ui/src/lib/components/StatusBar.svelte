@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { runningCount, hubVersion, statusError } from "$lib/statusStore";
+  import { runningCount, hubVersion, statusError, statusReady } from "$lib/statusStore";
   import { t } from "$lib/i18n/index.svelte";
 
   let error = $derived($statusError !== null);
@@ -9,11 +9,22 @@
   <div class="statusbar-left">
     <span class="status-item">NULLHUBX <span class="status-value">v{$hubVersion}</span></span>
     <span class="divider">|</span>
-    <span class="status-item">{t("statusBar.instances")} <span class="status-value">{$runningCount} {t("statusBar.running")}</span></span>
+    <span class="status-item">
+      {t("statusBar.instances")}
+      <span class="status-value">
+        {#if $statusReady}
+          {$runningCount} {t("statusBar.running")}
+        {:else}
+          --
+        {/if}
+      </span>
+    </span>
   </div>
   <div class="statusbar-right">
     {#if error}
       <span class="status-error">{t("statusBar.connectionError")}</span>
+    {:else if !$statusReady}
+      <span class="status-idle">{t("common.loading")}</span>
     {:else if $runningCount > 0}
       <span class="status-nominal">{t("statusBar.operational")}</span>
     {:else}

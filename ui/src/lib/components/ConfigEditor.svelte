@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { api } from "$lib/api/client";
   import ConfigEditorUI from "./ConfigEditorUI.svelte";
   import StructuredConfigEditor from "./StructuredConfigEditor.svelte";
@@ -9,10 +8,12 @@
   let {
     component = "",
     name = "",
+    active = false,
     onAction = async () => {},
   }: {
     component?: string;
     name?: string;
+    active?: boolean;
     onAction?: () => void | Promise<void>;
   } = $props();
   let configObj = $state<any>({});
@@ -22,9 +23,11 @@
   let message = $state("");
   let error = $state(false);
   let loaded = $state(false);
+  let loadedKey = $state("");
   let configUiKind = $derived(getConfigUiKind(component));
   let supportsUi = $derived(configUiKind !== "raw");
   let busy = $derived(action !== null);
+  const configKey = $derived(component && name ? `${component}/${name}` : "");
 
   $effect(() => {
     if (!supportsUi && mode === "ui") {
@@ -32,7 +35,11 @@
     }
   });
 
-  async function load() {
+  async function load(force = false) {
+    if (!configKey) return;
+    if (!force && loaded && loadedKey === configKey) return;
+
+    loaded = false;
     try {
       const data = await api.getConfig(component, name);
       configObj = typeof data === "string" ? JSON.parse(data) : data;
@@ -45,6 +52,7 @@
       message = t("configEditor.notFound");
       error = false;
     }
+    loadedKey = configKey;
     loaded = true;
   }
 
@@ -110,7 +118,10 @@
     }
   }
 
-  onMount(() => { load(); });
+  $effect(() => {
+    if (!active || !configKey) return;
+    void load();
+  });
 </script>
 
 <div class="config-editor">
@@ -169,7 +180,7 @@
     border: 1px solid rgba(141, 154, 178, 0.18);
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(244, 248, 255, 0.76));
     box-shadow: var(--shadow-sm);
-    backdrop-filter: blur(16px);
+    backdrop-filter: blur(8px);
   }
 
   .mode-toggle {
@@ -198,7 +209,11 @@
     font-weight: 600;
     cursor: pointer;
     border-radius: 999px;
-    transition: all var(--transition-fast);
+    transition:
+      color var(--transition-fast),
+      background-color var(--transition-fast),
+      border-color var(--transition-fast),
+      box-shadow var(--transition-fast);
   }
 
   .mode-btn:hover {
@@ -253,9 +268,13 @@
     resize: none;
     line-height: 1.6;
     outline: none;
-    transition: all var(--transition-fast);
+    transition:
+      border-color var(--transition-fast),
+      box-shadow var(--transition-fast),
+      background-color var(--transition-fast),
+      color var(--transition-fast);
     box-shadow: var(--shadow-sm);
-    backdrop-filter: blur(16px);
+    backdrop-filter: blur(8px);
   }
 
   .raw-editor:focus {

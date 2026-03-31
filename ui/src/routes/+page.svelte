@@ -1,20 +1,9 @@
 <script lang="ts">
-  import { onMount, onDestroy } from "svelte";
-  import { status, statusError, instanceCount, runningCount, subscribeStatus, refreshStatus } from "$lib/statusStore";
+  import { status, statusError, statusReady, instanceCount, runningCount, refreshStatus } from "$lib/statusStore";
   import { t } from "$lib/i18n/index.svelte";
   import StatusBadge from "$lib/components/StatusBadge.svelte";
   import type { InstanceInfo, InstancesPayload } from "$lib/api/client";
-
-  let unsubscribe: (() => void) | null = null;
   const managementEntryCount = 5;
-
-  onMount(() => {
-    unsubscribe = subscribeStatus();
-  });
-
-  onDestroy(() => {
-    unsubscribe?.();
-  });
 
   const componentCount = $derived(Object.keys($status?.instances || {}).length);
 
@@ -56,17 +45,17 @@
     <div class="metrics-grid">
       <article class="metric-card">
         <span class="metric-label">{t('overview.componentCount')}</span>
-        <strong class="metric-value">{componentCount}</strong>
+        <strong class="metric-value">{$statusReady ? componentCount : "—"}</strong>
         <p class="metric-meta">{t('hub.title')}</p>
       </article>
       <article class="metric-card">
         <span class="metric-label">{t('overview.instanceTotal')}</span>
-        <strong class="metric-value">{$instanceCount}</strong>
+        <strong class="metric-value">{$statusReady ? $instanceCount : "—"}</strong>
         <p class="metric-meta">{t('instances.title')}</p>
       </article>
       <article class="metric-card">
         <span class="metric-label">{t('overview.runningInstances')}</span>
-        <strong class="metric-value">{$runningCount}</strong>
+        <strong class="metric-value">{$statusReady ? $runningCount : "—"}</strong>
         <p class="metric-meta">{t('statusBar.operational')}</p>
       </article>
       <article class="metric-card">
@@ -139,7 +128,13 @@
       <a class="control-btn secondary recent-link" href="/instances">{t('overview.enterInstances')}</a>
     </div>
 
-    {#if recentInstances.length === 0}
+    {#if !$statusReady && !$statusError}
+      <div class="list-skeleton" aria-hidden="true">
+        {#each Array(4) as _, index}
+          <div class="skeleton-row" style={`--skeleton-delay:${index * 40}ms`}></div>
+        {/each}
+      </div>
+    {:else if recentInstances.length === 0}
       <p class="empty-panel">{t('overview.emptyState')}</p>
     {:else}
       <ul class="recent-list">
@@ -174,6 +169,32 @@
     background: rgba(255, 241, 245, 0.82);
     color: var(--red-700);
     box-shadow: var(--shadow-sm);
+  }
+
+  .list-skeleton {
+    display: grid;
+    gap: var(--spacing-sm);
+  }
+
+  .skeleton-row {
+    height: 68px;
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    background:
+      linear-gradient(
+        90deg,
+        rgba(226, 232, 240, 0.52) 0%,
+        rgba(248, 250, 252, 0.94) 48%,
+        rgba(226, 232, 240, 0.52) 100%
+      );
+    background-size: 220% 100%;
+    animation: overviewSkeleton 1.3s ease-in-out infinite;
+    animation-delay: var(--skeleton-delay, 0ms);
+  }
+
+  @keyframes overviewSkeleton {
+    0% { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
   }
 
   .entry-grid {
@@ -219,6 +240,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
+    min-width: 0;
   }
 
   .entry-path {
@@ -229,6 +251,9 @@
     margin: 0;
     color: var(--slate-900);
     font-size: var(--text-lg);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .entry-copy p {
@@ -236,6 +261,10 @@
     color: var(--slate-600);
     font-size: var(--text-sm);
     line-height: 1.6;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .entry-cta {

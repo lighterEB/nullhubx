@@ -153,7 +153,11 @@
     border: 1px solid rgba(141, 154, 178, 0.2);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
-    transition: all var(--transition-base);
+    transition:
+      background-color var(--transition-base),
+      border-color var(--transition-base),
+      box-shadow var(--transition-base),
+      transform var(--transition-base);
     overflow: hidden;
     backdrop-filter: blur(18px);
   }
@@ -193,6 +197,7 @@
     gap: var(--spacing-md);
     text-decoration: none;
     color: inherit;
+    min-width: 0;
   }
 
   .icon-box {
@@ -228,12 +233,17 @@
     color: var(--slate-900);
     letter-spacing: -0.02em;
     margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .card-meta {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
+    min-width: 0;
+    flex-wrap: wrap;
   }
 
   .component-tag {
@@ -247,12 +257,19 @@
     border: 1px solid rgba(34, 211, 238, 0.18);
     text-transform: uppercase;
     letter-spacing: 0.06em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
   }
 
   .version {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--slate-500);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .gateway-info {
@@ -263,6 +280,7 @@
     background: rgba(34, 211, 238, 0.07);
     border: 1px solid rgba(34, 211, 238, 0.16);
     border-radius: var(--radius-md);
+    min-width: 0;
   }
 
   .gateway-label {
@@ -278,6 +296,10 @@
     font-weight: 600;
     color: var(--cyan-500);
     background: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
   }
 
   .card-actions {

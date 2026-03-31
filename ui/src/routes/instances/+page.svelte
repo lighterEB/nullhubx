@@ -1,26 +1,16 @@
 <script lang="ts">
-  import { onMount, onDestroy } from "svelte";
   import InstanceCard from "$lib/components/InstanceCard.svelte";
   import StatusBadge from "$lib/components/StatusBadge.svelte";
-  import { status, statusError, instanceCount, runningCount, subscribeStatus, refreshStatus } from "$lib/statusStore";
+  import { instancesState, statusError, statusReady, instanceCount, runningCount, refreshStatus } from "$lib/statusStore";
   import { t } from "$lib/i18n/index.svelte";
   import type { InstanceInfo, InstancesPayload } from "$lib/api/client";
 
-  let unsubscribe: (() => void) | null = null;
   let selectedComponent = $state("all");
   let keyword = $state("");
   let previewTarget = $state("");
 
-  onMount(() => {
-    unsubscribe = subscribeStatus();
-  });
-
-  onDestroy(() => {
-    unsubscribe?.();
-  });
-
   const componentStats = $derived.by(() => {
-    const groups: InstancesPayload = $status?.instances || {};
+    const groups: InstancesPayload = $instancesState;
     const rows = Object.entries(groups).map(([component, instances]) => {
       const total = Object.keys(instances).length;
       const running = Object.values(instances).filter((inst: InstanceInfo) =>
@@ -34,7 +24,7 @@
 
   const filteredInstances = $derived.by(() => {
     const rows: Array<{ component: string; name: string; info: InstanceInfo }> = [];
-    const groups: InstancesPayload = $status?.instances || {};
+    const groups: InstancesPayload = $instancesState;
     const query = keyword.trim().toLowerCase();
 
     for (const [component, instances] of Object.entries(groups)) {
@@ -101,22 +91,22 @@
     <div class="metrics-grid">
       <article class="metric-card">
         <span class="metric-label">{t("instances.allComponents")}</span>
-        <strong class="metric-value">{componentStats.length}</strong>
+        <strong class="metric-value">{$statusReady ? componentStats.length : "—"}</strong>
         <p class="metric-meta">{t("overview.componentCount")}</p>
       </article>
       <article class="metric-card">
         <span class="metric-label">{t("overview.instanceTotal")}</span>
-        <strong class="metric-value">{$instanceCount}</strong>
+        <strong class="metric-value">{$statusReady ? $instanceCount : "—"}</strong>
         <p class="metric-meta">{t("instances.instanceList")}</p>
       </article>
       <article class="metric-card">
         <span class="metric-label">{t("overview.runningInstances")}</span>
-        <strong class="metric-value">{$runningCount}</strong>
+        <strong class="metric-value">{$statusReady ? $runningCount : "—"}</strong>
         <p class="metric-meta">{t("statusBar.operational")}</p>
       </article>
       <article class="metric-card">
         <span class="metric-label">{t("common.search")}</span>
-        <strong class="metric-value">{filteredCount}</strong>
+        <strong class="metric-value">{$statusReady ? filteredCount : "—"}</strong>
         <p class="metric-meta">{selectedComponentLabel}</p>
       </article>
     </div>
@@ -133,10 +123,10 @@
       <div class="filter-list">
         <button class="filter-chip" class:selected={selectedComponent === "all"} onclick={() => (selectedComponent = "all")}>
           <span>{t("instances.allComponents")}</span>
-          <strong>{$instanceCount}</strong>
+          <strong>{$statusReady ? $instanceCount : "—"}</strong>
         </button>
 
-        {#each componentStats as row}
+        {#each componentStats as row (row.component)}
           <button
             class="filter-chip"
             class:selected={selectedComponent === row.component}
@@ -154,7 +144,13 @@
         <div class="section-heading">
           <span class="section-kicker">{selectedComponentLabel}</span>
           <h2 class="section-title">{t("instances.instanceList")}</h2>
-          <p class="section-subtitle">{$instanceCount} {t("hub.instances")}，{$runningCount} {t("statusBar.running")}</p>
+          <p class="section-subtitle">
+            {#if $statusReady}
+              {$instanceCount} {t("hub.instances")}，{$runningCount} {t("statusBar.running")}
+            {:else}
+              {t("common.loading")}
+            {/if}
+          </p>
         </div>
         <div class="toolbar">
           <input
@@ -170,20 +166,25 @@
         <div class="error-banner">{t("error.statusFetchFailed").replace("{error}", $statusError)}</div>
       {/if}
 
-      {#if filteredInstances.length === 0}
+      {#if !$statusReady && !$statusError}
+        <div class="instance-grid" aria-hidden="true">
+          {#each Array(4) as _, index}
+            <div class="instance-skeleton" style={`--skeleton-delay:${index * 40}ms`}></div>
+          {/each}
+        </div>
+      {:else if filteredInstances.length === 0}
         <div class="empty-panel workspace-empty">
           <h3>{t("common.noData")}</h3>
           <p>{t("instances.emptyState")}</p>
         </div>
       {:else}
         <div class="instance-grid">
-          {#each filteredInstances as row, i}
+          {#each filteredInstances as row (`${row.component}/${row.name}`)}
             <div
               class="card-wrapper"
               class:is-preview={previewInstance && `${row.component}/${row.name}` === `${previewInstance.component}/${previewInstance.name}`}
               role="group"
               aria-label={`${row.component}/${row.name}`}
-              style="animation-delay: {i * 50}ms"
               onmouseenter={() => setPreview(row.component, row.name)}
               onfocusin={() => setPreview(row.component, row.name)}
             >
@@ -256,6 +257,27 @@
     gap: var(--spacing-xl);
   }
 
+  .instance-skeleton {
+    min-height: 248px;
+    border-radius: var(--radius-xl);
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    background:
+      linear-gradient(
+        90deg,
+        rgba(226, 232, 240, 0.48) 0%,
+        rgba(248, 250, 252, 0.94) 48%,
+        rgba(226, 232, 240, 0.48) 100%
+      );
+    background-size: 220% 100%;
+    animation: instanceSkeleton 1.3s ease-in-out infinite;
+    animation-delay: var(--skeleton-delay, 0ms);
+  }
+
+  @keyframes instanceSkeleton {
+    0% { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+  }
+
   .workspace-grid {
     display: grid;
     grid-template-columns: 260px minmax(0, 1fr) 320px;
@@ -288,7 +310,12 @@
     border: 1px solid rgba(141, 154, 178, 0.18);
     background: rgba(255, 255, 255, 0.72);
     color: var(--slate-700);
-    transition: all var(--transition-fast);
+    transition:
+      color var(--transition-fast),
+      background-color var(--transition-fast),
+      border-color var(--transition-fast),
+      box-shadow var(--transition-fast),
+      transform var(--transition-fast);
   }
 
   .filter-chip:hover {
@@ -356,8 +383,7 @@
   }
 
   .card-wrapper {
-    opacity: 0;
-    animation: fadeUp 0.4s ease forwards;
+    display: block;
   }
 
   .card-wrapper.is-preview :global(.instance-card) {
@@ -394,6 +420,7 @@
     background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(18, 28, 48, 0.94));
     color: var(--shell-text);
     box-shadow: var(--glow-cyan);
+    overflow: hidden;
   }
 
   .preview-header {
@@ -401,6 +428,11 @@
     justify-content: space-between;
     gap: var(--spacing-md);
     align-items: flex-start;
+    min-width: 0;
+  }
+
+  .preview-header > div:first-child {
+    min-width: 0;
   }
 
   .preview-route {
@@ -450,6 +482,9 @@
     font-family: var(--font-mono);
     font-size: var(--text-sm);
     color: var(--shell-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .preview-actions {

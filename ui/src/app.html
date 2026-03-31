@@ -21,11 +21,15 @@
       try {
         var theme = localStorage.getItem('nullhubx-theme');
         var effects = localStorage.getItem('nullhubx-effects');
+        var locale = localStorage.getItem('nullhubx-locale');
         if (theme) {
           document.body.classList.replace('theme-matrix', theme);
           document.documentElement.classList.add(theme);
         }
         if (effects === 'true') document.body.classList.remove('effects-disabled');
+        if (locale === 'zh-CN' || locale === 'en-US') {
+          document.documentElement.lang = locale;
+        }
       } catch (e) {}
     </script>
     %sveltekit.body%

@@ -828,7 +828,7 @@
     border-radius: var(--radius-lg);
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(244, 248, 255, 0.72));
     box-shadow: var(--shadow-sm);
-    backdrop-filter: blur(16px);
+    backdrop-filter: blur(8px);
   }
 
   .accordion-header {
@@ -845,7 +845,9 @@
     font-size: var(--text-sm);
     font-weight: 600;
     letter-spacing: -0.01em;
-    transition: all var(--transition-fast);
+    transition:
+      color var(--transition-fast),
+      background-color var(--transition-fast);
   }
   .accordion-header:hover {
     background: rgba(34, 211, 238, 0.05);
@@ -891,7 +893,11 @@
     font-size: 0.875rem;
     font-family: var(--font-sans);
     outline: none;
-    transition: all var(--transition-fast);
+    transition:
+      border-color var(--transition-fast),
+      box-shadow var(--transition-fast),
+      background-color var(--transition-fast),
+      color var(--transition-fast);
     box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
     box-sizing: border-box;
   }
@@ -969,7 +975,12 @@
     font-size: 0.75rem;
     cursor: pointer;
     opacity: 0.75;
-    transition: all var(--transition-fast);
+    transition:
+      opacity var(--transition-fast),
+      box-shadow var(--transition-fast),
+      background-color var(--transition-fast),
+      border-color var(--transition-fast),
+      color var(--transition-fast);
   }
   .remove-btn:hover {
     opacity: 1;
@@ -1001,7 +1012,10 @@
     cursor: pointer;
     font-size: var(--text-sm);
     font-weight: 600;
-    transition: all var(--transition-fast);
+    transition:
+      background-color var(--transition-fast),
+      border-color var(--transition-fast),
+      color var(--transition-fast);
     width: 100%;
   }
   .add-channel-btn:hover {
@@ -1019,7 +1033,7 @@
     overflow-y: auto;
     margin-top: 0.25rem;
     box-shadow: var(--shadow-md);
-    backdrop-filter: blur(16px);
+    backdrop-filter: blur(8px);
   }
   .add-channel-dropdown button {
     display: block;
@@ -1033,7 +1047,9 @@
     text-align: left;
     cursor: pointer;
     font-family: var(--font-sans);
-    transition: all var(--transition-fast);
+    transition:
+      color var(--transition-fast),
+      background-color var(--transition-fast);
   }
   .add-channel-dropdown button:hover {
     background: rgba(34, 211, 238, 0.08);

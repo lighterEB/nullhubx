@@ -1,9 +1,7 @@
 <script lang="ts">
   import { page } from "$app/stores";
-  import { onMount } from "svelte";
   import { hubConnected } from "$lib/statusStore";
   import { t, i18n, type Locale } from "$lib/i18n/index.svelte";
-  import { setErrorLocale } from "$lib/api/errorMessages";
 
   let currentPath = $derived($page.url.pathname);
   let showLangMenu = $state(false);
@@ -27,7 +25,6 @@
 
   function setLocale(locale: Locale) {
     i18n.locale = locale;
-    setErrorLocale(locale);
     showLangMenu = false;
     // Persist to localStorage
     if (typeof window !== 'undefined') {
@@ -38,26 +35,15 @@
   function getLocaleLabel(locale: Locale): string {
     return locale === 'zh-CN' ? '中文' : 'EN';
   }
-
-  onMount(() => {
-    // Restore locale from localStorage
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('nullhubx-locale') as Locale | null;
-      if (saved && (saved === 'zh-CN' || saved === 'en-US')) {
-        i18n.locale = saved;
-        setErrorLocale(saved);
-      }
-    }
-  });
 </script>
 
 <header class="topbar">
-  <a href="/" class="logo">
+  <a href="/" class="logo" data-sveltekit-preload-data="hover" data-sveltekit-preload-code="hover">
     <span class="logo-mark">NULLHUBX</span>
     <span class="logo-tag">CONTROL PLANE</span>
   </a>
 
-  <nav class="nav-tabs">
+  <nav class="nav-tabs" data-sveltekit-preload-data="hover" data-sveltekit-preload-code="hover">
     {#each navItems as item}
       <a
         href={item.href}
@@ -126,6 +112,7 @@
     border-bottom: 1px solid var(--shell-border);
     box-shadow: 0 12px 40px rgba(9, 16, 29, 0.26);
     z-index: 120;
+    min-width: 0;
   }
 
   .logo {
@@ -156,6 +143,9 @@
     align-items: center;
     gap: var(--spacing-sm);
     min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
     padding: 6px;
     border-radius: 999px;
     border: 1px solid rgba(120, 150, 204, 0.18);
@@ -163,7 +153,12 @@
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
   }
 
+  .nav-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
   .nav-tab {
+    flex: 0 0 auto;
     font-family: var(--font-sans);
     font-size: var(--text-sm);
     font-weight: 500;
@@ -172,7 +167,11 @@
     padding: 10px 14px;
     border-radius: 999px;
     border: 1px solid transparent;
-    transition: all var(--transition-fast);
+    transition:
+      color var(--transition-fast),
+      background-color var(--transition-fast),
+      border-color var(--transition-fast),
+      box-shadow var(--transition-fast);
     letter-spacing: 0.01em;
     white-space: nowrap;
   }
@@ -193,6 +192,7 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-lg);
+    min-width: 0;
   }
 
   .live-sync {
@@ -234,7 +234,11 @@
     font-weight: 500;
     color: var(--shell-text-dim);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition:
+      color var(--transition-fast),
+      background-color var(--transition-fast),
+      border-color var(--transition-fast),
+      box-shadow var(--transition-fast);
   }
 
   .lang-btn:hover {
@@ -267,7 +271,9 @@
     color: var(--shell-text-dim);
     text-align: left;
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition:
+      color var(--transition-fast),
+      background-color var(--transition-fast);
   }
 
   .lang-option:hover {
@@ -332,13 +338,6 @@
 
     .nav-tabs {
       flex: 1;
-      overflow-x: auto;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-    }
-
-    .nav-tabs::-webkit-scrollbar {
-      display: none;
     }
 
     .live-sync {

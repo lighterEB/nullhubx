@@ -190,6 +190,7 @@
     gap: 12px;
     text-decoration: none;
     color: inherit;
+    min-width: 0;
   }
 
   .icon-box {
@@ -265,6 +266,9 @@
     color: var(--slate-900);
     letter-spacing: -0.02em;
     margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .disabled .card-name {
@@ -277,6 +281,10 @@
     color: var(--slate-600);
     line-height: 1.65;
     margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .disabled .card-description {

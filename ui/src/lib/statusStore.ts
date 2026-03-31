@@ -17,6 +17,7 @@ const MAX_REFRESH_INTERVAL = 30000; // 30 seconds max on repeated failures
 const MIN_REFRESH_GAP = 800; // Minimum gap between manual refreshes
 const STATUS_RETRY_DELAY_MS = 200;
 const STATUS_MAX_ATTEMPTS = 2;
+const EMPTY_INSTANCES: InstancesPayload = {};
 
 let lastFetch = 0;
 let pendingRequest: Promise<GlobalStatus> | null = null;
@@ -32,7 +33,56 @@ let currentRefreshInterval = BASE_REFRESH_INTERVAL;
 import type { GlobalStatus, InstanceInfo, InstancesPayload } from './api/client';
 export const status = writable<GlobalStatus | null>(null);
 export const statusError = writable<string | null>(null);
-export const isLoading = writable(false);
+export const initialLoading = writable(false);
+export const backgroundRefreshing = writable(false);
+export const isLoading = initialLoading;
+
+type FetchMode = 'initial' | 'manual' | 'background';
+
+function sameInstanceInfo(a: InstanceInfo | undefined, b: InstanceInfo | undefined): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.component === b.component &&
+    a.name === b.name &&
+    a.status === b.status &&
+    a.pid === b.pid &&
+    a.port === b.port &&
+    a.version === b.version &&
+    a.auto_start === b.auto_start &&
+    a.launch_mode === b.launch_mode &&
+    a.uptime_seconds === b.uptime_seconds &&
+    a.restart_count === b.restart_count &&
+    a.health_consecutive_failures === b.health_consecutive_failures
+  );
+}
+
+function sameInstancesPayload(a: InstancesPayload | undefined, b: InstancesPayload | undefined): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+
+  const aComponents = Object.keys(a);
+  const bComponents = Object.keys(b);
+  if (aComponents.length !== bComponents.length) return false;
+
+  for (const component of aComponents) {
+    const aInstances = a[component];
+    const bInstances = b[component];
+    if (!bInstances) return false;
+
+    const aNames = Object.keys(aInstances);
+    const bNames = Object.keys(bInstances);
+    if (aNames.length !== bNames.length) return false;
+
+    for (const name of aNames) {
+      if (!sameInstanceInfo(aInstances[name], bInstances[name])) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -67,7 +117,7 @@ async function fetchStatusWithRetry(): Promise<GlobalStatus> {
   throw lastErr;
 }
 
-async function fetchStatus(): Promise<GlobalStatus> {
+async function fetchStatus(mode: FetchMode = 'manual'): Promise<GlobalStatus> {
   // Deduplicate concurrent requests
   if (pendingRequest) {
     return pendingRequest;
@@ -80,16 +130,25 @@ async function fetchStatus(): Promise<GlobalStatus> {
     return currentStatus;
   }
 
-  isLoading.set(true);
+  const isBackgroundRequest =
+    mode === 'background' && (hasInitialData || currentStatus !== null);
+  if (isBackgroundRequest) {
+    backgroundRefreshing.set(true);
+  } else {
+    initialLoading.set(true);
+  }
   pendingRequest = fetchStatusWithRetry();
 
   try {
     const result = await pendingRequest;
     const previous = get(status);
+    const nextInstances = sameInstancesPayload(previous?.instances, result.instances)
+      ? (previous?.instances ?? EMPTY_INSTANCES)
+      : (result.instances ?? previous?.instances ?? EMPTY_INSTANCES);
     status.set({
       ...(previous ?? {}),
       ...result,
-      instances: result.instances ?? previous?.instances ?? {},
+      instances: nextInstances,
     });
     consecutiveStatusFailures = 0;
     statusError.set(null);
@@ -120,7 +179,11 @@ async function fetchStatus(): Promise<GlobalStatus> {
     }
     throw e;
   } finally {
-    isLoading.set(false);
+    if (isBackgroundRequest) {
+      backgroundRefreshing.set(false);
+    } else {
+      initialLoading.set(false);
+    }
     pendingRequest = null;
   }
 }
@@ -130,10 +193,10 @@ function startPolling() {
   isPolling = true;
 
   // Immediate initial fetch - no delay for faster first paint
-  fetchStatus().catch(() => {});
+  void fetchStatus(hasInitialData || get(status) !== null ? 'background' : 'initial').catch(() => {});
 
   intervalId = setInterval(() => {
-    fetchStatus().catch(() => {});
+    void fetchStatus('background').catch(() => {});
   }, currentRefreshInterval);
 
   // Pause polling when page is not visible
@@ -151,10 +214,10 @@ function handleVisibilityChange() {
     // Page is visible again - resume polling
     if (isPolling && subscriberCount > 0) {
       intervalId = setInterval(() => {
-        fetchStatus().catch(() => {});
+        void fetchStatus('background').catch(() => {});
       }, currentRefreshInterval);
       // Fresh fetch on resume
-      fetchStatus().catch(() => {});
+      void fetchStatus('background').catch(() => {});
     }
   }
 }
@@ -165,7 +228,6 @@ function stopPolling() {
     intervalId = null;
   }
   isPolling = false;
-  hasInitialData = false;
   document.removeEventListener('visibilitychange', handleVisibilityChange);
 }
 
@@ -212,26 +274,29 @@ export function subscribeStatus() {
  */
 export async function refreshStatus() {
   try {
-    return await fetchStatus();
+    return await fetchStatus('manual');
   } catch {
     return null;
   }
 }
 
 // Derived stores
-export const instanceCount = derived(status, ($status) => {
+export const instancesState = derived(status, ($status) => $status?.instances ?? EMPTY_INSTANCES);
+export const statusReady = derived([status, statusError], ([$status, $error]) =>
+  $status !== null || $error !== null
+);
+
+export const instanceCount = derived(instancesState, ($instances) => {
   let count = 0;
-  const groups: InstancesPayload = $status?.instances ?? {};
-  for (const instances of Object.values(groups)) {
+  for (const instances of Object.values($instances)) {
     count += Object.keys(instances).length;
   }
   return count;
 });
 
-export const runningCount = derived(status, ($status) => {
+export const runningCount = derived(instancesState, ($instances) => {
   let count = 0;
-  const groups: InstancesPayload = $status?.instances ?? {};
-  for (const instances of Object.values(groups)) {
+  for (const instances of Object.values($instances)) {
     for (const inst of Object.values(instances) as InstanceInfo[]) {
       if (inst.status === "running") count++;
     }

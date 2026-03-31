@@ -5,12 +5,19 @@
   import type { LogSource } from "$lib/api/client";
   import { toast } from "$lib/toastStore.svelte";
 
-  let { component = "", name = "", initialSource = "instance" as LogSource } = $props();
+  let {
+    component = "",
+    name = "",
+    initialSource = "instance" as LogSource,
+    active = false,
+    resetToken = 0,
+  } = $props();
   let lines = $state<string[]>([]);
   let container: HTMLElement;
   let autoScroll = $state(true);
   let source = $state<LogSource>("instance");
   let lastInitialSource = $state<LogSource>("instance");
+  let lastResetToken = $state(0);
   let isConnected = $state(false);
   let sseClient: SseClient | null = null;
 
@@ -219,11 +226,18 @@
     component;
     name;
     source;
+    active;
 
     if (!component || !name) {
       transportToken += 1;
       stopTransport();
       lines = [];
+      return;
+    }
+
+    if (!active) {
+      transportToken += 1;
+      stopTransport();
       return;
     }
 
@@ -240,6 +254,19 @@
       source = initialSource;
       lastInitialSource = initialSource;
     }
+  });
+
+  $effect(() => {
+    if (resetToken === lastResetToken) return;
+    lastResetToken = resetToken;
+    source = initialSource;
+    lastInitialSource = initialSource;
+    lines = [];
+
+    if (!component || !name || !active) return;
+    transportToken += 1;
+    stopTransport();
+    startTransportCycle();
   });
 </script>
 

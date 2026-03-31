@@ -10,8 +10,22 @@ const dictionaries: Record<Locale, Dictionary> = {
   'en-US': enUS
 };
 
+function detectInitialLocale(): Locale {
+  if (typeof window === 'undefined') return 'zh-CN';
+  const saved = window.localStorage.getItem('nullhubx-locale');
+  return saved === 'en-US' || saved === 'zh-CN' ? saved : 'zh-CN';
+}
+
+function syncDocumentLocale(locale: Locale): void {
+  if (typeof document === 'undefined') return;
+  document.documentElement.lang = locale;
+}
+
 // 使用 Svelte 5 的 rune 让全局语言状态具备响应性
-let currentLocale = $state<Locale>('zh-CN');
+const initialLocale = detectInitialLocale();
+let currentLocale = $state<Locale>(initialLocale);
+setErrorLocale(initialLocale);
+syncDocumentLocale(initialLocale);
 
 export const i18n = {
   get locale() {
@@ -21,6 +35,7 @@ export const i18n = {
     currentLocale = value;
     // 同步更新 API 错误消息语言
     setErrorLocale(value);
+    syncDocumentLocale(value);
   },
   get dict() {
     return dictionaries[currentLocale];

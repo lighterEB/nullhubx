@@ -6,7 +6,7 @@
   import { formatTimeoutError } from "$lib/api/errorMessages";
   import { t } from "$lib/i18n/index.svelte";
   import type { LogSource } from "$lib/api/client";
-  import StatusBadge from "$lib/components/StatusBadge.svelte";
+  import InstanceDetailChrome from "$lib/components/InstanceDetailChrome.svelte";
   import ConfigEditor from "$lib/components/ConfigEditor.svelte";
   import LogViewer from "$lib/components/LogViewer.svelte";
   import InstanceHistoryPanel from "$lib/components/InstanceHistoryPanel.svelte";
@@ -31,8 +31,10 @@
   let component = $derived($page.params.component);
   let name = $derived($page.params.name);
   let isValidInstance = $derived(Boolean(component && name));
+  let supportsIntegration = $derived(component === "nullboiler" || component === "nulltickets");
 
   let activeTab = $state<TabKey>("overview");
+  let visitedTabs = $state<TabKey[]>(["overview"]);
   let busyAction = $state<"start" | "stop" | "restart" | "update" | "delete" | null>(null);
   let savingDefaults = $state(false);
 
@@ -51,6 +53,8 @@
   let activeRouteKey = $state("");
   let summaryBusy = $state(false);
   let pendingInteractiveRefresh = $state(false);
+  let lastInteractiveAuxKey = $state("");
+  let lastPolledTab = $state<TabKey>("overview");
 
   let defaultsAutoStart = $state(false);
   let defaultsLaunchMode = $state("gateway");
@@ -67,19 +71,24 @@
   let launchPersistDefaults = $state(false);
 
   let logInitialSource = $state<LogSource>("instance");
-  let logViewerKey = $state(0);
+  let logViewerResetToken = $state(0);
 
-  const tabs: { key: TabKey; label: string }[] = $derived([
-    { key: "overview", label: t("instanceDetail.tabs.overview") },
-    { key: "agents", label: t("instanceDetail.tabs.agents") },
-    { key: "config", label: t("instanceDetail.tabs.config") },
-    { key: "logs", label: t("instanceDetail.tabs.logs") },
-    { key: "usage", label: t("instanceDetail.tabs.usage") },
-    { key: "history", label: t("instanceDetail.tabs.history") },
-    { key: "memory", label: t("instanceDetail.tabs.memory") },
-    { key: "skills", label: t("instanceDetail.tabs.skills") },
-    { key: "integration", label: t("instanceDetail.tabs.integration") },
-  ]);
+  const tabs: { key: TabKey; label: string }[] = $derived.by(() => {
+    const baseTabs: { key: TabKey; label: string }[] = [
+      { key: "overview", label: t("instanceDetail.tabs.overview") },
+      { key: "agents", label: t("instanceDetail.tabs.agents") },
+      { key: "config", label: t("instanceDetail.tabs.config") },
+      { key: "logs", label: t("instanceDetail.tabs.logs") },
+      { key: "usage", label: t("instanceDetail.tabs.usage") },
+      { key: "history", label: t("instanceDetail.tabs.history") },
+      { key: "memory", label: t("instanceDetail.tabs.memory") },
+      { key: "skills", label: t("instanceDetail.tabs.skills") },
+    ];
+    if (supportsIntegration) {
+      baseTabs.push({ key: "integration", label: t("instanceDetail.tabs.integration") });
+    }
+    return baseTabs;
+  });
 
   const statusText = $derived(instanceStatus?.status || "unknown");
   const statusLabel = $derived(
@@ -92,7 +101,6 @@
       restarting: t("instanceDetail.statusLabels.restarting"),
     } as Record<string, string>)[statusText] || t("instanceDetail.statusLabels.unknown"),
   );
-
   const canStart = $derived(statusText === "stopped" || statusText === "failed");
   const canStop = $derived(["starting", "running", "restarting"].includes(statusText));
   const canRestart = $derived(statusText === "running" || statusText === "failed");
@@ -103,6 +111,17 @@
   );
   const usageJson = $derived.by(() => JSON.stringify(usage || {}, null, 2));
   const integrationJson = $derived.by(() => JSON.stringify(integration || {}, null, 2));
+
+  function hasVisitedTab(tab: TabKey): boolean {
+    return visitedTabs.includes(tab);
+  }
+
+  function activateTab(tab: TabKey) {
+    if (!visitedTabs.includes(tab)) {
+      visitedTabs = [...visitedTabs, tab];
+    }
+    activeTab = tab;
+  }
 
   function normalizeError(err: unknown): string {
     return err instanceof Error ? err.message : t("error.requestFailed");
@@ -181,6 +200,28 @@
     return { latestFailure, healthFailures: null as number | null };
   }
 
+  function sameInstanceSnapshot(
+    a: Record<string, unknown> | null | undefined,
+    b: Record<string, unknown> | null | undefined,
+  ): boolean {
+    if (a === b) return true;
+    if (!a || !b) return false;
+    return (
+      a.component === b.component &&
+      a.name === b.name &&
+      a.status === b.status &&
+      a.pid === b.pid &&
+      a.port === b.port &&
+      a.version === b.version &&
+      a.auto_start === b.auto_start &&
+      a.launch_mode === b.launch_mode &&
+      a.verbose === b.verbose &&
+      a.uptime_seconds === b.uptime_seconds &&
+      a.restart_count === b.restart_count &&
+      a.health_consecutive_failures === b.health_consecutive_failures
+    );
+  }
+
   async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     const timeoutPromise = new Promise<never>((_, reject) => {
@@ -232,64 +273,86 @@
         return;
       }
 
-      instanceStatus = {
-        ...(instanceStatus || {}),
-        ...inst,
-      };
+      if (!sameInstanceSnapshot(instanceStatus, inst)) {
+        instanceStatus = {
+          ...(instanceStatus || {}),
+          ...inst,
+        };
+      }
 
+      const shouldFetchOverviewAux = mode === "interactive" || activeTab === "overview";
       const shouldFetchUsage = mode === "interactive" && activeTab === "usage";
-      const shouldFetchIntegration = mode === "interactive" && activeTab === "integration";
+      const shouldFetchIntegration =
+        mode === "interactive" && activeTab === "integration" && supportsIntegration;
+      const shouldFetchAgentRoutes = mode === "interactive" || activeTab === "agents" || activeTab === "overview";
+      const shouldFetchSupervisorLogs = mode === "interactive" || activeTab === "logs" || activeTab === "overview";
       const AUX_TIMEOUT_MS = 6000;
 
       const [healthRes, onboardingRes, usageRes, integrationRes, profilesRes, bindingsRes, supervisorLogsRes] =
         await Promise.allSettled([
-          withTimeout(api.getProviderHealth(targetComponent, targetName), AUX_TIMEOUT_MS),
-          withTimeout(api.getOnboarding(targetComponent, targetName), AUX_TIMEOUT_MS),
+          shouldFetchOverviewAux
+            ? withTimeout(api.getProviderHealth(targetComponent, targetName), AUX_TIMEOUT_MS)
+            : Promise.resolve(providerHealth),
+          shouldFetchOverviewAux
+            ? withTimeout(api.getOnboarding(targetComponent, targetName), AUX_TIMEOUT_MS)
+            : Promise.resolve(onboarding),
           shouldFetchUsage
             ? withTimeout(api.getUsage(targetComponent, targetName, "all"), AUX_TIMEOUT_MS)
             : Promise.resolve(usage),
           shouldFetchIntegration
             ? withTimeout(api.getIntegration(targetComponent, targetName), AUX_TIMEOUT_MS)
             : Promise.resolve(integration),
-          withTimeout(api.getAgentProfiles(targetComponent, targetName), AUX_TIMEOUT_MS),
-          withTimeout(api.getAgentBindings(targetComponent, targetName), AUX_TIMEOUT_MS),
-          withTimeout(api.getLogs(targetComponent, targetName, 120, "nullhubx"), AUX_TIMEOUT_MS),
+          shouldFetchAgentRoutes
+            ? withTimeout(api.getAgentProfiles(targetComponent, targetName), AUX_TIMEOUT_MS)
+            : Promise.resolve(null),
+          shouldFetchAgentRoutes
+            ? withTimeout(api.getAgentBindings(targetComponent, targetName), AUX_TIMEOUT_MS)
+            : Promise.resolve(null),
+          shouldFetchSupervisorLogs
+            ? withTimeout(api.getLogs(targetComponent, targetName, 120, "nullhubx"), AUX_TIMEOUT_MS)
+            : Promise.resolve(null),
         ]);
       if (requestToken !== summaryRequestToken) return;
       const latest = resolveRouteRef();
       if (!latest || targetComponent !== latest.component || targetName !== latest.name) return;
 
-      providerHealth = healthRes.status === "fulfilled" ? healthRes.value : null;
-      onboarding = onboardingRes.status === "fulfilled" ? onboardingRes.value : null;
+      if (shouldFetchOverviewAux) {
+        providerHealth = healthRes.status === "fulfilled" ? healthRes.value : null;
+        onboarding = onboardingRes.status === "fulfilled" ? onboardingRes.value : null;
+      }
       if (shouldFetchUsage) {
         usage = usageRes.status === "fulfilled" ? usageRes.value : null;
       }
       if (shouldFetchIntegration) {
         integration = integrationRes.status === "fulfilled" ? integrationRes.value : null;
+      } else if (!supportsIntegration) {
+        integration = null;
       }
-      agentProfilesCount =
-        profilesRes.status === "fulfilled" && Array.isArray(profilesRes.value?.profiles)
-          ? profilesRes.value.profiles.length
-          : null;
-      agentBindingsCount =
-        bindingsRes.status === "fulfilled" && Array.isArray(bindingsRes.value?.bindings)
-          ? bindingsRes.value.bindings.length
-          : null;
-      if (profilesRes.status !== "fulfilled" || bindingsRes.status !== "fulfilled") {
-        agentRouteSummaryState = "unavailable";
-      } else if ((agentProfilesCount ?? 0) === 0) {
-        agentRouteSummaryState = "missing_profiles";
-      } else if ((agentBindingsCount ?? 0) === 0) {
-        agentRouteSummaryState = "default_only";
-      } else {
-        agentRouteSummaryState = "configured";
+      if (shouldFetchAgentRoutes) {
+        agentProfilesCount =
+          profilesRes.status === "fulfilled" && Array.isArray(profilesRes.value?.profiles)
+            ? profilesRes.value.profiles.length
+            : null;
+        agentBindingsCount =
+          bindingsRes.status === "fulfilled" && Array.isArray(bindingsRes.value?.bindings)
+            ? bindingsRes.value.bindings.length
+            : null;
+        if (profilesRes.status !== "fulfilled" || bindingsRes.status !== "fulfilled") {
+          agentRouteSummaryState = "unavailable";
+        } else if ((agentProfilesCount ?? 0) === 0) {
+          agentRouteSummaryState = "missing_profiles";
+        } else if ((agentBindingsCount ?? 0) === 0) {
+          agentRouteSummaryState = "default_only";
+        } else {
+          agentRouteSummaryState = "configured";
+        }
       }
 
-      if (supervisorLogsRes.status === "fulfilled") {
+      if (shouldFetchSupervisorLogs && supervisorLogsRes.status === "fulfilled") {
         const diagnostics = parseSupervisorDiagnostics(supervisorLogsRes.value?.lines || []);
         recentSupervisorError = diagnostics.latestFailure;
         healthFailuresFromLogs = diagnostics.healthFailures;
-      } else {
+      } else if (shouldFetchSupervisorLogs) {
         // Keep the last known diagnostics on transient failures.
       }
     } catch (err) {
@@ -308,6 +371,7 @@
   function startPolling() {
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = setInterval(() => {
+      if (activeTab === "config") return;
       void loadSummary("poll");
     }, 4000);
   }
@@ -440,9 +504,9 @@
   }
 
   function openFailureLogs() {
-    activeTab = "logs";
+    activateTab("logs");
     logInitialSource = "nullhubx";
-    logViewerKey += 1;
+    logViewerResetToken += 1;
   }
 
   async function handleAgentsSaved() {
@@ -468,12 +532,13 @@
     if (routeKey === activeRouteKey) return;
     activeRouteKey = routeKey;
 
+    visitedTabs = ["overview"];
     activeTab = "overview";
     launchDialogOpen = false;
     instanceMissing = false;
     loadError = "";
     logInitialSource = "instance";
-    logViewerKey += 1;
+    logViewerResetToken += 1;
     summaryRequestToken += 1;
     void loadSummary("interactive");
   });
@@ -488,10 +553,47 @@
   });
 
   $effect(() => {
-    activeTab;
-    if (!instanceStatus) return;
-    if (activeTab === "usage" || activeTab === "integration") {
-      void loadSummary("interactive");
+    const tab = activeTab;
+    const routeKey = activeRouteKey;
+
+    if (tab !== "usage" && tab !== "integration") {
+      lastInteractiveAuxKey = "";
+      return;
+    }
+
+    if (tab === "integration" && !supportsIntegration) {
+      lastInteractiveAuxKey = "";
+      integration = null;
+      return;
+    }
+
+    if (!routeKey) return;
+
+    const refreshKey = `${routeKey}:${tab}`;
+    if (refreshKey === lastInteractiveAuxKey) return;
+
+    lastInteractiveAuxKey = refreshKey;
+    void loadSummary("interactive");
+  });
+
+  $effect(() => {
+    if (supportsIntegration) return;
+    if (activeTab === "integration") {
+      activeTab = "overview";
+    }
+    if (visitedTabs.includes("integration")) {
+      visitedTabs = visitedTabs.filter((tab) => tab !== "integration");
+    }
+    integration = null;
+  });
+
+  $effect(() => {
+    const currentTab = activeTab;
+    const previousTab = lastPolledTab;
+    lastPolledTab = currentTab;
+
+    if (previousTab === "config" && currentTab !== "config") {
+      void loadSummary("poll");
     }
   });
 </script>
@@ -501,69 +603,52 @@
 </svelte:head>
 
 <div class="page-shell instance-page">
-  <section class="section-shell hero-shell">
-    <div class="instance-header">
-      <div class="header-left">
-        <button class="control-btn secondary back-link" type="button" onclick={() => goto("/instances")}>
-          {t("instanceDetail.backToWorkspace")}
-        </button>
-        {#if isValidInstance}
-          <div class="title-stack">
-            <div class="header-meta">
-              <span class="page-kicker">{component}</span>
-              {#if instanceStatus}
-                <StatusBadge status={statusText} />
-              {/if}
-            </div>
-            <h1 class="page-title">{component}/{name}</h1>
-            <p class="page-subtitle">{t("instanceDetail.subtitle")}</p>
-          </div>
-        {/if}
-      </div>
-      <div class="actions">
-        <button
-          class="control-btn primary"
-          onclick={() => openLaunchDialog("start")}
-          disabled={busyAction !== null || !canStart || !instanceStatus}
-        >
-          {busyAction === "start" ? t("instanceDetail.starting") : t("instanceDetail.start")}
-        </button>
-        <button
-          class="control-btn warning"
-          onclick={() => runControlAction("stop")}
-          disabled={busyAction !== null || !canStop || !instanceStatus}
-        >
-          {busyAction === "stop" ? t("instanceDetail.stopping") : t("instanceDetail.stop")}
-        </button>
-        <button
-          class="control-btn secondary"
-          onclick={() => openLaunchDialog("restart")}
-          disabled={busyAction !== null || !canRestart || !instanceStatus}
-        >
-          {busyAction === "restart" ? t("instanceDetail.restarting") : t("instanceDetail.restart")}
-        </button>
-        <button class="control-btn secondary" onclick={() => runControlAction("update")} disabled={busyAction !== null || !instanceStatus}>
-          {busyAction === "update" ? t("instanceDetail.updating") : t("instanceDetail.update")}
-        </button>
-        <button class="control-btn danger" onclick={runDelete} disabled={busyAction !== null || !instanceStatus}>
-          {busyAction === "delete" ? t("instanceDetail.deleting") : t("instanceDetail.delete")}
-        </button>
-      </div>
-    </div>
-  </section>
-
-  {#if statusText === "failed"}
-    <div class="section-shell failed-banner">
-      <div>
-        <h3>{t("instanceDetail.failedBannerTitle")}</h3>
-        <p>{t("instanceDetail.failedBannerDesc")}</p>
-        {#if recentSupervisorError}
-          <p class="failed-detail">{recentSupervisorError}</p>
-        {/if}
-      </div>
-      <button class="control-btn warning failed-log-btn" onclick={openFailureLogs}>{t("instanceDetail.viewFailureLogs")}</button>
-    </div>
-  {/if}
+  <InstanceDetailChrome
+    {component}
+    {name}
+    {isValidInstance}
+    {instanceStatus}
+    {statusText}
+    {statusLabel}
+    {recentSupervisorError}
+    {providerHealth}
+    {onboarding}
+    {agentProfilesCount}
+    {agentBindingsCount}
+    {agentRouteSummaryState}
+    {restartCount}
+    {healthFailureCount}
+    {defaultsAutoStart}
+    {defaultsLaunchMode}
+    {defaultsVerbose}
+    {defaultsDirty}
+    {savingDefaults}
+    {busyAction}
+    {canStart}
+    {canStop}
+    {canRestart}
+    onBackWorkspace={() => goto("/instances")}
+    onOpenStart={() => openLaunchDialog("start")}
+    onStop={() => runControlAction("stop")}
+    onOpenRestart={() => openLaunchDialog("restart")}
+    onUpdate={() => runControlAction("update")}
+    onDelete={runDelete}
+    onOpenFailureLogs={openFailureLogs}
+    onDefaultsAutoStartChange={(checked) => {
+      defaultsAutoStart = checked;
+      defaultsDirty = true;
+    }}
+    onDefaultsLaunchModeChange={(value) => {
+      defaultsLaunchMode = value;
+      defaultsDirty = true;
+    }}
+    onDefaultsVerboseChange={(checked) => {
+      defaultsVerbose = checked;
+      defaultsDirty = true;
+    }}
+    onSaveDefaults={saveDefaultSettings}
+    onResetDefaults={resetDefaultSettingsDraft}
+  />
 
   {#if loadError}
     <div class="feedback-banner error">{loadError}</div>
@@ -583,115 +668,15 @@
       </div>
     </div>
   {:else}
-    <section class="section-shell summary-shell">
-      <div class="section-heading-row">
-        <div class="section-heading">
-          <span class="section-kicker">{t("instanceDetail.tabs.overview")}</span>
-          <h2 class="section-title">{t("instanceDetail.title")}</h2>
-          <p class="section-subtitle">{t("instanceDetail.subtitle")}</p>
-        </div>
-      </div>
-
-      <div class="summary-grid">
-        <div class="summary-card status-card">
-          <span class="label">{t("instanceDetail.statusLabel")}</span>
-          <strong>{statusLabel}</strong>
-          <StatusBadge status={statusText} />
-        </div>
-        <div class="summary-card">
-          <span class="label">{t("instanceDetail.versionLabel")}</span>
-          <strong>{instanceStatus.version || "-"}</strong>
-        </div>
-        <div class="summary-card">
-          <span class="label">{t("instanceDetail.portLabel")}</span>
-          <strong>{instanceStatus.port || "-"}</strong>
-        </div>
-        <div class="summary-card">
-          <span class="label">{t("instanceDetail.restartCountLabel")}</span>
-          <strong>{restartCount}</strong>
-        </div>
-        <div class="summary-card">
-          <span class="label">{t("instanceDetail.healthFailuresLabel")}</span>
-          <strong>{healthFailureCount}</strong>
-        </div>
-        <div class="summary-card">
-          <span class="label">{t("instanceDetail.providerHealthLabel")}</span>
-          <strong>{providerHealth?.status || t("instanceDetail.unknown")}</strong>
-        </div>
-        <div class="summary-card">
-          <span class="label">{t("instanceDetail.onboardingStatusLabel")}</span>
-          <strong>{onboarding?.pending ? t("instanceDetail.pending") : onboarding?.completed ? t("instanceDetail.completed") : t("instanceDetail.unknown")}</strong>
-        </div>
-        <div class="summary-card">
-          <span class="label">{t("instanceDetail.agentRoutesLabel")}</span>
-          <strong>{agentProfilesCount ?? "-"} / {agentBindingsCount ?? "-"}</strong>
-          <span class="summary-note">{t(`instanceDetail.agentRouteStates.${agentRouteSummaryState}`)}</span>
-        </div>
-        <div class="summary-card wide">
-          <span class="label">{t("instanceDetail.recentEventsLabel")}</span>
-          <strong class="recent-event">{recentSupervisorError || "-"}</strong>
-        </div>
-      </div>
-    </section>
-
-    <section class="section-shell runtime-defaults">
-      <div class="runtime-head">
-        <h3>{t("instanceDetail.defaultsTitle")}</h3>
-        <p>{t("instanceDetail.defaultsDesc")}</p>
-      </div>
-      <div class="runtime-form">
-        <label class="field-toggle">
-          <input
-            type="checkbox"
-            checked={defaultsAutoStart}
-            onchange={(e) => {
-              defaultsAutoStart = e.currentTarget.checked;
-              defaultsDirty = true;
-            }}
-          />
-          <span>{t("instanceDetail.autoStart")}</span>
-        </label>
-
-        <label class="field">
-          <span>{t("instanceDetail.launchMode")}</span>
-          <input
-            type="text"
-            bind:value={defaultsLaunchMode}
-            oninput={() => (defaultsDirty = true)}
-            placeholder={t("instanceDetail.launchModePlaceholder")}
-          />
-        </label>
-
-        <label class="field-toggle">
-          <input
-            type="checkbox"
-            checked={defaultsVerbose}
-            onchange={(e) => {
-              defaultsVerbose = e.currentTarget.checked;
-              defaultsDirty = true;
-            }}
-          />
-          <span>{t("instanceDetail.verboseLog")}</span>
-        </label>
-      </div>
-      <div class="runtime-actions">
-        <button class="control-btn primary" onclick={saveDefaultSettings} disabled={!defaultsDirty || savingDefaults}>
-          {savingDefaults ? t("instanceDetail.savingDefaults") : t("instanceDetail.saveDefaults")}
-        </button>
-        <button class="control-btn secondary" onclick={resetDefaultSettingsDraft} disabled={!defaultsDirty || savingDefaults}>
-          {t("instanceDetail.resetChanges")}
-        </button>
-      </div>
-    </section>
-
     <nav class="tabs">
       {#each tabs as tab}
-        <button class:active={activeTab === tab.key} onclick={() => (activeTab = tab.key)}>{tab.label}</button>
+        <button type="button" class:active={activeTab === tab.key} onclick={() => activateTab(tab.key)}>{tab.label}</button>
       {/each}
     </nav>
 
-    <section class="section-shell panel">
-      {#if activeTab === "overview"}
+    <section class="section-shell panel tab-panel-shell">
+      {#if hasVisitedTab("overview")}
+        <div class="tab-pane" hidden={activeTab !== "overview"}>
         <div class="json-grid">
           <div class="json-card">
             <h3>{t("instanceDetail.statusLabel")}</h3>
@@ -706,9 +691,11 @@
             <pre>{JSON.stringify(onboarding || {}, null, 2)}</pre>
           </div>
         </div>
+        </div>
       {/if}
 
-      {#if activeTab === "agents"}
+      {#if hasVisitedTab("agents")}
+        <div class="tab-pane" hidden={activeTab !== "agents"}>
         <InstanceAgentsPanel
           {component}
           {name}
@@ -718,41 +705,60 @@
           onSaved={handleAgentsSaved}
           onRequestRestart={handleAgentRestartRequest}
         />
-      {/if}
-
-      {#if activeTab === "config"}
-        <ConfigEditor {component} {name} onAction={loadSummary} />
-      {/if}
-
-      {#if activeTab === "logs"}
-        {#key logViewerKey}
-          <LogViewer {component} {name} initialSource={logInitialSource} />
-        {/key}
-      {/if}
-
-      {#if activeTab === "usage"}
-        <div class="json-card">
-          <h3>{t("instanceDetail.tabs.usage")}</h3>
-          <pre>{usageJson}</pre>
         </div>
       {/if}
 
-      {#if activeTab === "history"}
-        <InstanceHistoryPanel {component} {name} active={activeTab === "history"} />
+      {#if hasVisitedTab("config")}
+        <div class="tab-pane" hidden={activeTab !== "config"}>
+          <ConfigEditor {component} {name} active={activeTab === "config"} onAction={loadSummary} />
+        </div>
       {/if}
 
-      {#if activeTab === "memory"}
-        <InstanceMemoryPanel {component} {name} active={activeTab === "memory"} />
+      {#if hasVisitedTab("logs")}
+        <div class="tab-pane" hidden={activeTab !== "logs"}>
+        <LogViewer
+          {component}
+          {name}
+          active={activeTab === "logs"}
+          initialSource={logInitialSource}
+          resetToken={logViewerResetToken}
+        />
+        </div>
       {/if}
 
-      {#if activeTab === "skills"}
-        <InstanceSkillsPanel {component} {name} active={activeTab === "skills"} />
+      {#if hasVisitedTab("usage")}
+        <div class="tab-pane" hidden={activeTab !== "usage"}>
+          <div class="json-card">
+            <h3>{t("instanceDetail.tabs.usage")}</h3>
+            <pre>{usageJson}</pre>
+          </div>
+        </div>
       {/if}
 
-      {#if activeTab === "integration"}
-        <div class="json-card">
-          <h3>{t("instanceDetail.tabs.integration")}</h3>
-          <pre>{integrationJson}</pre>
+      {#if hasVisitedTab("history")}
+        <div class="tab-pane" hidden={activeTab !== "history"}>
+          <InstanceHistoryPanel {component} {name} active={activeTab === "history"} />
+        </div>
+      {/if}
+
+      {#if hasVisitedTab("memory")}
+        <div class="tab-pane" hidden={activeTab !== "memory"}>
+          <InstanceMemoryPanel {component} {name} active={activeTab === "memory"} />
+        </div>
+      {/if}
+
+      {#if hasVisitedTab("skills")}
+        <div class="tab-pane" hidden={activeTab !== "skills"}>
+          <InstanceSkillsPanel {component} {name} active={activeTab === "skills"} />
+        </div>
+      {/if}
+
+      {#if supportsIntegration && hasVisitedTab("integration")}
+        <div class="tab-pane" hidden={activeTab !== "integration"}>
+          <div class="json-card">
+            <h3>{t("instanceDetail.tabs.integration")}</h3>
+            <pre>{integrationJson}</pre>
+          </div>
         </div>
       {/if}
     </section>
@@ -800,78 +806,6 @@
 {/if}
 
 <style>
-  .hero-shell {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-lg);
-  }
-
-  .instance-header {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--spacing-lg);
-    align-items: flex-start;
-  }
-
-  .header-left {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-md);
-  }
-
-  .back-link {
-    width: fit-content;
-  }
-
-  .title-stack {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-  }
-
-  .header-meta {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    flex-wrap: wrap;
-  }
-
-  .actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-sm);
-    justify-content: flex-end;
-  }
-
-  .failed-banner {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--spacing-lg);
-    align-items: center;
-    border-color: rgba(245, 158, 11, 0.2);
-    background: linear-gradient(180deg, rgba(255, 251, 235, 0.92), rgba(255, 247, 237, 0.84));
-    color: #9a3412;
-  }
-
-  .failed-banner h3 {
-    margin: 0;
-    font-size: var(--text-base);
-  }
-
-  .failed-banner p {
-    margin: 0.2rem 0 0 0;
-    font-size: var(--text-sm);
-  }
-
-  .failed-detail {
-    font-family: var(--font-mono);
-    opacity: 0.85;
-  }
-
-  .failed-log-btn {
-    white-space: nowrap;
-  }
-
   .feedback-banner {
     padding: 0.85rem 1rem;
     border-radius: var(--radius-lg);
@@ -895,120 +829,6 @@
     flex-wrap: wrap;
   }
 
-  .summary-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: var(--spacing-md);
-  }
-
-  .summary-card {
-    border: 1px solid rgba(141, 154, 178, 0.18);
-    border-radius: var(--radius-lg);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(246, 249, 255, 0.76));
-    padding: 0.95rem 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-    min-width: 0;
-    box-shadow: var(--shadow-sm);
-  }
-
-  .summary-card .label {
-    font-size: var(--text-xs);
-    color: var(--slate-500);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    font-weight: 600;
-  }
-
-  .summary-card strong {
-    color: var(--slate-900);
-    font-size: var(--text-base);
-    line-height: 1.5;
-  }
-
-  .summary-note {
-    color: var(--slate-500);
-    font-size: var(--text-xs);
-    line-height: 1.5;
-  }
-
-  .summary-card.status-card {
-    border-color: rgba(34, 211, 238, 0.22);
-    box-shadow: 0 16px 36px rgba(14, 165, 198, 0.08), 0 0 0 1px rgba(34, 211, 238, 0.08);
-  }
-
-  .summary-card.wide {
-    grid-column: 1 / -1;
-  }
-
-  .recent-event {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    line-height: 1.6;
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
-
-  .runtime-defaults {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-lg);
-  }
-
-  .runtime-head h3 {
-    margin: 0;
-    color: var(--slate-900);
-  }
-
-  .runtime-head p {
-    margin: 0.35rem 0 0 0;
-    color: var(--slate-600);
-    font-size: var(--text-sm);
-  }
-
-  .runtime-form {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: var(--spacing-md);
-  }
-
-  .field {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-  }
-
-  .field span {
-    font-size: var(--text-sm);
-    color: var(--slate-700);
-    font-weight: 600;
-  }
-
-  .field input {
-    border-radius: var(--radius-md);
-    padding: 0.75rem 0.85rem;
-  }
-
-  .field-toggle {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    min-height: 48px;
-    padding: 0.8rem 0.95rem;
-    border: 1px solid rgba(141, 154, 178, 0.16);
-    border-radius: var(--radius-lg);
-    background: rgba(255, 255, 255, 0.64);
-    color: var(--slate-700);
-    font-size: var(--text-sm);
-  }
-
-  .runtime-actions {
-    display: flex;
-    gap: var(--spacing-sm);
-    flex-wrap: wrap;
-  }
-
   .tabs {
     display: flex;
     flex-wrap: wrap;
@@ -1025,7 +845,16 @@
     font-family: var(--font-mono);
     font-size: var(--text-sm);
     letter-spacing: 0.04em;
-    transition: all var(--transition-fast);
+    transition:
+      color var(--transition-fast),
+      background-color var(--transition-fast),
+      border-color var(--transition-fast),
+      box-shadow var(--transition-fast);
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: center;
+    line-height: 1.35;
   }
 
   .tabs button.active {
@@ -1039,6 +868,287 @@
     display: flex;
     flex-direction: column;
     gap: var(--spacing-lg);
+  }
+
+  .tab-pane {
+    min-width: 0;
+  }
+
+  .tab-panel-shell {
+    gap: var(--spacing-xl);
+    background:
+      linear-gradient(180deg, rgba(9, 15, 27, 0.96), rgba(14, 22, 38, 0.92)),
+      radial-gradient(circle at top right, rgba(34, 211, 238, 0.14), transparent 34%);
+    border-color: rgba(116, 136, 173, 0.24);
+    box-shadow:
+      0 24px 64px rgba(6, 11, 21, 0.24),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  .tab-panel-shell :global(.history-panel),
+  .tab-panel-shell :global(.memory-panel),
+  .tab-panel-shell :global(.skills-panel),
+  .tab-panel-shell :global(.config-editor) {
+    gap: var(--spacing-xl);
+  }
+
+  .tab-panel-shell :global(.history-panel .panel-toolbar),
+  .tab-panel-shell :global(.memory-panel .panel-toolbar),
+  .tab-panel-shell :global(.skills-panel .panel-toolbar),
+  .tab-panel-shell :global(.config-editor .editor-header) {
+    gap: 0.9rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid rgba(116, 136, 173, 0.22);
+    border-radius: var(--radius-lg);
+    background: linear-gradient(180deg, rgba(11, 18, 31, 0.84), rgba(15, 23, 42, 0.76));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(8px);
+  }
+
+  .tab-panel-shell :global(.history-panel .panel-toolbar h2),
+  .tab-panel-shell :global(.memory-panel .panel-toolbar h2),
+  .tab-panel-shell :global(.skills-panel .panel-toolbar h2),
+  .tab-panel-shell :global(.memory-panel .section-header h3),
+  .tab-panel-shell :global(.skills-panel .section-header h3) {
+    font-size: 1rem;
+    line-height: 1.2;
+    color: var(--shell-text);
+  }
+
+  .tab-panel-shell :global(.history-panel .panel-toolbar p),
+  .tab-panel-shell :global(.memory-panel .panel-toolbar p),
+  .tab-panel-shell :global(.skills-panel .panel-toolbar p),
+  .tab-panel-shell :global(.memory-panel .section-header p),
+  .tab-panel-shell :global(.skills-panel .section-header p) {
+    margin-top: 0.2rem;
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: var(--shell-text-dim);
+  }
+
+  .tab-panel-shell :global(.history-panel .toolbar-btn),
+  .tab-panel-shell :global(.memory-panel .toolbar-btn),
+  .tab-panel-shell :global(.skills-panel .toolbar-btn),
+  .tab-panel-shell :global(.skills-panel .toolbar-link) {
+    min-height: 38px;
+    border-color: rgba(116, 136, 173, 0.22);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--shell-text-dim);
+    box-shadow: none;
+  }
+
+  .tab-panel-shell :global(.history-panel .toolbar-btn:hover),
+  .tab-panel-shell :global(.memory-panel .toolbar-btn:hover),
+  .tab-panel-shell :global(.skills-panel .toolbar-btn:hover),
+  .tab-panel-shell :global(.skills-panel .toolbar-link:hover) {
+    border-color: rgba(34, 211, 238, 0.28);
+    background: rgba(34, 211, 238, 0.1);
+    color: var(--shell-text);
+  }
+
+  .tab-panel-shell :global(.history-panel .session-list),
+  .tab-panel-shell :global(.history-panel .message-pane),
+  .tab-panel-shell :global(.memory-panel .memory-section),
+  .tab-panel-shell :global(.memory-panel .stat-card),
+  .tab-panel-shell :global(.skills-panel .skill-section),
+  .tab-panel-shell :global(.skills-panel .install-card),
+  .tab-panel-shell :global(.skills-panel .skill-card),
+  .tab-panel-shell :global(.config-editor .ui-content),
+  .tab-panel-shell :global(.config-editor .raw-editor) {
+    border-color: rgba(116, 136, 173, 0.2);
+    background: linear-gradient(180deg, rgba(12, 19, 33, 0.82), rgba(16, 25, 42, 0.76));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  .tab-panel-shell :global(.config-editor .ui-content) {
+    padding: 0.35rem;
+    border: 1px solid rgba(116, 136, 173, 0.2);
+    border-radius: var(--radius-lg);
+  }
+
+  .tab-panel-shell :global(.history-panel .session-list-header),
+  .tab-panel-shell :global(.history-panel .session-page-controls),
+  .tab-panel-shell :global(.history-panel .message-header) {
+    border-color: rgba(116, 136, 173, 0.18);
+    color: var(--shell-text-dim);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .tab-panel-shell :global(.history-panel .session-item) {
+    padding: 0.78rem 0.9rem;
+    color: var(--shell-text-subtle);
+    border-color: rgba(116, 136, 173, 0.14);
+  }
+
+  .tab-panel-shell :global(.history-panel .session-item:hover),
+  .tab-panel-shell :global(.history-panel .session-item.active) {
+    background: rgba(34, 211, 238, 0.12);
+  }
+
+  .tab-panel-shell :global(.history-panel .session-meta),
+  .tab-panel-shell :global(.history-panel .message-subtitle),
+  .tab-panel-shell :global(.history-panel .message-card header),
+  .tab-panel-shell :global(.memory-panel .entry-meta),
+  .tab-panel-shell :global(.memory-panel .search-meta),
+  .tab-panel-shell :global(.skills-panel .skill-description),
+  .tab-panel-shell :global(.skills-panel .skill-meta span) {
+    color: var(--shell-text-dim);
+  }
+
+  .tab-panel-shell :global(.history-panel .session-id),
+  .tab-panel-shell :global(.history-panel .message-title),
+  .tab-panel-shell :global(.memory-panel .stat-card strong),
+  .tab-panel-shell :global(.memory-panel .entry-key),
+  .tab-panel-shell :global(.skills-panel .skill-name),
+  .tab-panel-shell :global(.skills-panel .skill-meta strong) {
+    color: var(--shell-text);
+  }
+
+  .tab-panel-shell :global(.memory-panel .stat-card span),
+  .tab-panel-shell :global(.skills-panel .badge),
+  .tab-panel-shell :global(.skills-panel .skill-version) {
+    color: var(--shell-text-dim);
+  }
+
+  .tab-panel-shell :global(.history-panel .message-card),
+  .tab-panel-shell :global(.memory-panel .entry-card),
+  .tab-panel-shell :global(.memory-panel .search-card),
+  .tab-panel-shell :global(.skills-panel .skill-path),
+  .tab-panel-shell :global(.skills-panel .missing-deps) {
+    padding: 0.82rem 0.9rem;
+    border-color: rgba(116, 136, 173, 0.18);
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .tab-panel-shell :global(.history-panel .message-list),
+  .tab-panel-shell :global(.memory-panel .entry-list),
+  .tab-panel-shell :global(.memory-panel .search-list) {
+    gap: 0.8rem;
+  }
+
+  .tab-panel-shell :global(.memory-panel .stats-grid),
+  .tab-panel-shell :global(.skills-panel .skill-grid),
+  .tab-panel-shell :global(.skills-panel .install-grid) {
+    gap: 0.85rem;
+  }
+
+  .tab-panel-shell :global(.history-panel pre),
+  .tab-panel-shell :global(.memory-panel pre),
+  .tab-panel-shell :global(.skills-panel .skill-path),
+  .tab-panel-shell :global(.config-editor .raw-editor) {
+    color: #dce8ff;
+  }
+
+  .tab-panel-shell :global(.memory-panel select),
+  .tab-panel-shell :global(.memory-panel input),
+  .tab-panel-shell :global(.skills-panel .install-card input),
+  .tab-panel-shell :global(.config-editor .raw-editor) {
+    border-color: rgba(116, 136, 173, 0.22);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--shell-text);
+  }
+
+  .tab-panel-shell :global(.memory-panel input::placeholder),
+  .tab-panel-shell :global(.skills-panel .install-card input::placeholder),
+  .tab-panel-shell :global(.config-editor .raw-editor::placeholder) {
+    color: var(--shell-text-dim);
+  }
+
+  .tab-panel-shell :global(.config-editor .mode-toggle) {
+    border-color: rgba(116, 136, 173, 0.2);
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .tab-panel-shell :global(.config-editor .action-buttons) {
+    gap: 0.55rem;
+  }
+
+  .tab-panel-shell :global(.config-editor .mode-btn) {
+    color: var(--shell-text-dim);
+  }
+
+  .tab-panel-shell :global(.config-editor .mode-btn:hover) {
+    color: var(--shell-text);
+    background: rgba(34, 211, 238, 0.08);
+  }
+
+  .tab-panel-shell :global(.config-editor .mode-btn.active) {
+    color: var(--shell-text);
+    border-color: rgba(34, 211, 238, 0.24);
+    background: linear-gradient(135deg, rgba(34, 211, 238, 0.16), rgba(139, 92, 246, 0.12));
+    box-shadow: inset 0 0 16px rgba(34, 211, 238, 0.12);
+  }
+
+  .tab-panel-shell :global(.history-panel .panel-state),
+  .tab-panel-shell :global(.memory-panel .panel-state),
+  .tab-panel-shell :global(.skills-panel .panel-state),
+  .tab-panel-shell :global(.config-editor .message) {
+    padding: 1rem 1.1rem;
+    border-color: rgba(116, 136, 173, 0.22);
+    background: rgba(8, 14, 24, 0.68);
+    color: var(--shell-text-dim);
+    box-shadow: none;
+  }
+
+  .tab-panel-shell :global(.history-panel .panel-state.warning),
+  .tab-panel-shell :global(.memory-panel .panel-state.warning),
+  .tab-panel-shell :global(.skills-panel .panel-state.warning),
+  .tab-panel-shell :global(.config-editor .message.error) {
+    border-color: rgba(245, 158, 11, 0.28);
+    background: rgba(58, 36, 14, 0.4);
+    color: #ffd089;
+  }
+
+  .tab-panel-shell :global(.skills-panel .panel-state.success) {
+    border-color: rgba(16, 185, 129, 0.26);
+    background: rgba(10, 48, 37, 0.4);
+    color: #9af3cf;
+  }
+
+  .tab-panel-shell :global(.log-viewer) {
+    min-height: 520px;
+    border-color: rgba(116, 136, 173, 0.22);
+    box-shadow:
+      0 18px 40px rgba(6, 11, 21, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  .tab-panel-shell :global(.log-header) {
+    padding: 1rem 1.1rem;
+    border-bottom-color: rgba(116, 136, 173, 0.2);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .tab-panel-shell :global(.log-title-group > span:first-child) {
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+  }
+
+  .tab-panel-shell :global(.log-content) {
+    padding: 1.05rem 1.1rem 1.25rem;
+    line-height: 1.55;
+  }
+
+  .tab-panel-shell :global(.log-line) {
+    padding: 0.16rem 0.42rem;
+  }
+
+  .tab-panel-shell :global(.log-empty) {
+    padding: 2.6rem 1.2rem;
+  }
+
+  .tab-panel-shell .json-card h3 {
+    color: var(--shell-text);
+    font-size: var(--text-sm);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .tab-panel-shell .json-card pre {
+    border-color: rgba(116, 136, 173, 0.2);
+    background: linear-gradient(180deg, rgba(12, 19, 33, 0.82), rgba(16, 25, 42, 0.76));
+    color: #dce8ff;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
   }
 
   .json-grid {
@@ -1115,31 +1225,7 @@
     margin-top: var(--spacing-lg);
   }
 
-  @media (max-width: 900px) {
-    .instance-header {
-      flex-direction: column;
-    }
-
-    .actions {
-      width: 100%;
-      justify-content: flex-start;
-    }
-
-    .actions .control-btn {
-      flex: 1 1 calc(50% - 0.5rem);
-    }
-
-    .failed-banner {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-  }
-
   @media (max-width: 640px) {
-    .summary-grid {
-      grid-template-columns: 1fr;
-    }
-
     .tabs {
       overflow-x: auto;
       scrollbar-width: none;

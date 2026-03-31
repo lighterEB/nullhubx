@@ -112,8 +112,8 @@
       </div>
 
       <div class="extensions-grid">
-        {#each availableExtensions as comp, i}
-          <div class="card-wrapper" style="animation-delay: {i * 60}ms">
+        {#each availableExtensions as comp}
+          <div class="card-wrapper">
             <ComponentCard
               name={comp.name}
               displayName={comp.display_name}
@@ -141,8 +141,8 @@
       </div>
 
       <div class="extensions-grid coming-soon">
-        {#each comingSoonExtensions as comp, i}
-          <div class="card-wrapper" style="animation-delay: {i * 60}ms">
+        {#each comingSoonExtensions as comp}
+          <div class="card-wrapper">
             <ComponentCard
               name={comp.name}
               displayName={comp.display_name}
@@ -195,12 +195,7 @@
 
   .card-wrapper,
   .core-card-wrapper {
-    opacity: 0;
-    animation: fadeUp 0.4s ease forwards;
-  }
-
-  .core-card-wrapper {
-    animation-duration: 0.5s;
+    display: block;
   }
 
   .loading-card {

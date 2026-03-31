@@ -227,7 +227,7 @@
     border-radius: var(--radius-lg);
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(244, 248, 255, 0.72));
     box-shadow: var(--shadow-sm);
-    backdrop-filter: blur(16px);
+    backdrop-filter: blur(8px);
   }
 
   .section-header {
@@ -294,7 +294,11 @@
     font-size: 0.875rem;
     font-family: var(--font-sans);
     outline: none;
-    transition: all var(--transition-fast);
+    transition:
+      border-color var(--transition-fast),
+      box-shadow var(--transition-fast),
+      background-color var(--transition-fast),
+      color var(--transition-fast);
   }
 
   .field input:focus,
