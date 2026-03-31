@@ -511,11 +511,12 @@
   .install-card {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    padding: 1rem;
+    gap: 0.85rem;
+    padding: var(--spacing-lg);
     border: 1px solid rgba(141, 154, 178, 0.18);
-    background: rgba(255, 255, 255, 0.72);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(247, 250, 255, 0.78));
     border-radius: var(--radius-lg);
+    box-shadow: 0 14px 36px rgba(9, 16, 29, 0.08);
   }
 
   .install-card h4 {
@@ -619,12 +620,12 @@
   .skill-card {
     display: flex;
     flex-direction: column;
-    gap: 0.9rem;
-    padding: 1rem;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg);
     border: 1px solid rgba(141, 154, 178, 0.18);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(245, 249, 255, 0.72));
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(247, 250, 255, 0.78));
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 14px 36px rgba(9, 16, 29, 0.08);
   }
 
   .skill-card.recommended {
@@ -633,8 +634,8 @@
 
   .skill-card.installed {
     box-shadow:
-      var(--shadow-sm),
-      inset 0 0 0 1px rgba(16, 185, 129, 0.22);
+      0 14px 36px rgba(9, 16, 29, 0.08),
+      inset 0 0 0 1px rgba(16, 185, 129, 0.3);
   }
 
   .skill-card.missing {
@@ -680,6 +681,7 @@
     border-radius: 999px;
     color: var(--slate-500);
     font-size: 0.68rem;
+    font-family: var(--font-mono);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     background: rgba(255, 255, 255, 0.72);
@@ -696,6 +698,7 @@
   }
 
   .skill-meta {
+    margin-bottom: auto;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.75rem;
@@ -709,10 +712,15 @@
   }
 
   .skill-meta span {
-    font-size: 0.68rem;
+    display: block;
+    font-size: var(--text-xs);
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--slate-500);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .skill-meta strong {
@@ -741,6 +749,10 @@
     border: 1px dashed rgba(245, 158, 11, 0.2);
     border-radius: var(--radius-md);
     background: rgba(255, 251, 235, 0.8);
+  }
+
+  .install-card .skill-actions {
+    margin-top: auto;
   }
 
   .skill-actions {

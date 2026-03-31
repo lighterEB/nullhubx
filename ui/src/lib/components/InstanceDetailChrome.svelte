@@ -314,26 +314,42 @@
   }
 
   .summary-card {
+    position: relative;
     border: 1px solid rgba(141, 154, 178, 0.18);
     border-radius: var(--radius-lg);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(246, 249, 255, 0.76));
-    padding: 0.95rem 1rem;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(247, 250, 255, 0.78));
+    padding: var(--spacing-lg);
     display: flex;
     flex-direction: column;
     gap: var(--spacing-xs);
     min-width: 0;
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 14px 36px rgba(9, 16, 29, 0.08);
+    overflow: hidden;
+  }
+
+  .summary-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: linear-gradient(180deg, rgba(34, 211, 238, 0.92), rgba(139, 92, 246, 0.78));
   }
 
   .summary-card .label {
+    display: block;
     font-size: var(--text-xs);
     color: var(--slate-500);
     letter-spacing: 0.08em;
     text-transform: uppercase;
     font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .summary-card strong {
+    margin-top: var(--spacing-xs);
+    display: block;
     color: var(--slate-900);
     font-size: var(--text-base);
     line-height: 1.5;
@@ -341,6 +357,7 @@
   }
 
   .summary-note {
+    margin-top: auto;
     color: var(--slate-500);
     font-size: var(--text-xs);
     line-height: 1.5;
@@ -349,6 +366,11 @@
   .summary-card.status-card {
     border-color: rgba(34, 211, 238, 0.22);
     box-shadow: 0 16px 36px rgba(14, 165, 198, 0.08), 0 0 0 1px rgba(34, 211, 238, 0.08);
+  }
+
+  .summary-card.status-card :global(.badge) {
+    margin-top: auto;
+    width: fit-content;
   }
 
   .summary-card.wide {

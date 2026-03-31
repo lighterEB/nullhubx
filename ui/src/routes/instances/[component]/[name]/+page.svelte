@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
-  import { onMount, onDestroy } from "svelte";
+  import { onMount, onDestroy, untrack } from "svelte";
   import { api } from "$lib/api/client";
   import { formatTimeoutError } from "$lib/api/errorMessages";
   import { t } from "$lib/i18n/index.svelte";
@@ -28,6 +28,8 @@
   type LaunchAction = "start" | "restart";
   type AgentRouteSummaryState = "configured" | "default_only" | "missing_profiles" | "unavailable" | "unknown";
 
+  let { data } = $props();
+
   let component = $derived($page.params.component);
   let name = $derived($page.params.name);
   let isValidInstance = $derived(Boolean(component && name));
@@ -38,7 +40,7 @@
   let busyAction = $state<"start" | "stop" | "restart" | "update" | "delete" | null>(null);
   let savingDefaults = $state(false);
 
-  let instanceStatus = $state<any>(null);
+  let instanceStatus = $state<any>(untrack(() => data.initialStatus));
   let providerHealth = $state<any>(null);
   let onboarding = $state<any>(null);
   let usage = $state<any>(null);
@@ -540,6 +542,10 @@
     logInitialSource = "instance";
     logViewerResetToken += 1;
     summaryRequestToken += 1;
+    
+    // Sync cache when route changes to avoid flash
+    instanceStatus = data.initialStatus;
+
     void loadSummary("interactive");
   });
 

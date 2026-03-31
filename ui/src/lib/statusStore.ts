@@ -31,7 +31,19 @@ let currentRefreshInterval = BASE_REFRESH_INTERVAL;
 
 // Svelte stores
 import type { GlobalStatus, InstanceInfo, InstancesPayload } from './api/client';
-export const status = writable<GlobalStatus | null>(null);
+
+const STATUS_CACHE_KEY = 'nullhubx-status-cache';
+let cachedStatus: GlobalStatus | null = null;
+if (typeof localStorage !== 'undefined') {
+  try {
+    const raw = localStorage.getItem(STATUS_CACHE_KEY);
+    if (raw) cachedStatus = JSON.parse(raw);
+  } catch (e) {}
+}
+
+hasInitialData = !!cachedStatus;
+
+export const status = writable<GlobalStatus | null>(cachedStatus);
 export const statusError = writable<string | null>(null);
 export const initialLoading = writable(false);
 export const backgroundRefreshing = writable(false);
@@ -156,6 +168,11 @@ async function fetchStatus(mode: FetchMode = 'manual'): Promise<GlobalStatus> {
     lastFetch = now;
     // Reset interval on success
     currentRefreshInterval = BASE_REFRESH_INTERVAL;
+    
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STATUS_CACHE_KEY, JSON.stringify(get(status)));
+    }
+    
     return get(status) ?? result;
   } catch (e) {
     consecutiveStatusFailures += 1;
