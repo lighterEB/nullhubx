@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { readdirSync } from 'node:fs';
+import { readdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -8,6 +8,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const uiDir = dirname(__dirname);
 const viteBin = join(uiDir, 'node_modules', 'vite', 'bin', 'vite.js');
 const svelteKitBin = join(uiDir, 'node_modules', '@sveltejs', 'kit', 'svelte-kit.js');
+const buildDir = join(uiDir, 'build');
 
 function parseMajor(version) {
   const match = /^v?(\d+)/.exec(version ?? '');
@@ -38,6 +39,8 @@ function findCompatibleNode() {
 const currentMajor = parseMajor(process.version);
 const compatibleNode = currentMajor !== null && currentMajor >= 25 ? findCompatibleNode() : null;
 const runtimeNode = compatibleNode ?? process.execPath;
+
+rmSync(buildDir, { recursive: true, force: true });
 
 const syncResult = spawnSync(runtimeNode, [svelteKitBin, 'sync'], {
   cwd: uiDir,

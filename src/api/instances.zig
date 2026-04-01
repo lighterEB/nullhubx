@@ -7,7 +7,6 @@ const paths_mod = @import("../core/paths.zig");
 const helpers = @import("helpers.zig");
 const local_binary = @import("../core/local_binary.zig");
 const component_cli = @import("../core/component_cli.zig");
-const integration_mod = @import("../core/integration.zig");
 const launch_args_mod = @import("../core/launch_args.zig");
 const managed_skills = @import("../managed_skills.zig");
 const manifest_mod = @import("../core/manifest.zig");
@@ -20,9 +19,6 @@ const jsonOk = helpers.jsonOk;
 const notFound = helpers.notFound;
 const badRequest = helpers.badRequest;
 const methodNotAllowed = helpers.methodNotAllowed;
-
-const default_tracker_prompt_template =
-    "Task {{task.id}}: {{task.title}}\n\n{{task.description}}\n\nMetadata:\n{{task.metadata}}";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -58,25 +54,6 @@ fn readPortFromConfig(allocator: std.mem.Allocator, paths: paths_mod.Paths, comp
         .integer => |v| return if (v >= 0 and v <= 65535) @intCast(v) else null,
         else => return null,
     }
-}
-
-fn fetchJsonValue(allocator: std.mem.Allocator, url: []const u8, bearer_token: ?[]const u8) ?std.json.Value {
-    return command_service.fetchJsonValue(allocator, url, bearer_token);
-}
-
-fn buildInstanceUrl(allocator: std.mem.Allocator, port: u16, path: []const u8) ?[]const u8 {
-    return command_service.buildInstanceUrl(allocator, port, path);
-}
-
-fn getStatusLocked(
-    mutex: *std.Thread.Mutex,
-    manager: *manager_mod.Manager,
-    component: []const u8,
-    name: []const u8,
-) ?manager_mod.InstanceStatus {
-    mutex.lock();
-    defer mutex.unlock();
-    return manager.getStatus(component, name);
 }
 
 const NullclawOnboardingStatus = struct {
@@ -115,6 +92,13 @@ const nullclaw_bootstrap_memory_key = "__bootstrap.prompt.BOOTSTRAP.md";
 fn fileExistsAbsolute(path: []const u8) bool {
     std.fs.accessAbsolute(path, .{}) catch return false;
     return true;
+}
+
+pub fn ensurePath(path: []const u8) !void {
+    std.fs.cwd().makePath(path) catch |err| switch (err) {
+        error.PathAlreadyExists => {},
+        else => return err,
+    };
 }
 
 fn nullclawWorkspaceStatePath(allocator: std.mem.Allocator, workspace_dir: []const u8) ![]const u8 {
@@ -246,231 +230,6 @@ fn readNullclawOnboardingStatus(
     status.pending = !status.completed and (status.bootstrap_exists or status.bootstrap_seeded_at != null or bootstrap_probe.exists);
     return status;
 }
-
-fn listNullTicketsLocked(
-    allocator: std.mem.Allocator,
-    mutex: *std.Thread.Mutex,
-    state: *state_mod.State,
-    paths: paths_mod.Paths,
-) ![]integration_mod.NullTicketsConfig {
-    mutex.lock();
-    defer mutex.unlock();
-    return integration_mod.listNullTickets(allocator, state, paths);
-}
-
-fn listNullBoilersLocked(
-    allocator: std.mem.Allocator,
-    mutex: *std.Thread.Mutex,
-    state: *state_mod.State,
-    paths: paths_mod.Paths,
-) ![]integration_mod.NullBoilerConfig {
-    mutex.lock();
-    defer mutex.unlock();
-    return integration_mod.listNullBoilers(allocator, state, paths);
-}
-
-const PipelineSummary = struct {
-    id: []const u8,
-    name: []const u8,
-    roles: []const []const u8,
-    triggers: []const []const u8,
-};
-
-const TrackerIntegrationOption = struct {
-    name: []const u8,
-    port: u16,
-    running: bool,
-    pipelines: []const PipelineSummary = &.{},
-};
-
-fn fetchPipelineSummaries(allocator: std.mem.Allocator, url: []const u8, bearer_token: ?[]const u8) ?[]PipelineSummary {
-    var client: std.http.Client = .{ .allocator = allocator };
-    defer client.deinit();
-
-    var response_body: std.io.Writer.Allocating = .init(allocator);
-    defer response_body.deinit();
-
-    var auth_header: ?[]const u8 = null;
-    defer if (auth_header) |value| allocator.free(value);
-    var header_buf: [1]std.http.Header = undefined;
-    const extra_headers: []const std.http.Header = if (bearer_token) |token| blk: {
-        auth_header = std.fmt.allocPrint(allocator, "Bearer {s}", .{token}) catch return null;
-        header_buf[0] = .{ .name = "Authorization", .value = auth_header.? };
-        break :blk header_buf[0..1];
-    } else &.{};
-
-    const result = client.fetch(.{
-        .location = .{ .url = url },
-        .method = .GET,
-        .response_writer = &response_body.writer,
-        .extra_headers = extra_headers,
-    }) catch return null;
-    if (@intFromEnum(result.status) < 200 or @intFromEnum(result.status) >= 300) return null;
-
-    const bytes = response_body.written();
-    const parsed = std.json.parseFromSlice(std.json.Value, allocator, bytes, .{
-        .allocate = .alloc_always,
-        .ignore_unknown_fields = true,
-    }) catch return null;
-    defer parsed.deinit();
-    if (parsed.value != .array) return null;
-
-    var list: std.ArrayListUnmanaged(PipelineSummary) = .empty;
-    errdefer deinitPipelineSummaries(allocator, list.items);
-    defer list.deinit(allocator);
-
-    for (parsed.value.array.items) |item| {
-        const summary = parsePipelineSummary(allocator, item) catch continue;
-        list.append(allocator, summary) catch {
-            deinitPipelineSummary(allocator, summary);
-            return null;
-        };
-    }
-
-    return list.toOwnedSlice(allocator) catch null;
-}
-
-fn parsePipelineSummary(allocator: std.mem.Allocator, value: std.json.Value) !PipelineSummary {
-    if (value != .object) return error.InvalidPipelineSummary;
-    const obj = value.object;
-    const definition = obj.get("definition") orelse return error.InvalidPipelineSummary;
-    if (definition != .object) return error.InvalidPipelineSummary;
-
-    return .{
-        .id = try allocator.dupe(u8, jsonStringOrEmpty(obj, "id")),
-        .name = try allocator.dupe(u8, jsonStringOrEmpty(obj, "name")),
-        .roles = try collectPipelineRoles(allocator, definition),
-        .triggers = try collectPipelineTriggers(allocator, definition),
-    };
-}
-
-fn collectPipelineRoles(allocator: std.mem.Allocator, definition: std.json.Value) ![]const []const u8 {
-    if (definition != .object) return allocator.alloc([]const u8, 0);
-    const states_val = definition.object.get("states") orelse return allocator.alloc([]const u8, 0);
-    if (states_val != .object) return allocator.alloc([]const u8, 0);
-
-    var list: std.ArrayListUnmanaged([]const u8) = .empty;
-    defer list.deinit(allocator);
-
-    var it = states_val.object.iterator();
-    while (it.next()) |entry| {
-        if (entry.value_ptr.* != .object) continue;
-        const role = jsonString(entry.value_ptr.*.object, "agent_role") orelse continue;
-        try appendUniqueString(allocator, &list, role);
-    }
-
-    return list.toOwnedSlice(allocator);
-}
-
-fn collectPipelineTriggers(allocator: std.mem.Allocator, definition: std.json.Value) ![]const []const u8 {
-    if (definition != .object) return allocator.alloc([]const u8, 0);
-    const transitions_val = definition.object.get("transitions") orelse return allocator.alloc([]const u8, 0);
-    if (transitions_val != .array) return allocator.alloc([]const u8, 0);
-
-    var list: std.ArrayListUnmanaged([]const u8) = .empty;
-    defer list.deinit(allocator);
-
-    for (transitions_val.array.items) |transition| {
-        if (transition != .object) continue;
-        const trigger = jsonString(transition.object, "trigger") orelse continue;
-        try appendUniqueString(allocator, &list, trigger);
-    }
-
-    return list.toOwnedSlice(allocator);
-}
-
-fn appendUniqueString(allocator: std.mem.Allocator, list: *std.ArrayListUnmanaged([]const u8), value: []const u8) !void {
-    for (list.items) |existing| {
-        if (std.mem.eql(u8, existing, value)) return;
-    }
-    try list.append(allocator, try allocator.dupe(u8, value));
-}
-
-fn deinitPipelineSummary(allocator: std.mem.Allocator, summary: PipelineSummary) void {
-    allocator.free(summary.id);
-    allocator.free(summary.name);
-    for (summary.roles) |role| allocator.free(role);
-    allocator.free(summary.roles);
-    for (summary.triggers) |trigger| allocator.free(trigger);
-    allocator.free(summary.triggers);
-}
-
-fn deinitPipelineSummaries(allocator: std.mem.Allocator, summaries: []const PipelineSummary) void {
-    for (summaries) |summary| deinitPipelineSummary(allocator, summary);
-    allocator.free(@constCast(summaries));
-}
-
-fn jsonString(obj: std.json.ObjectMap, key: []const u8) ?[]const u8 {
-    const value = obj.get(key) orelse return null;
-    return if (value == .string) value.string else null;
-}
-
-fn jsonStringOrEmpty(obj: std.json.ObjectMap, key: []const u8) []const u8 {
-    return jsonString(obj, key) orelse "";
-}
-
-fn pipelineContainsString(values: []const []const u8, candidate: []const u8) bool {
-    for (values) |value| {
-        if (std.mem.eql(u8, value, candidate)) return true;
-    }
-    return false;
-}
-
-fn ensurePath(path: []const u8) !void {
-    std.fs.cwd().makePath(path) catch |err| switch (err) {
-        error.PathAlreadyExists => {},
-        else => return err,
-    };
-}
-
-fn ensureObjectField(
-    allocator: std.mem.Allocator,
-    parent: *std.json.ObjectMap,
-    key: []const u8,
-) !*std.json.ObjectMap {
-    if (parent.getPtr(key)) |value_ptr| {
-        if (value_ptr.* != .object) {
-            value_ptr.* = .{ .object = std.json.ObjectMap.init(allocator) };
-        }
-        return &value_ptr.object;
-    }
-
-    try parent.put(key, .{ .object = std.json.ObjectMap.init(allocator) });
-    return &parent.getPtr(key).?.object;
-}
-
-fn resolvePathFromConfig(allocator: std.mem.Allocator, config_path: []const u8, value: []const u8) ![]const u8 {
-    if (value.len == 0 or std.fs.path.isAbsolute(value)) return allocator.dupe(u8, value);
-    const config_dir = std.fs.path.dirname(config_path) orelse return error.InvalidPath;
-    return std.fs.path.resolve(allocator, &.{ config_dir, value });
-}
-
-fn isNullHubXManagedWorkflow(
-    allocator: std.mem.Allocator,
-    workflow_path: []const u8,
-) bool {
-    const file = std.fs.openFileAbsolute(workflow_path, .{}) catch return false;
-    defer file.close();
-
-    const bytes = file.readToEndAlloc(allocator, 1024 * 1024) catch return false;
-    defer allocator.free(bytes);
-
-    const parsed = std.json.parseFromSlice(struct {
-        id: []const u8 = "",
-        execution: []const u8 = "",
-        prompt_template: ?[]const u8 = null,
-    }, allocator, bytes, .{
-        .allocate = .alloc_always,
-        .ignore_unknown_fields = true,
-    }) catch return false;
-    defer parsed.deinit();
-
-    return std.mem.startsWith(u8, parsed.value.id, "wf-") and
-        std.mem.eql(u8, parsed.value.execution, "subprocess") and
-        parsed.value.prompt_template != null and
-        std.mem.eql(u8, parsed.value.prompt_template.?, default_tracker_prompt_template);
-}
-
 pub const ProviderHealthConfig = struct {
     agents: ?struct {
         defaults: ?struct {
@@ -1566,7 +1325,7 @@ pub const TestManagerCtx = struct {
     mutex: std.Thread.Mutex = .{},
     paths: paths_mod.Paths,
 
-    fn init(allocator: std.mem.Allocator) TestManagerCtx {
+    pub fn init(allocator: std.mem.Allocator) TestManagerCtx {
         const root = std.fmt.allocPrint(
             allocator,
             "/tmp/nullhubx-test-instances-api-{d}-{x}",
@@ -1584,7 +1343,7 @@ pub const TestManagerCtx = struct {
         };
     }
 
-    fn deinit(self: *TestManagerCtx, allocator: std.mem.Allocator) void {
+    pub fn deinit(self: *TestManagerCtx, allocator: std.mem.Allocator) void {
         self.manager.deinit();
         std.fs.deleteTreeAbsolute(self.paths.root) catch {};
         self.paths.deinit(allocator);
