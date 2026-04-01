@@ -259,6 +259,13 @@ const route_examples_meta = [_]ExampleSpec{
     },
 };
 
+const route_examples_capabilities = [_]ExampleSpec{
+    .{
+        .command = "nullhubx api GET /api/meta/capabilities --pretty",
+        .description = "Read backend-advertised capability flags for UI feature gating.",
+    },
+};
+
 const routes = [_]RouteSpec{
     .{
         .id = "health",
@@ -288,6 +295,16 @@ const routes = [_]RouteSpec{
         .auth_mode = "optional_bearer",
         .response = "JSON document with route ids, methods, paths, parameters, and examples.",
         .examples = route_examples_meta[0..],
+    },
+    .{
+        .id = "meta.capabilities.get",
+        .method = "GET",
+        .path_template = "/api/meta/capabilities",
+        .category = "meta",
+        .summary = "Backend capability flags and feature-availability hints.",
+        .auth_mode = "optional_bearer",
+        .response = "Capability document for frontend gating and diagnostics.",
+        .examples = route_examples_capabilities[0..],
     },
     .{
         .id = "components.list",
@@ -955,6 +972,10 @@ pub fn isRoutesPath(target: []const u8) bool {
     return std.mem.eql(u8, target, "/api/meta/routes") or std.mem.startsWith(u8, target, "/api/meta/routes?");
 }
 
+pub fn isCapabilitiesPath(target: []const u8) bool {
+    return std.mem.eql(u8, target, "/api/meta/capabilities") or std.mem.startsWith(u8, target, "/api/meta/capabilities?");
+}
+
 pub fn jsonAlloc(allocator: std.mem.Allocator) ![]u8 {
     return std.json.Stringify.valueAlloc(allocator, Document{
         .version = 1,
@@ -1004,6 +1025,31 @@ pub fn handleRoutes(allocator: std.mem.Allocator) helpers.ApiResponse {
     return helpers.jsonOk(body);
 }
 
+pub fn handleCapabilities(allocator: std.mem.Allocator) helpers.ApiResponse {
+    const body = std.json.Stringify.valueAlloc(allocator, .{
+        .version = 1,
+        .capabilities = .{
+            .orchestration_proxy = true,
+            .service_management = true,
+            .instance_runtime_logs = true,
+            .instance_history = true,
+            .instance_memory_read = true,
+            .instance_skills = true,
+            .instance_usage = true,
+            .instance_onboarding = true,
+            .saved_providers = true,
+            .saved_channels = true,
+        },
+        .notes = .{
+            .capability_checks = "Prefer these flags over inferring feature availability from instance existence.",
+        },
+    }, .{
+        .whitespace = .indent_2,
+        .emit_null_optional_fields = false,
+    }) catch return helpers.serverError();
+    return helpers.jsonOk(body);
+}
+
 test "jsonAlloc includes stable route metadata" {
     const json = try jsonAlloc(std.testing.allocator);
     defer std.testing.allocator.free(json);
@@ -1024,4 +1070,19 @@ test "isRoutesPath matches meta routes endpoint" {
     try std.testing.expect(isRoutesPath("/api/meta/routes"));
     try std.testing.expect(isRoutesPath("/api/meta/routes?format=json"));
     try std.testing.expect(!isRoutesPath("/api/status"));
+}
+
+test "isCapabilitiesPath matches meta capabilities endpoint" {
+    try std.testing.expect(isCapabilitiesPath("/api/meta/capabilities"));
+    try std.testing.expect(isCapabilitiesPath("/api/meta/capabilities?format=json"));
+    try std.testing.expect(!isCapabilitiesPath("/api/meta/routes"));
+}
+
+test "handleCapabilities returns capability document" {
+    const resp = handleCapabilities(std.testing.allocator);
+    defer std.testing.allocator.free(resp.body);
+
+    try std.testing.expectEqualStrings("200 OK", resp.status);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"orchestration_proxy\": true") != null);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"instance_history\": true") != null);
 }

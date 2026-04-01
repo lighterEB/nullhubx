@@ -2,12 +2,15 @@ const std = @import("std");
 const auth = @import("auth.zig");
 const instances_api = @import("api/instances.zig");
 const platform = @import("core/platform.zig");
+const route_catalog = @import("api/route_catalog.zig");
+const router_common = @import("api/router_common.zig");
+const router_instances = @import("api/router_instances.zig");
+const router_orchestration = @import("api/router_orchestration.zig");
+const router_settings = @import("api/router_settings.zig");
+const router_status = @import("api/router_status.zig");
 const components_api = @import("api/components.zig");
-const config_api = @import("api/config.zig");
 const logs_api = @import("api/logs.zig");
 const meta_api = @import("api/meta.zig");
-const status_api = @import("api/status.zig");
-const settings_api = @import("api/settings.zig");
 const updates_api = @import("api/updates.zig");
 const access = @import("access.zig");
 const mdns_mod = @import("mdns.zig");
@@ -18,7 +21,6 @@ const wizard_api = @import("api/wizard.zig");
 const providers_api = @import("api/providers.zig");
 const channels_api = @import("api/channels.zig");
 const usage_api = @import("api/usage.zig");
-const orchestration_api = @import("api/orchestration.zig");
 const ui_modules = @import("installer/ui_modules.zig");
 const orchestrator = @import("installer/orchestrator.zig");
 const registry = @import("installer/registry.zig");
@@ -26,6 +28,8 @@ const ui_assets = @import("ui_assets");
 const version = @import("version.zig");
 
 const max_request_size: usize = 65_536;
+const Response = router_common.Response;
+const jsonResponse = router_common.jsonResponse;
 
 pub const Server = struct {
     allocator: std.mem.Allocator,
@@ -517,27 +521,32 @@ pub const Server = struct {
 
     fn routeWithoutServerMutex(target: []const u8) bool {
         return instances_api.isIntegrationPath(target) or
-            orchestration_api.isProxyPath(target) or
+            route_catalog.isOrchestrationPath(target) or
             logs_api.isLogsPath(target);
     }
 
     fn route(self: *Server, allocator: std.mem.Allocator, method: []const u8, target: []const u8, body: []const u8) Response {
+        if (router_status.handle(
+            allocator,
+            method,
+            target,
+            self.state,
+            self.manager,
+            self.start_time,
+            self.host,
+            self.port,
+            self.currentAccessOptions(),
+        )) |resp| {
+            return resp;
+        }
+
         if (std.mem.eql(u8, method, "GET")) {
-            if (std.mem.eql(u8, target, "/health")) {
-                return .{
-                    .status = "200 OK",
-                    .content_type = "application/json",
-                    .body = "{\"status\":\"ok\"}",
-                };
-            }
-            if (std.mem.eql(u8, target, "/api/status")) {
-                const now = std.time.timestamp();
-                const uptime: u64 = @intCast(@max(0, now - self.start_time));
-                const resp = status_api.handleStatus(allocator, self.state, self.manager, uptime, self.host, self.port, self.currentAccessOptions());
-                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
-            }
             if (meta_api.isRoutesPath(target)) {
                 const resp = meta_api.handleRoutes(allocator);
+                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
+            }
+            if (meta_api.isCapabilitiesPath(target)) {
+                const resp = meta_api.handleCapabilities(allocator);
                 return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
             }
             if (std.mem.eql(u8, target, "/api/components")) {
@@ -639,91 +648,16 @@ pub const Server = struct {
             };
         }
 
-        // Settings API
-        if (std.mem.eql(u8, target, "/api/settings")) {
-            if (std.mem.eql(u8, method, "GET")) {
-                if (settings_api.handleGetSettings(allocator, self.host, self.port, self.currentAccessOptions())) |json| {
-                    return jsonResponse(json);
-                } else |_| {
-                    return .{
-                        .status = "500 Internal Server Error",
-                        .content_type = "application/json",
-                        .body = "{\"error\":\"internal server error\"}",
-                    };
-                }
-            }
-            if (std.mem.eql(u8, method, "PUT")) {
-                if (settings_api.handlePutSettings(allocator, body)) |json| {
-                    return jsonResponse(json);
-                } else |_| {
-                    return .{
-                        .status = "500 Internal Server Error",
-                        .content_type = "application/json",
-                        .body = "{\"error\":\"internal server error\"}",
-                    };
-                }
-            }
-            return .{
-                .status = "405 Method Not Allowed",
-                .content_type = "application/json",
-                .body = "{\"error\":\"method not allowed\"}",
-            };
-        }
-
-        // Service API
-        if (std.mem.eql(u8, target, "/api/service/install")) {
-            if (std.mem.eql(u8, method, "POST")) {
-                if (settings_api.handleServiceInstall(allocator)) |json| {
-                    return jsonResponse(json);
-                } else |_| {
-                    return .{
-                        .status = "500 Internal Server Error",
-                        .content_type = "application/json",
-                        .body = "{\"error\":\"internal server error\"}",
-                    };
-                }
-            }
-            return .{
-                .status = "405 Method Not Allowed",
-                .content_type = "application/json",
-                .body = "{\"error\":\"method not allowed\"}",
-            };
-        }
-        if (std.mem.eql(u8, target, "/api/service/uninstall")) {
-            if (std.mem.eql(u8, method, "POST")) {
-                if (settings_api.handleServiceUninstall(allocator)) |json| {
-                    return jsonResponse(json);
-                } else |_| {
-                    return .{
-                        .status = "500 Internal Server Error",
-                        .content_type = "application/json",
-                        .body = "{\"error\":\"internal server error\"}",
-                    };
-                }
-            }
-            return .{
-                .status = "405 Method Not Allowed",
-                .content_type = "application/json",
-                .body = "{\"error\":\"method not allowed\"}",
-            };
-        }
-        if (std.mem.eql(u8, target, "/api/service/status")) {
-            if (std.mem.eql(u8, method, "GET")) {
-                if (settings_api.handleServiceStatus(allocator)) |json| {
-                    return jsonResponse(json);
-                } else |_| {
-                    return .{
-                        .status = "500 Internal Server Error",
-                        .content_type = "application/json",
-                        .body = "{\"error\":\"internal server error\"}",
-                    };
-                }
-            }
-            return .{
-                .status = "405 Method Not Allowed",
-                .content_type = "application/json",
-                .body = "{\"error\":\"method not allowed\"}",
-            };
+        if (router_settings.handle(
+            allocator,
+            method,
+            target,
+            body,
+            self.host,
+            self.port,
+            self.currentAccessOptions(),
+        )) |resp| {
+            return resp;
         }
 
         // Validate Providers API — POST /api/wizard/{component}/validate-providers
@@ -977,140 +911,26 @@ pub const Server = struct {
             }
         }
 
-        // Agent config API — /api/instances/{c}/{n}/agents/profiles|bindings
-        if (config_api.isAgentProfilesPath(target)) {
-            const parsed = config_api.parseAgentProfilesPath(target) orelse return .{
-                .status = "500 Internal Server Error",
-                .content_type = "application/json",
-                .body = "{\"error\":\"invalid agent profiles path\"}",
-            };
-
-            if (std.mem.eql(u8, method, "GET")) {
-                const resp = config_api.handleGetAgentProfiles(allocator, self.paths, parsed.component, parsed.name);
-                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
-            }
-            if (std.mem.eql(u8, method, "PUT")) {
-                const resp = config_api.handlePutAgentProfiles(allocator, self.paths, parsed.component, parsed.name, body);
-                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
-            }
-            return .{
-                .status = "405 Method Not Allowed",
-                .content_type = "application/json",
-                .body = "{\"error\":\"method not allowed\"}",
-            };
-        }
-        if (config_api.isAgentBindingsPath(target)) {
-            const parsed = config_api.parseAgentBindingsPath(target) orelse return .{
-                .status = "500 Internal Server Error",
-                .content_type = "application/json",
-                .body = "{\"error\":\"invalid agent bindings path\"}",
-            };
-
-            if (std.mem.eql(u8, method, "GET")) {
-                const resp = config_api.handleGetAgentBindings(allocator, self.paths, parsed.component, parsed.name);
-                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
-            }
-            if (std.mem.eql(u8, method, "PUT")) {
-                const resp = config_api.handlePutAgentBindings(allocator, self.paths, parsed.component, parsed.name, body);
-                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
-            }
-            return .{
-                .status = "405 Method Not Allowed",
-                .content_type = "application/json",
-                .body = "{\"error\":\"method not allowed\"}",
-            };
+        if (router_instances.handle(
+            allocator,
+            method,
+            target,
+            body,
+            self.state,
+            self.manager,
+            self.mutex,
+            self.paths,
+        )) |resp| {
+            return resp;
         }
 
-        // Config API — /api/instances/{c}/{n}/config
-        if (config_api.isConfigPath(target)) {
-            const parsed = config_api.parseConfigPath(target) orelse return .{
-                .status = "500 Internal Server Error",
-                .content_type = "application/json",
-                .body = "{\"error\":\"invalid config path\"}",
-            };
-
-            if (std.mem.eql(u8, method, "GET")) {
-                const resolve = config_api.shouldResolve(target);
-                const resp = config_api.handleGet(allocator, self.paths, self.state, parsed.component, parsed.name, resolve);
-                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
-            }
-            if (std.mem.eql(u8, method, "PUT")) {
-                const resp = config_api.handlePut(allocator, self.paths, parsed.component, parsed.name, body);
-                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
-            }
-            if (std.mem.eql(u8, method, "PATCH")) {
-                const resp = config_api.handlePatch(allocator, self.paths, parsed.component, parsed.name, body);
-                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
-            }
-            return .{
-                .status = "405 Method Not Allowed",
-                .content_type = "application/json",
-                .body = "{\"error\":\"method not allowed\"}",
-            };
-        }
-
-        // Logs API — /api/instances/{c}/{n}/logs and /api/instances/{c}/{n}/logs/stream
-        if (logs_api.isLogsPath(target)) {
-            if (logs_api.parseLogsPath(target)) |parsed| {
-                if (std.mem.eql(u8, method, "DELETE")) {
-                    const source = logs_api.parseSource(target);
-                    const resp = logs_api.handleDelete(allocator, self.paths, parsed.component, parsed.name, source);
-                    return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
-                }
-                if (!std.mem.eql(u8, method, "GET")) {
-                    return .{
-                        .status = "405 Method Not Allowed",
-                        .content_type = "application/json",
-                        .body = "{\"error\":\"method not allowed\"}",
-                    };
-                }
-                if (parsed.is_stream) {
-                    const max_lines = logs_api.parseLines(target);
-                    const source = logs_api.parseSource(target);
-                    const resp = logs_api.handleStream(allocator, self.paths, parsed.component, parsed.name, max_lines, source);
-                    return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
-                }
-                const max_lines = logs_api.parseLines(target);
-                const source = logs_api.parseSource(target);
-                const resp = logs_api.handleGet(allocator, self.paths, parsed.component, parsed.name, max_lines, source);
-                return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
-            }
-        }
-
-        // Instances API — delegate to instances_api.dispatch and updates_api.
-        if (std.mem.startsWith(u8, target, "/api/instances")) {
-            // Updates API — POST /api/instances/{c}/{n}/update
-            if (updates_api.parseUpdatePath(target)) |up| {
-                if (std.mem.eql(u8, method, "POST")) {
-                    const ur = updates_api.handleApplyUpdateRuntime(
-                        allocator,
-                        self.state,
-                        self.manager,
-                        self.paths,
-                        up.component,
-                        up.name,
-                    );
-                    return .{ .status = ur.status, .content_type = ur.content_type, .body = ur.body };
-                }
-                return .{
-                    .status = "405 Method Not Allowed",
-                    .content_type = "application/json",
-                    .body = "{\"error\":\"method not allowed\"}",
-                };
-            }
-            if (instances_api.dispatch(allocator, self.state, self.manager, self.mutex, self.paths, method, target, body)) |api_resp| {
-                return .{ .status = api_resp.status, .content_type = api_resp.content_type, .body = api_resp.body };
-            }
-        }
-
-        if (orchestration_api.isProxyPath(target)) {
-            const resp = orchestration_api.handle(allocator, method, target, body, .{
-                .boiler_url = self.getBoilerUrl(),
-                .boiler_token = self.getBoilerToken(),
-                .tickets_url = self.getTicketsUrl(),
-                .tickets_token = self.getTicketsToken(),
-            });
-            return .{ .status = resp.status, .content_type = resp.content_type, .body = resp.body };
+        if (router_orchestration.handle(allocator, method, target, body, .{
+            .boiler_url = self.getBoilerUrl(),
+            .boiler_token = self.getBoilerToken(),
+            .tickets_url = self.getTicketsUrl(),
+            .tickets_token = self.getTicketsToken(),
+        })) |resp| {
+            return resp;
         }
 
         // Serve UI module files from data directory (~/.nullhubx/ui/{name}@{version}/...)
@@ -1136,16 +956,6 @@ pub const Server = struct {
         };
     }
 };
-
-const Response = struct {
-    status: []const u8,
-    content_type: []const u8,
-    body: []const u8,
-};
-
-fn jsonResponse(body: []const u8) Response {
-    return .{ .status = "200 OK", .content_type = "application/json", .body = body };
-}
 
 fn readBody(raw: []const u8, n: usize, stream: std.net.Stream, alloc: std.mem.Allocator) ![]const u8 {
     if (extractHeader(raw, "Content-Length")) |cl_str| {
@@ -1442,6 +1252,17 @@ test "route GET /api/meta/routes returns route catalog" {
     try std.testing.expectEqualStrings("application/json", resp.content_type);
     try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"id\": \"meta.routes.get\"") != null);
     try std.testing.expect(std.mem.indexOf(u8, resp.body, "/api/instances/{component}/{name}") != null);
+}
+
+test "route GET /api/meta/capabilities returns capability document" {
+    var ctx = TestContext.init(std.testing.allocator);
+    defer ctx.deinit(std.testing.allocator);
+
+    const resp = ctx.route(std.testing.allocator, "GET", "/api/meta/capabilities", "");
+    defer std.testing.allocator.free(resp.body);
+    try std.testing.expectEqualStrings("200 OK", resp.status);
+    try std.testing.expectEqualStrings("application/json", resp.content_type);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"orchestration_proxy\": true") != null);
 }
 
 test "route unknown non-API path attempts static file serving" {

@@ -1,4 +1,7 @@
 const std = @import("std");
+const channels_repo = @import("state/channels_repo.zig");
+const instances_repo = @import("state/instances_repo.zig");
+const providers_repo = @import("state/providers_repo.zig");
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -153,7 +156,7 @@ pub const State = struct {
         };
     }
 
-    fn freeSavedProviderStrings(self: *State, sp: SavedProvider) void {
+    pub fn freeSavedProviderStrings(self: *State, sp: SavedProvider) void {
         self.allocator.free(sp.name);
         self.allocator.free(sp.provider);
         self.allocator.free(sp.api_key);
@@ -163,7 +166,7 @@ pub const State = struct {
         if (sp.last_validation_at.len > 0) self.allocator.free(sp.last_validation_at);
     }
 
-    fn freeSavedChannelStrings(self: *State, sc: SavedChannel) void {
+    pub fn freeSavedChannelStrings(self: *State, sc: SavedChannel) void {
         self.allocator.free(sc.name);
         self.allocator.free(sc.channel_type);
         self.allocator.free(sc.account);
@@ -174,28 +177,9 @@ pub const State = struct {
 
     /// Free all owned strings and hashmaps.
     pub fn deinit(self: *State) void {
-        for (self.saved_channels.items) |sc| {
-            self.freeSavedChannelStrings(sc);
-        }
-        self.saved_channels.deinit();
-
-        for (self.saved_providers.items) |sp| {
-            self.freeSavedProviderStrings(sp);
-        }
-        self.saved_providers.deinit();
-
-        var comp_it = self.instances.iterator();
-        while (comp_it.next()) |comp_entry| {
-            var inst_it = comp_entry.value_ptr.iterator();
-            while (inst_it.next()) |inst_entry| {
-                self.allocator.free(inst_entry.value_ptr.version);
-                self.allocator.free(inst_entry.value_ptr.launch_mode);
-                self.allocator.free(inst_entry.key_ptr.*);
-            }
-            comp_entry.value_ptr.deinit();
-            self.allocator.free(comp_entry.key_ptr.*);
-        }
-        self.instances.deinit();
+        channels_repo.deinitSavedChannels(self);
+        providers_repo.deinitSavedProviders(self);
+        instances_repo.deinitInstances(self.allocator, &self.instances);
         self.allocator.free(self.path);
     }
 
@@ -373,52 +357,17 @@ pub const State = struct {
         name: []const u8,
         entry: InstanceEntry,
     ) !void {
-        // Look up or create the component bucket.
-        const inner_ptr = blk: {
-            if (self.instances.getPtr(component)) |ptr| break :blk ptr;
-            const owned_comp = try self.allocator.dupe(u8, component);
-            errdefer self.allocator.free(owned_comp);
-            try self.instances.put(owned_comp, InstanceMap.init(self.allocator));
-            break :blk self.instances.getPtr(component).?;
-        };
-
-        const owned_name = try self.allocator.dupe(u8, name);
-        errdefer self.allocator.free(owned_name);
-        const owned_launch_mode = try self.allocator.dupe(u8, entry.launch_mode);
-        errdefer self.allocator.free(owned_launch_mode);
-        const owned_entry = InstanceEntry{
-            .version = try self.allocator.dupe(u8, entry.version),
-            .auto_start = entry.auto_start,
-            .launch_mode = owned_launch_mode,
-            .verbose = entry.verbose,
-        };
-        try inner_ptr.put(owned_name, owned_entry);
+        try instances_repo.addInstance(self, component, name, entry, InstanceMap.init);
     }
 
     /// Remove an instance. Returns `true` if the entry existed.
     pub fn removeInstance(self: *State, component: []const u8, name: []const u8) bool {
-        const inner = self.instances.getPtr(component) orelse return false;
-        const entry = inner.fetchSwapRemove(name) orelse return false;
-
-        self.allocator.free(entry.value.version);
-        self.allocator.free(entry.value.launch_mode);
-        self.allocator.free(entry.key);
-
-        // If this was the last instance, remove the component key too.
-        if (inner.count() == 0) {
-            const comp = self.instances.fetchSwapRemove(component).?;
-            var map = comp.value;
-            map.deinit();
-            self.allocator.free(comp.key);
-        }
-
-        return true;
+        return instances_repo.removeInstance(self, component, name);
     }
 
     /// Look up an instance.
     pub fn getInstance(self: *State, component: []const u8, name: []const u8) ?InstanceEntry {
-        const inner = self.instances.get(component) orelse return null;
-        return inner.get(name);
+        return instances_repo.getInstance(self, component, name);
     }
 
     /// Update an existing instance entry. Returns `true` if found, `false` otherwise.
@@ -428,42 +377,19 @@ pub const State = struct {
         name: []const u8,
         entry: InstanceEntry,
     ) !bool {
-        const inner = self.instances.getPtr(component) orelse return false;
-        const ptr = inner.getPtr(name) orelse return false;
-
-        // Dupe new values before freeing old ones to avoid use-after-free
-        // when the caller passes slices pointing to the old entry's memory.
-        const new_version = try self.allocator.dupe(u8, entry.version);
-        errdefer self.allocator.free(new_version);
-        const new_launch_mode = try self.allocator.dupe(u8, entry.launch_mode);
-        errdefer self.allocator.free(new_launch_mode);
-
-        self.allocator.free(ptr.version);
-        self.allocator.free(ptr.launch_mode);
-        ptr.version = new_version;
-        ptr.launch_mode = new_launch_mode;
-        ptr.auto_start = entry.auto_start;
-        ptr.verbose = entry.verbose;
-        return true;
+        return instances_repo.updateInstance(self, component, name, entry);
     }
 
     /// Return all component names. Caller must free the returned slice
     /// (but NOT the strings themselves — they are owned by the State).
     pub fn componentNames(self: *State) ![][]const u8 {
-        const keys = self.instances.keys();
-        const result = try self.allocator.alloc([]const u8, keys.len);
-        @memcpy(result, keys);
-        return result;
+        return instances_repo.componentNames(self);
     }
 
     /// Return all instance names under a component. Returns `null` if
     /// the component doesn't exist. Caller must free the returned slice.
     pub fn instanceNames(self: *State, component: []const u8) !?[][]const u8 {
-        const inner = self.instances.getPtr(component) orelse return null;
-        const keys = inner.keys();
-        const result = try self.allocator.alloc([]const u8, keys.len);
-        @memcpy(result, keys);
-        return result;
+        return instances_repo.instanceNames(self, component);
     }
 
     pub fn savedProviders(self: *State) []const SavedProvider {
@@ -471,141 +397,27 @@ pub const State = struct {
     }
 
     pub fn getSavedProvider(self: *State, id: u32) ?SavedProvider {
-        for (self.saved_providers.items) |sp| {
-            if (sp.id == id) return sp;
-        }
-        return null;
+        return providers_repo.getSavedProvider(self, id);
     }
 
     pub fn addSavedProvider(self: *State, input: SavedProviderInput) !void {
-        const id = self.nextProviderId();
-        const name = try self.generateProviderName(input.provider);
-        errdefer self.allocator.free(name);
-        const provider = try self.allocator.dupe(u8, input.provider);
-        errdefer self.allocator.free(provider);
-        const api_key = try self.allocator.dupe(u8, input.api_key);
-        errdefer self.allocator.free(api_key);
-        const model = if (input.model.len > 0) try self.allocator.dupe(u8, input.model) else @as([]const u8, "");
-        errdefer if (model.len > 0) self.allocator.free(@constCast(model));
-        const validated_with = if (input.validated_with.len > 0) try self.allocator.dupe(u8, input.validated_with) else @as([]const u8, "");
-        errdefer if (validated_with.len > 0) self.allocator.free(@constCast(validated_with));
-
-        try self.saved_providers.append(.{
-            .id = id,
-            .name = name,
-            .provider = provider,
-            .api_key = api_key,
-            .model = model,
-            .validated_at = "",
-            .validated_with = validated_with,
-            .last_validation_at = "",
-            .last_validation_ok = false,
-        });
+        try providers_repo.addSavedProvider(self, input, providerLabel);
     }
 
     pub fn updateSavedProvider(self: *State, id: u32, update: SavedProviderUpdate) !bool {
-        for (self.saved_providers.items) |*sp| {
-            if (sp.id == id) {
-                // Dupe all new values first (can fail)
-                const new_name = if (update.name) |name| try self.allocator.dupe(u8, name) else null;
-                errdefer if (new_name) |n| self.allocator.free(n);
-                const new_api_key = if (update.api_key) |api_key| try self.allocator.dupe(u8, api_key) else null;
-                errdefer if (new_api_key) |k| self.allocator.free(k);
-                const new_model = if (update.model) |model|
-                    if (model.len > 0) try self.allocator.dupe(u8, model) else @as([]const u8, "")
-                else
-                    null;
-                errdefer if (new_model) |m| if (m.len > 0) self.allocator.free(@constCast(m));
-                const new_validated_at = if (update.validated_at) |validated_at|
-                    if (validated_at.len > 0) try self.allocator.dupe(u8, validated_at) else @as([]const u8, "")
-                else
-                    null;
-                errdefer if (new_validated_at) |t| if (t.len > 0) self.allocator.free(@constCast(t));
-                const new_validated_with = if (update.validated_with) |validated_with|
-                    if (validated_with.len > 0) try self.allocator.dupe(u8, validated_with) else @as([]const u8, "")
-                else
-                    null;
-                errdefer if (new_validated_with) |w| if (w.len > 0) self.allocator.free(@constCast(w));
-                const new_last_validation_at = if (update.last_validation_at) |last_validation_at|
-                    if (last_validation_at.len > 0) try self.allocator.dupe(u8, last_validation_at) else @as([]const u8, "")
-                else
-                    null;
-                errdefer if (new_last_validation_at) |t| if (t.len > 0) self.allocator.free(@constCast(t));
-
-                // Apply all at once (no more failures possible)
-                if (update.name != null) {
-                    const n = new_name.?;
-                    self.allocator.free(sp.name);
-                    sp.name = n;
-                }
-                if (update.api_key != null) {
-                    const k = new_api_key.?;
-                    self.allocator.free(sp.api_key);
-                    sp.api_key = k;
-                }
-                if (update.model != null) {
-                    const m = new_model.?;
-                    if (sp.model.len > 0) self.allocator.free(sp.model);
-                    sp.model = m;
-                }
-                if (update.validated_at != null) {
-                    const t = new_validated_at.?;
-                    if (sp.validated_at.len > 0) self.allocator.free(sp.validated_at);
-                    sp.validated_at = t;
-                }
-                if (update.validated_with != null) {
-                    const w = new_validated_with.?;
-                    if (sp.validated_with.len > 0) self.allocator.free(sp.validated_with);
-                    sp.validated_with = w;
-                }
-                if (update.last_validation_at != null) {
-                    const t = new_last_validation_at.?;
-                    if (sp.last_validation_at.len > 0) self.allocator.free(sp.last_validation_at);
-                    sp.last_validation_at = t;
-                }
-                if (update.last_validation_ok) |ok| {
-                    sp.last_validation_ok = ok;
-                }
-
-                return true;
-            }
-        }
-        return false;
+        return providers_repo.updateSavedProvider(self, id, update);
     }
 
     pub fn removeSavedProvider(self: *State, id: u32) bool {
-        for (self.saved_providers.items, 0..) |sp, i| {
-            if (sp.id == id) {
-                self.freeSavedProviderStrings(sp);
-                _ = self.saved_providers.orderedRemove(i);
-                return true;
-            }
-        }
-        return false;
+        return providers_repo.removeSavedProvider(self, id);
     }
 
     pub fn hasSavedProvider(self: *State, provider: []const u8, api_key: []const u8, model: []const u8) bool {
-        for (self.saved_providers.items) |sp| {
-            if (std.mem.eql(u8, sp.provider, provider) and
-                std.mem.eql(u8, sp.api_key, api_key) and
-                std.mem.eql(u8, sp.model, model))
-            {
-                return true;
-            }
-        }
-        return false;
+        return providers_repo.hasSavedProvider(self, provider, api_key, model);
     }
 
     pub fn findSavedProviderId(self: *State, provider: []const u8, api_key: []const u8, model: []const u8) ?u32 {
-        for (self.saved_providers.items) |sp| {
-            if (std.mem.eql(u8, sp.provider, provider) and
-                std.mem.eql(u8, sp.api_key, api_key) and
-                std.mem.eql(u8, sp.model, model))
-            {
-                return sp.id;
-            }
-        }
-        return null;
+        return providers_repo.findSavedProviderId(self, provider, api_key, model);
     }
 
     // ─── SavedChannel CRUD ──────────────────────────────────────────────
@@ -615,150 +427,23 @@ pub const State = struct {
     }
 
     pub fn getSavedChannel(self: *State, id: u32) ?SavedChannel {
-        for (self.saved_channels.items) |sc| {
-            if (sc.id == id) return sc;
-        }
-        return null;
+        return channels_repo.getSavedChannel(self, id);
     }
 
     pub fn addSavedChannel(self: *State, input: SavedChannelInput) !void {
-        const id = self.nextChannelId();
-        const name = try self.generateChannelName(input.channel_type);
-        errdefer self.allocator.free(name);
-        const channel_type = try self.allocator.dupe(u8, input.channel_type);
-        errdefer self.allocator.free(channel_type);
-        const account = try self.allocator.dupe(u8, input.account);
-        errdefer self.allocator.free(account);
-        const config = if (input.config.len > 0) try self.allocator.dupe(u8, input.config) else @as([]const u8, "");
-        errdefer if (config.len > 0) self.allocator.free(@constCast(config));
-        const validated_with = if (input.validated_with.len > 0) try self.allocator.dupe(u8, input.validated_with) else @as([]const u8, "");
-        errdefer if (validated_with.len > 0) self.allocator.free(@constCast(validated_with));
-        const validated_at = if (input.validated_at.len > 0) try self.allocator.dupe(u8, input.validated_at) else @as([]const u8, "");
-        errdefer if (validated_at.len > 0) self.allocator.free(@constCast(validated_at));
-
-        try self.saved_channels.append(.{
-            .id = id,
-            .name = name,
-            .channel_type = channel_type,
-            .account = account,
-            .config = config,
-            .validated_at = validated_at,
-            .validated_with = validated_with,
-        });
+        try channels_repo.addSavedChannel(self, input, channelLabel);
     }
 
     pub fn updateSavedChannel(self: *State, id: u32, update: SavedChannelUpdate) !bool {
-        for (self.saved_channels.items) |*sc| {
-            if (sc.id == id) {
-                // Dupe all new values first (can fail)
-                const new_name = if (update.name) |name| try self.allocator.dupe(u8, name) else null;
-                errdefer if (new_name) |n| self.allocator.free(n);
-                const new_account = if (update.account) |account| try self.allocator.dupe(u8, account) else null;
-                errdefer if (new_account) |a| self.allocator.free(a);
-                const new_config = if (update.config) |config|
-                    if (config.len > 0) try self.allocator.dupe(u8, config) else @as([]const u8, "")
-                else
-                    null;
-                errdefer if (new_config) |c| if (c.len > 0) self.allocator.free(@constCast(c));
-                const new_validated_at = if (update.validated_at) |validated_at|
-                    if (validated_at.len > 0) try self.allocator.dupe(u8, validated_at) else @as([]const u8, "")
-                else
-                    null;
-                errdefer if (new_validated_at) |t| if (t.len > 0) self.allocator.free(@constCast(t));
-                const new_validated_with = if (update.validated_with) |validated_with|
-                    if (validated_with.len > 0) try self.allocator.dupe(u8, validated_with) else @as([]const u8, "")
-                else
-                    null;
-                // No errdefer needed for the last one - nothing after can fail
-
-                // Apply all at once (no more failures possible)
-                if (update.name != null) {
-                    const n = new_name.?;
-                    self.allocator.free(sc.name);
-                    sc.name = n;
-                }
-                if (update.account != null) {
-                    const a = new_account.?;
-                    self.allocator.free(sc.account);
-                    sc.account = a;
-                }
-                if (update.config != null) {
-                    const c = new_config.?;
-                    if (sc.config.len > 0) self.allocator.free(sc.config);
-                    sc.config = c;
-                }
-                if (update.validated_at != null) {
-                    const t = new_validated_at.?;
-                    if (sc.validated_at.len > 0) self.allocator.free(sc.validated_at);
-                    sc.validated_at = t;
-                }
-                if (update.validated_with != null) {
-                    const w = new_validated_with.?;
-                    if (sc.validated_with.len > 0) self.allocator.free(sc.validated_with);
-                    sc.validated_with = w;
-                }
-
-                return true;
-            }
-        }
-        return false;
+        return channels_repo.updateSavedChannel(self, id, update);
     }
 
     pub fn removeSavedChannel(self: *State, id: u32) bool {
-        for (self.saved_channels.items, 0..) |sc, i| {
-            if (sc.id == id) {
-                self.freeSavedChannelStrings(sc);
-                _ = self.saved_channels.orderedRemove(i);
-                return true;
-            }
-        }
-        return false;
+        return channels_repo.removeSavedChannel(self, id);
     }
 
     pub fn hasSavedChannel(self: *State, channel_type: []const u8, account: []const u8, config: []const u8) bool {
-        for (self.saved_channels.items) |sc| {
-            if (std.mem.eql(u8, sc.channel_type, channel_type) and
-                std.mem.eql(u8, sc.account, account) and
-                std.mem.eql(u8, sc.config, config))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    fn nextChannelId(self: *State) u32 {
-        var max_id: u32 = 0;
-        for (self.saved_channels.items) |sc| {
-            if (sc.id > max_id) max_id = sc.id;
-        }
-        return max_id + 1;
-    }
-
-    fn generateChannelName(self: *State, channel_type: []const u8) ![]const u8 {
-        const label = channelLabel(channel_type);
-        var count: u32 = 0;
-        for (self.saved_channels.items) |sc| {
-            if (std.mem.eql(u8, sc.channel_type, channel_type)) count += 1;
-        }
-        return std.fmt.allocPrint(self.allocator, "{s} #{d}", .{ label, count + 1 });
-    }
-
-    fn nextProviderId(self: *State) u32 {
-        var max_id: u32 = 0;
-        for (self.saved_providers.items) |sp| {
-            if (sp.id > max_id) max_id = sp.id;
-        }
-        return max_id + 1;
-    }
-
-    fn generateProviderName(self: *State, provider: []const u8) ![]const u8 {
-        const label = providerLabel(provider);
-        var count: u32 = 0;
-        for (self.saved_providers.items) |sp| {
-            if (std.mem.eql(u8, sp.provider, provider)) count += 1;
-        }
-        return std.fmt.allocPrint(self.allocator, "{s} #{d}", .{ label, count + 1 });
+        return channels_repo.hasSavedChannel(self, channel_type, account, config);
     }
 };
 

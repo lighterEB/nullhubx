@@ -141,6 +141,15 @@
     loading = true;
     error = "";
     try {
+      const capabilityPayload = await api.getCapabilities().catch(() => null);
+      const orchestrationSupported = Boolean((capabilityPayload as { capabilities?: { orchestration_proxy?: boolean } } | null)?.capabilities?.orchestration_proxy);
+      if (!orchestrationSupported) {
+        workflows = [];
+        runs = [];
+        error = t("orchestration.unavailableHint");
+        return;
+      }
+
       const instancesPayload = await api.getInstances().catch(() => null);
       if (!hasNullBoiler(instancesPayload)) {
         workflows = [];

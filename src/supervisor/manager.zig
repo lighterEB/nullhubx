@@ -1,6 +1,8 @@
 const std = @import("std");
 const process = @import("process.zig");
 const health = @import("health.zig");
+const process_runtime = @import("process_runtime.zig");
+const restart_policy = @import("restart_policy.zig");
 const paths_mod = @import("../core/paths.zig");
 const component_cli = @import("../core/component_cli.zig");
 
@@ -30,8 +32,8 @@ pub const ManagedInstance = struct {
     config_path: []const u8 = "",
     launch_command: []const u8 = "",
     // NOTE: Arguments containing spaces won't round-trip correctly through
-    // this space-separated representation. Prefer arguments without spaces.
-    launch_args_str: []const u8 = "", // space-separated additional args
+    // a space-joined representation. Persist as JSON instead.
+    launch_args_json: []const u8 = "", // JSON-encoded additional args
 
     // Timing
     started_at: ?i64 = null,
@@ -95,7 +97,7 @@ pub const Manager = struct {
         if (inst.working_dir.len > 0) self.allocator.free(inst.working_dir);
         if (inst.config_path.len > 0) self.allocator.free(inst.config_path);
         if (inst.launch_command.len > 0) self.allocator.free(inst.launch_command);
-        if (inst.launch_args_str.len > 0) self.allocator.free(inst.launch_args_str);
+        if (inst.launch_args_json.len > 0) self.allocator.free(inst.launch_args_json);
         inst.owns_memory = false;
     }
 
@@ -245,18 +247,8 @@ pub const Manager = struct {
         const launch_command_owned = if (launch_command.len > 0) try self.allocator.dupe(u8, launch_command) else "";
         errdefer if (launch_command_owned.len > 0) self.allocator.free(launch_command_owned);
 
-        // Build space-separated args string for restart.
-        var launch_args_str: []const u8 = "";
-        if (launch_args.len > 0) {
-            var args_buf = std.array_list.Managed(u8).init(self.allocator);
-            defer args_buf.deinit();
-            for (launch_args, 0..) |arg, i| {
-                if (i > 0) try args_buf.append(' ');
-                try args_buf.appendSlice(arg);
-            }
-            launch_args_str = try args_buf.toOwnedSlice();
-        }
-        errdefer if (launch_args_str.len > 0) self.allocator.free(launch_args_str);
+        const launch_args_json = try process_runtime.encodeLaunchArgsJson(self.allocator, launch_args);
+        errdefer if (launch_args_json.len > 0) self.allocator.free(launch_args_json);
 
         // Ensure logs directory exists and compute log file path
         const logs_dir = try self.p.instanceLogs(self.allocator, component, name);
@@ -321,7 +313,7 @@ pub const Manager = struct {
             .working_dir = working_dir_owned,
             .config_path = config_path_owned,
             .launch_command = launch_command_owned,
-            .launch_args_str = launch_args_str,
+            .launch_args_json = launch_args_json,
             .started_at = now,
             .starting_since = now,
         });
@@ -555,11 +547,7 @@ pub const Manager = struct {
             return;
         }
 
-        // Backoff: 0, 2s, 4s, 8s, 16s
-        const delay_ms: i64 = if (inst.restart_count == 0)
-            0
-        else
-            @as(i64, 1000) * (@as(i64, 1) << @intCast(@min(inst.restart_count, 4)));
+        const delay_ms = restart_policy.backoffDelayMs(inst.restart_count);
 
         if (inst.last_restart_attempt) |last| {
             if (now - last < delay_ms) return; // still waiting
@@ -581,22 +569,12 @@ pub const Manager = struct {
             return;
         }
 
-        // Build argv from launch_args_str
-        var argv_list = std.array_list.Managed([]const u8).init(self.allocator);
-        defer argv_list.deinit();
-
-        if (inst.launch_args_str.len > 0) {
-            var it = std.mem.splitScalar(u8, inst.launch_args_str, ' ');
-            while (it.next()) |arg| {
-                if (arg.len > 0) {
-                    argv_list.append(arg) catch |err| {
-                        self.logSupervisor(inst.component, inst.name, "restart failed: argv allocation error: {s}", .{@errorName(err)});
-                        inst.status = .failed;
-                        return;
-                    };
-                }
-            }
-        }
+        var argv_list = process_runtime.decodeLaunchArgsJson(self.allocator, inst.launch_args_json) catch |err| {
+            self.logSupervisor(inst.component, inst.name, "restart failed: invalid launch args json: {s}", .{@errorName(err)});
+            inst.status = .failed;
+            return;
+        };
+        defer process_runtime.freeDecodedLaunchArgs(self.allocator, &argv_list);
 
         // Compute log file path for output redirect
         const logs_dir = self.p.instanceLogs(self.allocator, inst.component, inst.name) catch |err| {
@@ -942,7 +920,7 @@ test "tick: restarting with binary_path spawns new process" {
         .restart_count = 0,
         .max_restarts = 5,
         .binary_path = "/bin/sleep",
-        .launch_args_str = "60",
+        .launch_args_json = "[\"60\"]",
         .last_restart_attempt = std.time.milliTimestamp() - 10_000,
     });
 

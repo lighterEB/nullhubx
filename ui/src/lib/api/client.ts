@@ -1,4 +1,7 @@
 import { createOrchestrationApi } from '$lib/api/orchestration';
+import { createInstancesApi } from './instances';
+import { createSettingsApi } from './settings';
+import { createStatusApi } from './status';
 import { formatTimeoutError, getNetworkFailedMessage } from './errorMessages';
 import { toast } from '$lib/toastStore.svelte';
 
@@ -98,11 +101,6 @@ export type WizardPayload = JsonObject & {
   wizard?: (JsonObject & {
     steps?: WizardStepPayload[];
   });
-};
-
-type InstanceStartOptions = {
-  launch_mode?: string;
-  verbose?: boolean;
 };
 
 export interface InstanceInfo {
@@ -312,12 +310,8 @@ async function request<T>(path: string, options?: RequestOptions): Promise<T> {
 }
 
 export const api = {
-  getStatus: () => request<GlobalStatus>('/status', { timeoutMs: STATUS_TIMEOUT_MS }),
-  getGlobalUsage: (window: '24h' | '7d' | '30d' | 'all' = '24h') =>
-    request<AnyRecord>(`/usage?window=${window}`),
+  ...createStatusApi(request, STATUS_TIMEOUT_MS),
   getComponents: () => request<ComponentsResponse>('/components'),
-  getInstances: () => request<InstancesResponse>('/instances'),
-  getInstance: (c: string, n: string) => request<AnyRecord>(`/instances/${c}/${n}`),
   getWizard: (component: string) => request<WizardPayload>(`/wizard/${component}`),
   getVersions: (component: string) => request<VersionOptionPayload[]>(`/wizard/${component}/versions`),
   getWizardModels: (component: string, provider: string, apiKey = '') =>
@@ -328,130 +322,13 @@ export const api = {
   getFreePort: () => request<AnyRecord>('/free-port'),
   postWizard: (component: string, data: JsonObject) =>
     request<WizardSubmitResponse>(`/wizard/${component}`, { method: 'POST', body: JSON.stringify(data) }),
-  startInstance: (c: string, n: string, modeOrOptions?: string | InstanceStartOptions) =>
-    request<AnyRecord>(`/instances/${c}/${n}/start`, {
-      method: 'POST',
-      body:
-        typeof modeOrOptions === 'string'
-          ? JSON.stringify({ launch_mode: modeOrOptions })
-          : modeOrOptions
-            ? JSON.stringify(modeOrOptions)
-            : undefined
-    }),
-  stopInstance: (c: string, n: string) =>
-    request<AnyRecord>(`/instances/${c}/${n}/stop`, { method: 'POST' }),
-  restartInstance: (c: string, n: string, options?: InstanceStartOptions) =>
-    request<AnyRecord>(`/instances/${c}/${n}/restart`, {
-      method: 'POST',
-      body: options ? JSON.stringify(options) : undefined
-    }),
-  deleteInstance: (c: string, n: string) =>
-    request<AnyRecord>(`/instances/${c}/${n}`, { method: 'DELETE' }),
-  getConfig: (c: string, n: string) => request<AnyRecord>(`/instances/${c}/${n}/config`),
-  getAgentProfiles: (c: string, n: string) =>
-    request<AgentProfilesResponse>(`/instances/${c}/${n}/agents/profiles`),
-  putAgentProfiles: (c: string, n: string, payload: JsonObject) =>
-    request<AgentMutationResponse>(`/instances/${c}/${n}/agents/profiles`, {
-      method: 'PUT',
-      body: JSON.stringify(payload),
-    }),
-  getAgentBindings: (c: string, n: string) =>
-    request<AgentBindingsResponse>(`/instances/${c}/${n}/agents/bindings`),
-  putAgentBindings: (c: string, n: string, payload: JsonObject) =>
-    request<AgentMutationResponse>(`/instances/${c}/${n}/agents/bindings`, {
-      method: 'PUT',
-      body: JSON.stringify(payload),
-    }),
-  getProviderHealth: (c: string, n: string) =>
-    request<AnyRecord>(`/instances/${c}/${n}/provider-health`),
-  getUsage: (c: string, n: string, window: '24h' | '7d' | '30d' | 'all' = '24h') =>
-    request<AnyRecord>(`/instances/${c}/${n}/usage?window=${window}`),
-  getHistory: (c: string, n: string, params?: { sessionId?: string; limit?: number; offset?: number }) =>
-    request<HistoryResponse>(
-      withQuery(`/instances/${c}/${n}/history`, {
-        session_id: params?.sessionId,
-        limit: params?.limit,
-        offset: params?.offset,
-      }),
-    ),
-  getOnboarding: (c: string, n: string) =>
-    request<AnyRecord>(`/instances/${c}/${n}/onboarding`),
-  getMemory: (
-    c: string,
-    n: string,
-    params?: { stats?: boolean; key?: string; query?: string; category?: string; limit?: number },
-  ) =>
-    request<AnyRecord>(
-      withQuery(`/instances/${c}/${n}/memory`, {
-        stats: params?.stats ? 1 : undefined,
-        key: params?.key,
-        query: params?.query,
-        category: params?.category,
-        limit: params?.limit,
-      }),
-    ),
-  getSkills: (c: string, n: string, name?: string) =>
-    request<AnyRecord>(withQuery(`/instances/${c}/${n}/skills`, { name })),
-  getSkillCatalog: (c: string, n: string) =>
-    request<AnyRecord>(withQuery(`/instances/${c}/${n}/skills`, { catalog: 1 })),
-  installBundledSkill: (c: string, n: string, bundled: string) =>
-    request<AnyRecord>(`/instances/${c}/${n}/skills`, {
-      method: 'POST',
-      body: JSON.stringify({ bundled }),
-    }),
-  installSkillFromClawhub: (c: string, n: string, clawhub_slug: string) =>
-    request<AnyRecord>(`/instances/${c}/${n}/skills`, {
-      method: 'POST',
-      body: JSON.stringify({ clawhub_slug }),
-    }),
-  installSkillFromSource: (c: string, n: string, source: string) =>
-    request<AnyRecord>(`/instances/${c}/${n}/skills`, {
-      method: 'POST',
-      body: JSON.stringify({ source }),
-    }),
-  removeSkill: (c: string, n: string, skillName: string) =>
-    request<AnyRecord>(withQuery(`/instances/${c}/${n}/skills`, { name: skillName }), {
-      method: 'DELETE',
-    }),
-  getIntegration: (c: string, n: string) =>
-    request<AnyRecord>(`/instances/${c}/${n}/integration`),
-  linkIntegration: (c: string, n: string, payload: JsonObject) =>
-    request<AnyRecord>(`/instances/${c}/${n}/integration`, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
-  putConfig: (c: string, n: string, config: JsonObject) =>
-    request<AnyRecord>(`/instances/${c}/${n}/config`, { method: 'PUT', body: JSON.stringify(config) }),
-  getLogs: (c: string, n: string, lines = 100, source: LogSource = 'instance') =>
-    request<LogsResponse>(withQuery(`/instances/${c}/${n}/logs`, { lines, source })),
-  clearLogs: (c: string, n: string, source: LogSource = 'instance') =>
-    request<AnyRecord>(withQuery(`/instances/${c}/${n}/logs`, { source }), { method: 'DELETE' }),
+  ...createInstancesApi(request, withQuery),
   getUpdates: () => request<AnyRecord>('/updates'),
-  getSettings: () => request<AnyRecord>('/settings'),
-  putSettings: (settings: JsonObject) =>
-    request<AnyRecord>('/settings', { method: 'PUT', body: JSON.stringify(settings) }),
-
-  patchConfig: (c: string, n: string, config: JsonObject) =>
-    request<AnyRecord>(`/instances/${c}/${n}/config`, { method: 'PATCH', body: JSON.stringify(config) }),
-
-  patchInstance: (c: string, n: string, settings: JsonObject) =>
-    request<AnyRecord>(`/instances/${c}/${n}`, { method: 'PATCH', body: JSON.stringify(settings) }),
+  ...createSettingsApi(request),
 
   getComponentManifest: (name: string) => request<AnyRecord>(`/components/${name}/manifest`),
 
   refreshComponents: () => request<AnyRecord>('/components/refresh', { method: 'POST' }),
-
-  applyUpdate: (c: string, n: string) =>
-    request<AnyRecord>(`/instances/${c}/${n}/update`, { method: 'POST' }),
-
-  serviceInstall: () => request<ServiceStatusResponse>('/service/install', { method: 'POST' }),
-
-  serviceUninstall: () => request<ServiceStatusResponse>('/service/uninstall', { method: 'POST' }),
-
-  serviceStatus: () => request<ServiceStatusResponse>('/service/status'),
-
-  importInstance: (component: string) =>
-    request<AnyRecord>(`/instances/${component}/import`, { method: 'POST' }),
 
   getUiModules: () => request<{ modules: Record<string, string> }>('/ui-modules'),
   getAvailableUiModules: () => request<{ name: string; repo: string; component: string }[]>('/ui-modules/available'),

@@ -2,6 +2,7 @@ const std = @import("std");
 const state_mod = @import("../core/state.zig");
 const platform = @import("../core/platform.zig");
 const manager_mod = @import("../supervisor/manager.zig");
+const status_service = @import("../core/status_service.zig");
 const paths_mod = @import("../core/paths.zig");
 const helpers = @import("helpers.zig");
 const access = @import("../access.zig");
@@ -83,8 +84,8 @@ pub fn handleStatus(allocator: std.mem.Allocator, s: *state_mod.State, manager: 
 }
 
 fn buildStatusJson(buf: *std.array_list.Managed(u8), s: *state_mod.State, manager: *manager_mod.Manager, uptime_seconds: u64, host: []const u8, port: u16, access_options: access.Options) !void {
-    var urls = try access.buildAccessUrlsWithOptions(buf.allocator, host, port, access_options);
-    defer urls.deinit(buf.allocator);
+    var access_view = try status_service.buildHubAccessView(buf.allocator, host, port, access_options);
+    defer access_view.deinit(buf.allocator);
 
     // Hub info
     try buf.appendSlice("{\"hub\":{\"version\":\"");
@@ -98,22 +99,22 @@ fn buildStatusJson(buf: *std.array_list.Managed(u8), s: *state_mod.State, manage
     try buf.appendSlice(num_str);
     try buf.appendSlice(",\"access\":{");
     try buf.appendSlice("\"browser_open_url\":\"");
-    try buf.appendSlice(urls.browser_open_url);
+    try buf.appendSlice(access_view.browser_open_url);
     try buf.appendSlice("\",\"direct_url\":\"");
-    try buf.appendSlice(urls.direct_url);
+    try buf.appendSlice(access_view.direct_url);
     try buf.appendSlice("\",\"canonical_url\":\"");
-    try buf.appendSlice(urls.canonical_url);
+    try buf.appendSlice(access_view.canonical_url);
     try buf.appendSlice("\",\"fallback_url\":\"");
-    try buf.appendSlice(urls.fallback_url);
+    try buf.appendSlice(access_view.fallback_url);
     try buf.appendSlice("\",\"local_alias_chain\":");
-    try buf.appendSlice(if (urls.local_alias_chain) "true" else "false");
+    try buf.appendSlice(if (access_view.local_alias_chain) "true" else "false");
     try buf.appendSlice(",\"public_alias_active\":");
-    try buf.appendSlice(if (urls.public_alias_active) "true" else "false");
+    try buf.appendSlice(if (access_view.public_alias_active) "true" else "false");
     try buf.appendSlice(",\"public_alias_provider\":\"");
-    try buf.appendSlice(urls.public_alias_provider);
+    try buf.appendSlice(access_view.public_alias_provider);
     try buf.append('"');
     try buf.appendSlice(",\"public_alias_url\":");
-    if (urls.public_alias_url) |url| {
+    if (access_view.public_alias_url) |url| {
         try buf.append('"');
         try buf.appendSlice(url);
         try buf.append('"');
@@ -143,17 +144,20 @@ fn buildStatusJson(buf: *std.array_list.Managed(u8), s: *state_mod.State, manage
 
             const comp_name = comp_entry.key_ptr.*;
             const inst_name = inst_entry.key_ptr.*;
-            const mgr_status = manager.getStatus(comp_name, inst_name);
-            const status_str = if (mgr_status) |st| @tagName(st.status) else "stopped";
-            const pid = if (mgr_status) |st| st.pid else null;
-            const instance_uptime = if (mgr_status) |st| st.uptime_seconds else null;
-            const restart_count: u32 = if (mgr_status) |st| st.restart_count else 0;
-            const instance_port: u16 = if (mgr_status) |st| st.port else 0;
+            const runtime = status_service.buildInstanceRuntimeViewFromEntry(manager, comp_name, inst_name, inst_entry.value_ptr.*);
 
             try buf.append('"');
             try appendEscaped(buf, inst_name);
             try buf.appendSlice("\":");
-            try appendInstanceJson(buf, inst_entry.value_ptr.*, status_str, pid, instance_uptime, restart_count, instance_port);
+            try appendInstanceJson(
+                buf,
+                inst_entry.value_ptr.*,
+                runtime.status,
+                runtime.pid,
+                runtime.uptime_seconds,
+                runtime.restart_count,
+                runtime.port,
+            );
         }
 
         try buf.append('}');
