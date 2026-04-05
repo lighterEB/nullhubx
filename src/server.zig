@@ -801,7 +801,7 @@ pub const Server = struct {
             if (std.mem.eql(u8, target, "/api/providers") or std.mem.startsWith(u8, target, "/api/providers?")) {
                 if (std.mem.eql(u8, method, "GET")) {
                     const reveal = providers_api.hasRevealParam(target);
-                    if (providers_api.handleList(allocator, self.state, reveal)) |json| {
+                    if (providers_api.handleListWithLinks(allocator, self.state, self.paths, reveal)) |json| {
                         return jsonResponse(json);
                     } else |_| {
                         return .{ .status = "500 Internal Server Error", .content_type = "application/json", .body = "{\"error\":\"internal error\"}" };
@@ -859,7 +859,7 @@ pub const Server = struct {
             if (std.mem.eql(u8, target, "/api/channels") or std.mem.startsWith(u8, target, "/api/channels?")) {
                 if (std.mem.eql(u8, method, "GET")) {
                     const reveal = channels_api.hasRevealParam(target);
-                    if (channels_api.handleList(allocator, self.state, reveal)) |json| {
+                    if (channels_api.handleListWithLinks(allocator, self.state, self.paths, reveal)) |json| {
                         return jsonResponse(json);
                     } else |_| {
                         return .{ .status = "500 Internal Server Error", .content_type = "application/json", .body = "{\"error\":\"internal error\"}" };

@@ -20,7 +20,10 @@ function maybeToast(message: string, errorMode: RequestOptions['errorMode']) {
   }
 }
 
-function withQuery(path: string, params: Record<string, string | number | boolean | null | undefined>): string {
+function withQuery(
+  path: string,
+  params: Record<string, string | number | boolean | null | undefined>,
+): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value === null || value === undefined || value === '') continue;
@@ -57,8 +60,13 @@ export type SavedProvider = JsonObject & {
   provider?: string;
   api_key?: string;
   model?: string;
-  last_validation_ok?: boolean;
+  validated_at?: string;
+  validated_with?: string;
   last_validation_at?: string;
+  last_validation_ok?: boolean;
+  linked_instance_count?: number;
+  orphaned?: boolean;
+  linked_instances?: LinkedInstanceRef[];
 };
 
 export type SavedProvidersResponse = JsonObject & {
@@ -71,7 +79,11 @@ export type SavedChannel = JsonObject & {
   channel_type?: string;
   account?: string;
   validated_at?: string;
+  validated_with?: string;
   config?: JsonObject;
+  linked_instance_count?: number;
+  orphaned?: boolean;
+  linked_instances?: LinkedInstanceRef[];
 };
 
 export type SavedChannelsResponse = JsonObject & {
@@ -98,9 +110,9 @@ export type WizardStepPayload = JsonObject & {
 export type WizardPayload = JsonObject & {
   error?: string;
   steps?: WizardStepPayload[];
-  wizard?: (JsonObject & {
+  wizard?: JsonObject & {
     steps?: WizardStepPayload[];
-  });
+  };
 };
 
 export interface InstanceInfo {
@@ -237,6 +249,48 @@ export type ServiceStatusResponse = JsonObject & {
   unit_path?: string;
 };
 
+export type LinkedInstanceRef = JsonObject & {
+  component?: string;
+  name?: string;
+  route?: string;
+};
+
+export type CapabilitySurfaceSummaryState = 'implemented' | 'partial' | 'missing' | 'cli_only';
+export type CapabilitySurfaceRuntimeState = 'unknown' | 'supported' | 'not_applicable' | 'planned';
+export type CapabilitySurfaceUiState =
+  | 'global'
+  | 'instance'
+  | 'global_read_only'
+  | 'placeholder'
+  | 'missing';
+
+export type CapabilitySurface = JsonObject & {
+  id?: string;
+  category?: string;
+  label?: string;
+  summary_state?: CapabilitySurfaceSummaryState;
+  hub_bridge_support?: boolean;
+  runtime_detected_support?: CapabilitySurfaceRuntimeState;
+  ui_productization_state?: CapabilitySurfaceUiState;
+  route_ids?: string[];
+  ui_routes?: string[];
+  notes?: string;
+};
+
+export type CapabilitiesResponse = JsonObject & {
+  version?: number;
+  capabilities?: AnyRecord;
+  capability_model?: JsonObject & {
+    version?: number;
+    dimensions?: string[];
+    summary_states?: string[];
+    runtime_detected_states?: string[];
+    ui_productization_states?: string[];
+  };
+  surfaces?: CapabilitySurface[];
+  notes?: JsonObject;
+};
+
 export type ValidationResultPayload = JsonObject & {
   provider?: string;
   channel?: string;
@@ -273,7 +327,7 @@ async function request<T>(path: string, options?: RequestOptions): Promise<T> {
       res = await fetch(`${BASE}${path}`, {
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
-        ...fetchOptions
+        ...fetchOptions,
       });
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
@@ -313,7 +367,8 @@ export const api = {
   ...createStatusApi(request, STATUS_TIMEOUT_MS),
   getComponents: () => request<ComponentsResponse>('/components'),
   getWizard: (component: string) => request<WizardPayload>(`/wizard/${component}`),
-  getVersions: (component: string) => request<VersionOptionPayload[]>(`/wizard/${component}/versions`),
+  getVersions: (component: string) =>
+    request<VersionOptionPayload[]>(`/wizard/${component}/versions`),
   getWizardModels: (component: string, provider: string, apiKey = '') =>
     request<AnyRecord>(`/wizard/${component}/models`, {
       method: 'POST',
@@ -321,7 +376,10 @@ export const api = {
     }),
   getFreePort: () => request<AnyRecord>('/free-port'),
   postWizard: (component: string, data: JsonObject) =>
-    request<WizardSubmitResponse>(`/wizard/${component}`, { method: 'POST', body: JSON.stringify(data) }),
+    request<WizardSubmitResponse>(`/wizard/${component}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
   ...createInstancesApi(request, withQuery),
   getUpdates: () => request<AnyRecord>('/updates'),
   ...createSettingsApi(request),
@@ -331,9 +389,12 @@ export const api = {
   refreshComponents: () => request<AnyRecord>('/components/refresh', { method: 'POST' }),
 
   getUiModules: () => request<{ modules: Record<string, string> }>('/ui-modules'),
-  getAvailableUiModules: () => request<{ name: string; repo: string; component: string }[]>('/ui-modules/available'),
-  installUiModule: (name: string) => request<AnyRecord>(`/ui-modules/${name}/install`, { method: 'POST' }),
-  uninstallUiModule: (name: string) => request<AnyRecord>(`/ui-modules/${name}`, { method: 'DELETE' }),
+  getAvailableUiModules: () =>
+    request<{ name: string; repo: string; component: string }[]>('/ui-modules/available'),
+  installUiModule: (name: string) =>
+    request<AnyRecord>(`/ui-modules/${name}/install`, { method: 'POST' }),
+  uninstallUiModule: (name: string) =>
+    request<AnyRecord>(`/ui-modules/${name}`, { method: 'DELETE' }),
 
   validateProviders: (component: string, providers: JsonObject[]) =>
     request<ProvidersValidationResponse>(`/wizard/${component}/validate-providers`, {
@@ -353,7 +414,10 @@ export const api = {
   createSavedProvider: (data: { provider: string; api_key: string; model?: string }) =>
     request<AnyRecord>('/providers', { method: 'POST', body: JSON.stringify(data) }),
   updateSavedProvider: (id: string, data: { name?: string; api_key?: string; model?: string }) =>
-    request<AnyRecord>(`/providers/${id.replace('sp_', '')}`, { method: 'PUT', body: JSON.stringify(data) }),
+    request<AnyRecord>(`/providers/${id.replace('sp_', '')}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
   deleteSavedProvider: (id: string) =>
     request<AnyRecord>(`/providers/${id.replace('sp_', '')}`, { method: 'DELETE' }),
   revalidateSavedProvider: (id: string) =>
@@ -364,8 +428,14 @@ export const api = {
     request<SavedChannelsResponse>(`/channels${reveal ? '?reveal=true' : ''}`),
   createSavedChannel: (data: { channel_type: string; account: string; config: JsonObject }) =>
     request<AnyRecord>('/channels', { method: 'POST', body: JSON.stringify(data) }),
-  updateSavedChannel: (id: string, data: { name?: string; account?: string; config?: JsonObject }) =>
-    request<AnyRecord>(`/channels/${id.replace('sc_', '')}`, { method: 'PUT', body: JSON.stringify(data) }),
+  updateSavedChannel: (
+    id: string,
+    data: { name?: string; account?: string; config?: JsonObject },
+  ) =>
+    request<AnyRecord>(`/channels/${id.replace('sc_', '')}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
   deleteSavedChannel: (id: string) =>
     request<AnyRecord>(`/channels/${id.replace('sc_', '')}`, { method: 'DELETE' }),
   revalidateSavedChannel: (id: string) =>

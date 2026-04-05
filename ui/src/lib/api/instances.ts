@@ -1,7 +1,23 @@
-import type { AgentBindingsResponse, AgentMutationResponse, AgentProfilesResponse, AnyRecord, HistoryResponse, InstancesResponse, JsonObject, LogSource, LogsResponse } from './client';
+import type {
+  AgentBindingsResponse,
+  AgentMutationResponse,
+  AgentProfilesResponse,
+  AnyRecord,
+  HistoryResponse,
+  InstancesResponse,
+  JsonObject,
+  LogSource,
+  LogsResponse,
+} from './client';
 
-type RequestFn = <T>(path: string, options?: RequestInit & { timeoutMs?: number; errorMode?: 'silent' | 'toast' }) => Promise<T>;
-type WithQueryFn = (path: string, params: Record<string, string | number | boolean | null | undefined>) => string;
+type RequestFn = <T>(
+  path: string,
+  options?: RequestInit & { timeoutMs?: number; errorMode?: 'silent' | 'toast' },
+) => Promise<T>;
+type WithQueryFn = (
+  path: string,
+  params: Record<string, string | number | boolean | null | undefined>,
+) => string;
 
 type InstanceStartOptions = {
   launch_mode?: string;
@@ -32,12 +48,21 @@ export function createInstancesApi(request: RequestFn, withQuery: WithQueryFn) {
     deleteInstance: (c: string, n: string) =>
       request<AnyRecord>(`/instances/${c}/${n}`, { method: 'DELETE' }),
     patchInstance: (c: string, n: string, settings: JsonObject) =>
-      request<AnyRecord>(`/instances/${c}/${n}`, { method: 'PATCH', body: JSON.stringify(settings) }),
+      request<AnyRecord>(`/instances/${c}/${n}`, {
+        method: 'PATCH',
+        body: JSON.stringify(settings),
+      }),
     getConfig: (c: string, n: string) => request<AnyRecord>(`/instances/${c}/${n}/config`),
     putConfig: (c: string, n: string, config: JsonObject) =>
-      request<AnyRecord>(`/instances/${c}/${n}/config`, { method: 'PUT', body: JSON.stringify(config) }),
+      request<AnyRecord>(`/instances/${c}/${n}/config`, {
+        method: 'PUT',
+        body: JSON.stringify(config),
+      }),
     patchConfig: (c: string, n: string, config: JsonObject) =>
-      request<AnyRecord>(`/instances/${c}/${n}/config`, { method: 'PATCH', body: JSON.stringify(config) }),
+      request<AnyRecord>(`/instances/${c}/${n}/config`, {
+        method: 'PATCH',
+        body: JSON.stringify(config),
+      }),
     getAgentProfiles: (c: string, n: string) =>
       request<AgentProfilesResponse>(`/instances/${c}/${n}/agents/profiles`),
     putAgentProfiles: (c: string, n: string, payload: JsonObject) =>
@@ -56,7 +81,11 @@ export function createInstancesApi(request: RequestFn, withQuery: WithQueryFn) {
       request<AnyRecord>(`/instances/${c}/${n}/provider-health`),
     getUsage: (c: string, n: string, window: '24h' | '7d' | '30d' | 'all' = '24h') =>
       request<AnyRecord>(`/instances/${c}/${n}/usage?window=${window}`),
-    getHistory: (c: string, n: string, params?: { sessionId?: string; limit?: number; offset?: number }) =>
+    getHistory: (
+      c: string,
+      n: string,
+      params?: { sessionId?: string; limit?: number; offset?: number },
+    ) =>
       request<HistoryResponse>(
         withQuery(`/instances/${c}/${n}/history`, {
           session_id: params?.sessionId,
@@ -64,8 +93,7 @@ export function createInstancesApi(request: RequestFn, withQuery: WithQueryFn) {
           offset: params?.offset,
         }),
       ),
-    getOnboarding: (c: string, n: string) =>
-      request<AnyRecord>(`/instances/${c}/${n}/onboarding`),
+    getOnboarding: (c: string, n: string) => request<AnyRecord>(`/instances/${c}/${n}/onboarding`),
     getMemory: (
       c: string,
       n: string,
@@ -80,6 +108,8 @@ export function createInstancesApi(request: RequestFn, withQuery: WithQueryFn) {
           limit: params?.limit,
         }),
       ),
+    getRuntimeCapabilities: (c: string, n: string) =>
+      request<AnyRecord>(`/instances/${c}/${n}/capabilities`),
     getSkills: (c: string, n: string, name?: string) =>
       request<AnyRecord>(withQuery(`/instances/${c}/${n}/skills`, { name })),
     getSkillCatalog: (c: string, n: string) =>

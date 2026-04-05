@@ -1,4 +1,5 @@
 const std = @import("std");
+const linkage = @import("linkage.zig");
 const state_mod = @import("../core/state.zig");
 const paths_mod = @import("../core/paths.zig");
 const helpers = @import("helpers.zig");
@@ -52,7 +53,30 @@ pub fn handleList(allocator: std.mem.Allocator, state: *state_mod.State, reveal:
 
     for (providers, 0..) |sp, idx| {
         if (idx > 0) try buf.append(',');
-        try appendProviderJson(&buf, sp, reveal);
+        try appendProviderJson(&buf, sp, reveal, null);
+    }
+
+    try buf.appendSlice("]}");
+    return buf.toOwnedSlice();
+}
+
+pub fn handleListWithLinks(
+    allocator: std.mem.Allocator,
+    state: *state_mod.State,
+    paths: paths_mod.Paths,
+    reveal: bool,
+) ![]const u8 {
+    const providers = state.savedProviders();
+    var links = try linkage.buildLinkBundle(allocator, state, paths);
+    defer links.deinit(allocator);
+
+    var buf = std.array_list.Managed(u8).init(allocator);
+    errdefer buf.deinit();
+    try buf.appendSlice("{\"providers\":[");
+
+    for (providers, 0..) |sp, idx| {
+        if (idx > 0) try buf.append(',');
+        try appendProviderJson(&buf, sp, reveal, links.provider_links[idx]);
     }
 
     try buf.appendSlice("]}");
@@ -114,7 +138,7 @@ pub fn handleCreate(
     const sp = state.getSavedProvider(new_id).?;
     var buf = std.array_list.Managed(u8).init(allocator);
     errdefer buf.deinit();
-    try appendProviderJson(&buf, sp, true);
+    try appendProviderJson(&buf, sp, true, null);
     return buf.toOwnedSlice();
 }
 
@@ -193,7 +217,7 @@ pub fn handleUpdate(
     const sp = state.getSavedProvider(id).?;
     var buf = std.array_list.Managed(u8).init(allocator);
     errdefer buf.deinit();
-    try appendProviderJson(&buf, sp, true);
+    try appendProviderJson(&buf, sp, true, null);
     return buf.toOwnedSlice();
 }
 
@@ -305,7 +329,7 @@ fn persistValidationAttempt(
     try state.save();
 }
 
-fn appendProviderJson(buf: *std.array_list.Managed(u8), sp: state_mod.SavedProvider, reveal: bool) !void {
+fn appendProviderJson(buf: *std.array_list.Managed(u8), sp: state_mod.SavedProvider, reveal: bool, link_summary: ?linkage.LinkSummary) !void {
     try buf.appendSlice("{\"id\":\"sp_");
     var id_buf: [16]u8 = undefined;
     const id_str = std.fmt.bufPrint(&id_buf, "{d}", .{sp.id}) catch "0";
@@ -331,6 +355,26 @@ fn appendProviderJson(buf: *std.array_list.Managed(u8), sp: state_mod.SavedProvi
     try appendEscaped(buf, sp.last_validation_at);
     try buf.appendSlice("\",\"last_validation_ok\":");
     try buf.appendSlice(if (sp.last_validation_ok) "true" else "false");
+    if (link_summary) |summary| {
+        try buf.appendSlice(",\"linked_instance_count\":");
+        try buf.writer().print("{d}", .{summary.linked_instances.items.len});
+        try buf.appendSlice(",\"orphaned\":");
+        try buf.appendSlice(if (summary.orphaned) "true" else "false");
+        try buf.appendSlice(",\"linked_instances\":[");
+        for (summary.linked_instances.items, 0..) |item, idx| {
+            if (idx > 0) try buf.append(',');
+            try buf.appendSlice("{\"component\":\"");
+            try appendEscaped(buf, item.component);
+            try buf.appendSlice("\",\"name\":\"");
+            try appendEscaped(buf, item.name);
+            try buf.appendSlice("\",\"route\":\"");
+            try appendEscaped(buf, item.component);
+            try buf.append('/');
+            try appendEscaped(buf, item.name);
+            try buf.appendSlice("\"}");
+        }
+        try buf.append(']');
+    }
     try buf.appendSlice("}");
 }
 

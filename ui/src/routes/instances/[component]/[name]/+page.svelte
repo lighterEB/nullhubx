@@ -1,33 +1,40 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
-  import { page } from "$app/stores";
-  import { onMount, onDestroy, untrack } from "svelte";
-  import { api } from "$lib/api/client";
-  import { formatTimeoutError } from "$lib/api/errorMessages";
-  import { t } from "$lib/i18n/index.svelte";
-  import type { LogSource } from "$lib/api/client";
-  import InstanceDetailChrome from "$lib/components/InstanceDetailChrome.svelte";
-  import ConfigEditor from "$lib/components/ConfigEditor.svelte";
-  import LogViewer from "$lib/components/LogViewer.svelte";
-  import InstanceHistoryPanel from "$lib/components/InstanceHistoryPanel.svelte";
-  import InstanceMemoryPanel from "$lib/components/InstanceMemoryPanel.svelte";
-  import InstanceSkillsPanel from "$lib/components/InstanceSkillsPanel.svelte";
-  import InstanceAgentsPanel from "$lib/components/InstanceAgentsPanel.svelte";
+  import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
+  import { onMount, onDestroy, untrack } from 'svelte';
+  import { api } from '$lib/api/client';
+  import { formatTimeoutError } from '$lib/api/errorMessages';
+  import { t } from '$lib/i18n/index.svelte';
+  import type { LogSource } from '$lib/api/client';
+  import InstanceDetailChrome from '$lib/components/InstanceDetailChrome.svelte';
+  import ConfigEditor from '$lib/components/ConfigEditor.svelte';
+  import LogViewer from '$lib/components/LogViewer.svelte';
+  import InstanceHistoryPanel from '$lib/components/InstanceHistoryPanel.svelte';
+  import InstanceMemoryPanel from '$lib/components/InstanceMemoryPanel.svelte';
+  import InstanceSkillsPanel from '$lib/components/InstanceSkillsPanel.svelte';
+  import InstanceAgentsPanel from '$lib/components/InstanceAgentsPanel.svelte';
+  import InstanceCapabilitiesPanel from '$lib/components/InstanceCapabilitiesPanel.svelte';
 
   type TabKey =
-    | "overview"
-    | "agents"
-    | "config"
-    | "logs"
-    | "usage"
-    | "history"
-    | "memory"
-    | "skills"
-    | "integration";
+    | 'overview'
+    | 'agents'
+    | 'config'
+    | 'logs'
+    | 'usage'
+    | 'history'
+    | 'capabilities'
+    | 'memory'
+    | 'skills'
+    | 'integration';
 
-  type LaunchAction = "start" | "restart";
-  type AgentRouteSummaryState = "configured" | "default_only" | "missing_profiles" | "unavailable" | "unknown";
-  type UsageWindow = "24h" | "7d" | "30d" | "all";
+  type LaunchAction = 'start' | 'restart';
+  type AgentRouteSummaryState =
+    | 'configured'
+    | 'default_only'
+    | 'missing_profiles'
+    | 'unavailable'
+    | 'unknown';
+  type UsageWindow = '24h' | '7d' | '30d' | 'all';
   type UsageRow = {
     provider: string;
     model: string;
@@ -58,11 +65,12 @@
   let component = $derived($page.params.component);
   let name = $derived($page.params.name);
   let isValidInstance = $derived(Boolean(component && name));
-  let supportsIntegration = $derived(component === "nullboiler" || component === "nulltickets");
+  let supportsIntegration = $derived(component === 'nullboiler' || component === 'nulltickets');
+  let supportsRuntimeCapabilities = $derived(component === 'nullclaw');
 
-  let activeTab = $state<TabKey>("overview");
-  let visitedTabs = $state<TabKey[]>(["overview"]);
-  let busyAction = $state<"start" | "stop" | "restart" | "update" | "delete" | null>(null);
+  let activeTab = $state<TabKey>('overview');
+  let visitedTabs = $state<TabKey[]>(['overview']);
+  let busyAction = $state<'start' | 'stop' | 'restart' | 'update' | 'delete' | null>(null);
   let savingDefaults = $state(false);
 
   let instanceStatus = $state<any>(untrack(() => data.initialStatus));
@@ -72,66 +80,73 @@
   let integration = $state<any>(null);
   let agentProfilesCount = $state<number | null>(null);
   let agentBindingsCount = $state<number | null>(null);
-  let agentRouteSummaryState = $state<AgentRouteSummaryState>("unknown");
+  let agentRouteSummaryState = $state<AgentRouteSummaryState>('unknown');
   let instanceMissing = $state(false);
-  let loadError = $state("");
+  let loadError = $state('');
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let summaryRequestToken = $state(0);
-  let activeRouteKey = $state("");
+  let activeRouteKey = $state('');
   let summaryBusy = $state(false);
   let pendingInteractiveRefresh = $state(false);
-  let lastInteractiveAuxKey = $state("");
-  let lastPolledTab = $state<TabKey>("overview");
+  let lastInteractiveAuxKey = $state('');
+  let lastPolledTab = $state<TabKey>('overview');
 
   let defaultsAutoStart = $state(false);
-  let defaultsLaunchMode = $state("gateway");
+  let defaultsLaunchMode = $state('gateway');
   let defaultsVerbose = $state(false);
   let defaultsDirty = $state(false);
 
-  let recentSupervisorError = $state("");
+  let recentSupervisorError = $state('');
   let healthFailuresFromLogs = $state<number | null>(null);
 
   let launchDialogOpen = $state(false);
-  let launchAction = $state<LaunchAction>("start");
-  let launchMode = $state("gateway");
+  let launchAction = $state<LaunchAction>('start');
+  let launchMode = $state('gateway');
   let launchVerbose = $state(false);
   let launchPersistDefaults = $state(false);
 
-  let logInitialSource = $state<LogSource>("instance");
+  let logInitialSource = $state<LogSource>('instance');
   let logViewerResetToken = $state(0);
-  let usageWindow = $state<UsageWindow>("all");
+  let usageWindow = $state<UsageWindow>('all');
 
   const tabs: { key: TabKey; label: string }[] = $derived.by(() => {
     const baseTabs: { key: TabKey; label: string }[] = [
-      { key: "overview", label: t("instanceDetail.tabs.overview") },
-      { key: "agents", label: t("instanceDetail.tabs.agents") },
-      { key: "config", label: t("instanceDetail.tabs.config") },
-      { key: "logs", label: t("instanceDetail.tabs.logs") },
-      { key: "usage", label: t("instanceDetail.tabs.usage") },
-      { key: "history", label: t("instanceDetail.tabs.history") },
-      { key: "memory", label: t("instanceDetail.tabs.memory") },
-      { key: "skills", label: t("instanceDetail.tabs.skills") },
+      { key: 'overview', label: t('instanceDetail.tabs.overview') },
+      { key: 'agents', label: t('instanceDetail.tabs.agents') },
+      { key: 'config', label: t('instanceDetail.tabs.config') },
+      { key: 'logs', label: t('instanceDetail.tabs.logs') },
+      { key: 'usage', label: t('instanceDetail.tabs.usage') },
+      { key: 'history', label: t('instanceDetail.tabs.history') },
+      { key: 'capabilities', label: t('instanceDetail.tabs.capabilities') },
+      { key: 'memory', label: t('instanceDetail.tabs.memory') },
+      { key: 'skills', label: t('instanceDetail.tabs.skills') },
     ];
+    if (!supportsRuntimeCapabilities) {
+      const idx = baseTabs.findIndex((tab) => tab.key === 'capabilities');
+      if (idx >= 0) baseTabs.splice(idx, 1);
+    }
     if (supportsIntegration) {
-      baseTabs.push({ key: "integration", label: t("instanceDetail.tabs.integration") });
+      baseTabs.push({ key: 'integration', label: t('instanceDetail.tabs.integration') });
     }
     return baseTabs;
   });
 
-  const statusText = $derived(instanceStatus?.status || "unknown");
+  const statusText = $derived(instanceStatus?.status || 'unknown');
   const statusLabel = $derived(
-    ({
-      running: t("instanceDetail.statusLabels.running"),
-      stopped: t("instanceDetail.statusLabels.stopped"),
-      starting: t("instanceDetail.statusLabels.starting"),
-      stopping: t("instanceDetail.statusLabels.stopping"),
-      failed: t("instanceDetail.statusLabels.failed"),
-      restarting: t("instanceDetail.statusLabels.restarting"),
-    } as Record<string, string>)[statusText] || t("instanceDetail.statusLabels.unknown"),
+    (
+      {
+        running: t('instanceDetail.statusLabels.running'),
+        stopped: t('instanceDetail.statusLabels.stopped'),
+        starting: t('instanceDetail.statusLabels.starting'),
+        stopping: t('instanceDetail.statusLabels.stopping'),
+        failed: t('instanceDetail.statusLabels.failed'),
+        restarting: t('instanceDetail.statusLabels.restarting'),
+      } as Record<string, string>
+    )[statusText] || t('instanceDetail.statusLabels.unknown'),
   );
-  const canStart = $derived(statusText === "stopped" || statusText === "failed");
-  const canStop = $derived(["starting", "running", "restarting"].includes(statusText));
-  const canRestart = $derived(statusText === "running" || statusText === "failed");
+  const canStart = $derived(statusText === 'stopped' || statusText === 'failed');
+  const canStop = $derived(['starting', 'running', 'restarting'].includes(statusText));
+  const canRestart = $derived(statusText === 'running' || statusText === 'failed');
 
   const restartCount = $derived(Number(instanceStatus?.restart_count || 0));
   const healthFailureCount = $derived(
@@ -159,17 +174,17 @@
     summarizeSnapshotEntries(integrationRecord?.queue),
   );
   const usageWindowOptions = $derived.by(() => [
-    { key: "24h" as UsageWindow, label: t("instanceDetail.usage.windows.24h") },
-    { key: "7d" as UsageWindow, label: t("instanceDetail.usage.windows.7d") },
-    { key: "30d" as UsageWindow, label: t("instanceDetail.usage.windows.30d") },
-    { key: "all" as UsageWindow, label: t("instanceDetail.usage.windows.all") },
+    { key: '24h' as UsageWindow, label: t('instanceDetail.usage.windows.24h') },
+    { key: '7d' as UsageWindow, label: t('instanceDetail.usage.windows.7d') },
+    { key: '30d' as UsageWindow, label: t('instanceDetail.usage.windows.30d') },
+    { key: 'all' as UsageWindow, label: t('instanceDetail.usage.windows.all') },
   ]);
   const onboardingStateLabel = $derived(
     onboardingRecord?.pending
-      ? t("instanceDetail.pending")
+      ? t('instanceDetail.pending')
       : onboardingRecord?.completed
-        ? t("instanceDetail.completed")
-        : t("instanceDetail.unknown"),
+        ? t('instanceDetail.completed')
+        : t('instanceDetail.unknown'),
   );
 
   function hasVisitedTab(tab: TabKey): boolean {
@@ -184,46 +199,46 @@
   }
 
   function normalizeError(err: unknown): string {
-    return err instanceof Error ? err.message : t("error.requestFailed");
+    return err instanceof Error ? err.message : t('error.requestFailed');
   }
 
   function asRecord(value: unknown): Record<string, any> | null {
-    if (value && typeof value === "object" && !Array.isArray(value)) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
       return value as Record<string, any>;
     }
     return null;
   }
 
   function asBoolean(value: unknown): boolean | null {
-    return typeof value === "boolean" ? value : null;
+    return typeof value === 'boolean' ? value : null;
   }
 
   function asNumber(value: unknown): number | null {
-    return typeof value === "number" && Number.isFinite(value) ? value : null;
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
   }
 
   function asString(value: unknown): string | null {
-    if (typeof value !== "string") return null;
+    if (typeof value !== 'string') return null;
     const trimmed = value.trim();
     return trimmed ? trimmed : null;
   }
 
   function formatBoolean(value: unknown): string {
     const bool = asBoolean(value);
-    if (bool === null) return "-";
-    return bool ? t("common.enabled") : t("common.disabled");
+    if (bool === null) return '-';
+    return bool ? t('common.enabled') : t('common.disabled');
   }
 
   function formatDateTime(value: unknown): string {
     const text = asString(value);
-    if (!text) return "-";
+    if (!text) return '-';
     const date = new Date(text);
     return Number.isNaN(date.getTime()) ? text : date.toLocaleString();
   }
 
   function formatDuration(value: unknown): string {
     const seconds = asNumber(value);
-    if (seconds === null || seconds < 0) return "-";
+    if (seconds === null || seconds < 0) return '-';
     if (seconds < 60) return `${Math.floor(seconds)}s`;
 
     const totalMinutes = Math.floor(seconds / 60);
@@ -236,31 +251,31 @@
     if (hours > 0) parts.push(`${hours}h`);
     if (minutes > 0 || parts.length === 0) parts.push(`${minutes}m`);
 
-    return parts.join(" ");
+    return parts.join(' ');
   }
 
   function formatReason(value: unknown): string {
     const text = asString(value);
-    if (!text) return "-";
-    return text.replace(/_/g, " ");
+    if (!text) return '-';
+    return text.replace(/_/g, ' ');
   }
 
-  function providerHealthTone(value: unknown): "success" | "error" | "neutral" {
+  function providerHealthTone(value: unknown): 'success' | 'error' | 'neutral' {
     const text = asString(value)?.toLowerCase();
-    if (text === "ok") return "success";
-    if (text === "error") return "error";
-    return "neutral";
+    if (text === 'ok') return 'success';
+    if (text === 'error') return 'error';
+    return 'neutral';
   }
 
   function formatCount(value: unknown): string {
     const num = asNumber(value);
-    if (num === null) return "0";
+    if (num === null) return '0';
     return num.toLocaleString();
   }
 
   function formatEpochSeconds(value: unknown): string {
     const seconds = asNumber(value);
-    if (seconds === null || seconds <= 0) return "-";
+    if (seconds === null || seconds <= 0) return '-';
     return new Date(seconds * 1000).toLocaleString();
   }
 
@@ -272,8 +287,8 @@
         const row = asRecord(entry);
         if (!row) return null;
         return {
-          provider: asString(row.provider) || "unknown",
-          model: asString(row.model) || "unknown",
+          provider: asString(row.provider) || 'unknown',
+          model: asString(row.model) || 'unknown',
           prompt_tokens: asNumber(row.prompt_tokens) ?? 0,
           completion_tokens: asNumber(row.completion_tokens) ?? 0,
           total_tokens: asNumber(row.total_tokens) ?? 0,
@@ -289,20 +304,20 @@
   }
 
   function summarizeScalar(value: unknown): string {
-    if (value === null || value === undefined) return "-";
-    if (typeof value === "string") return value.trim() || "-";
-    if (typeof value === "number") return Number.isFinite(value) ? value.toLocaleString() : "-";
-    if (typeof value === "boolean") return value ? t("common.enabled") : t("common.disabled");
-    if (Array.isArray(value)) return `${value.length} ${t("instanceDetail.integration.items")}`;
+    if (value === null || value === undefined) return '-';
+    if (typeof value === 'string') return value.trim() || '-';
+    if (typeof value === 'number') return Number.isFinite(value) ? value.toLocaleString() : '-';
+    if (typeof value === 'boolean') return value ? t('common.enabled') : t('common.disabled');
+    if (Array.isArray(value)) return `${value.length} ${t('instanceDetail.integration.items')}`;
 
     const record = asRecord(value);
     if (record) {
       const scalarPairs = Object.entries(record)
-        .filter(([, entry]) => ["string", "number", "boolean"].includes(typeof entry))
+        .filter(([, entry]) => ['string', 'number', 'boolean'].includes(typeof entry))
         .slice(0, 2)
         .map(([key, entry]) => `${key}=${summarizeScalar(entry)}`);
-      if (scalarPairs.length > 0) return scalarPairs.join(" · ");
-      return `${Object.keys(record).length} ${t("instanceDetail.integration.fields")}`;
+      if (scalarPairs.length > 0) return scalarPairs.join(' · ');
+      return `${Object.keys(record).length} ${t('instanceDetail.integration.fields')}`;
     }
 
     return String(value);
@@ -328,7 +343,7 @@
         const record = asRecord(entry);
         if (!record) return null;
         return {
-          name: asString(record.name) || "-",
+          name: asString(record.name) || '-',
           port: asNumber(record.port),
           running: asBoolean(record.running),
           pipelineCount: Array.isArray(record.pipelines) ? record.pipelines.length : 0,
@@ -346,7 +361,7 @@
         const record = asRecord(entry);
         if (!record) return null;
         return {
-          name: asString(record.name) || "-",
+          name: asString(record.name) || '-',
           port: asNumber(record.port),
           trackerEntries: summarizeSnapshotEntries(record.tracker),
         } satisfies IntegrationLinkedBoiler;
@@ -356,11 +371,11 @@
   }
 
   function resolveRouteRef(): { component: string; name: string } | null {
-    const c = (component || "").trim();
-    const n = (name || "").trim();
+    const c = (component || '').trim();
+    const n = (name || '').trim();
     if (c && n) return { component: c, name: n };
 
-    if (typeof window !== "undefined") {
+    if (typeof window !== 'undefined') {
       const m = window.location.pathname.match(/^\/instances\/([^/]+)\/([^/]+)$/);
       if (m) {
         return {
@@ -374,18 +389,21 @@
 
   function isNotFoundError(err: unknown): boolean {
     const message = normalizeError(err).toLowerCase();
-    return (
-      message.includes("404") ||
-      message.includes("not found") ||
-      message.includes("未找到")
-    );
+    return message.includes('404') || message.includes('not found') || message.includes('未找到');
   }
 
-  function readInstanceFromList(payload: any, targetComponent: string, targetName: string): any | null {
+  function readInstanceFromList(
+    payload: any,
+    targetComponent: string,
+    targetName: string,
+  ): any | null {
     return payload?.instances?.[targetComponent]?.[targetName] ?? null;
   }
 
-  async function fetchInstanceSnapshot(targetComponent: string, targetName: string): Promise<any | null> {
+  async function fetchInstanceSnapshot(
+    targetComponent: string,
+    targetName: string,
+  ): Promise<any | null> {
     try {
       const detail = await api.getInstance(targetComponent, targetName);
       instanceMissing = false;
@@ -409,14 +427,14 @@
 
   function parseSupervisorDiagnostics(lines: string[]) {
     if (!Array.isArray(lines) || lines.length === 0) {
-      return { latestFailure: "", healthFailures: null as number | null };
+      return { latestFailure: '', healthFailures: null as number | null };
     }
 
     const reversed = [...lines].reverse();
     const latestFailure =
       reversed.find((line) =>
         /(failed|error|health check|restart budget|terminate|startup)/i.test(line),
-      ) || "";
+      ) || '';
 
     for (const line of reversed) {
       const m1 = line.match(/consecutive failures:\s*(\d+)/i);
@@ -465,9 +483,9 @@
     }
   }
 
-  async function loadSummary(mode: "poll" | "interactive" = "poll") {
+  async function loadSummary(mode: 'poll' | 'interactive' = 'poll') {
     if (summaryBusy) {
-      if (mode === "interactive") pendingInteractiveRefresh = true;
+      if (mode === 'interactive') pendingInteractiveRefresh = true;
       return;
     }
 
@@ -477,7 +495,7 @@
     summaryBusy = true;
     const requestToken = summaryRequestToken + 1;
     summaryRequestToken = requestToken;
-    loadError = "";
+    loadError = '';
     const targetComponent = routeRef.component;
     const targetName = routeRef.name;
 
@@ -495,8 +513,8 @@
         integration = null;
         agentProfilesCount = null;
         agentBindingsCount = null;
-        agentRouteSummaryState = "unknown";
-        recentSupervisorError = "";
+        agentRouteSummaryState = 'unknown';
+        recentSupervisorError = '';
         healthFailuresFromLogs = null;
         return;
       }
@@ -508,75 +526,84 @@
         };
       }
 
-      const shouldFetchOverviewAux = mode === "interactive" || activeTab === "overview";
-      const shouldFetchUsage = mode === "interactive" && activeTab === "usage";
+      const shouldFetchOverviewAux = mode === 'interactive' || activeTab === 'overview';
+      const shouldFetchUsage = mode === 'interactive' && activeTab === 'usage';
       const shouldFetchIntegration =
-        mode === "interactive" && activeTab === "integration" && supportsIntegration;
-      const shouldFetchAgentRoutes = mode === "interactive" || activeTab === "agents" || activeTab === "overview";
-      const shouldFetchSupervisorLogs = mode === "interactive" || activeTab === "logs" || activeTab === "overview";
+        mode === 'interactive' && activeTab === 'integration' && supportsIntegration;
+      const shouldFetchAgentRoutes =
+        mode === 'interactive' || activeTab === 'agents' || activeTab === 'overview';
+      const shouldFetchSupervisorLogs =
+        mode === 'interactive' || activeTab === 'logs' || activeTab === 'overview';
       const AUX_TIMEOUT_MS = 6000;
 
-      const [healthRes, onboardingRes, usageRes, integrationRes, profilesRes, bindingsRes, supervisorLogsRes] =
-        await Promise.allSettled([
-          shouldFetchOverviewAux
-            ? withTimeout(api.getProviderHealth(targetComponent, targetName), AUX_TIMEOUT_MS)
-            : Promise.resolve(providerHealth),
-          shouldFetchOverviewAux
-            ? withTimeout(api.getOnboarding(targetComponent, targetName), AUX_TIMEOUT_MS)
-            : Promise.resolve(onboarding),
-          shouldFetchUsage
-            ? withTimeout(api.getUsage(targetComponent, targetName, usageWindow), AUX_TIMEOUT_MS)
-            : Promise.resolve(usage),
-          shouldFetchIntegration
-            ? withTimeout(api.getIntegration(targetComponent, targetName), AUX_TIMEOUT_MS)
-            : Promise.resolve(integration),
-          shouldFetchAgentRoutes
-            ? withTimeout(api.getAgentProfiles(targetComponent, targetName), AUX_TIMEOUT_MS)
-            : Promise.resolve(null),
-          shouldFetchAgentRoutes
-            ? withTimeout(api.getAgentBindings(targetComponent, targetName), AUX_TIMEOUT_MS)
-            : Promise.resolve(null),
-          shouldFetchSupervisorLogs
-            ? withTimeout(api.getLogs(targetComponent, targetName, 120, "nullhubx"), AUX_TIMEOUT_MS)
-            : Promise.resolve(null),
-        ]);
+      const [
+        healthRes,
+        onboardingRes,
+        usageRes,
+        integrationRes,
+        profilesRes,
+        bindingsRes,
+        supervisorLogsRes,
+      ] = await Promise.allSettled([
+        shouldFetchOverviewAux
+          ? withTimeout(api.getProviderHealth(targetComponent, targetName), AUX_TIMEOUT_MS)
+          : Promise.resolve(providerHealth),
+        shouldFetchOverviewAux
+          ? withTimeout(api.getOnboarding(targetComponent, targetName), AUX_TIMEOUT_MS)
+          : Promise.resolve(onboarding),
+        shouldFetchUsage
+          ? withTimeout(api.getUsage(targetComponent, targetName, usageWindow), AUX_TIMEOUT_MS)
+          : Promise.resolve(usage),
+        shouldFetchIntegration
+          ? withTimeout(api.getIntegration(targetComponent, targetName), AUX_TIMEOUT_MS)
+          : Promise.resolve(integration),
+        shouldFetchAgentRoutes
+          ? withTimeout(api.getAgentProfiles(targetComponent, targetName), AUX_TIMEOUT_MS)
+          : Promise.resolve(null),
+        shouldFetchAgentRoutes
+          ? withTimeout(api.getAgentBindings(targetComponent, targetName), AUX_TIMEOUT_MS)
+          : Promise.resolve(null),
+        shouldFetchSupervisorLogs
+          ? withTimeout(api.getLogs(targetComponent, targetName, 120, 'nullhubx'), AUX_TIMEOUT_MS)
+          : Promise.resolve(null),
+      ]);
       if (requestToken !== summaryRequestToken) return;
       const latest = resolveRouteRef();
       if (!latest || targetComponent !== latest.component || targetName !== latest.name) return;
 
       if (shouldFetchOverviewAux) {
-        providerHealth = healthRes.status === "fulfilled" ? healthRes.value : null;
-        onboarding = onboardingRes.status === "fulfilled" ? onboardingRes.value : null;
+        providerHealth = healthRes.status === 'fulfilled' ? healthRes.value : null;
+        onboarding = onboardingRes.status === 'fulfilled' ? onboardingRes.value : null;
       }
       if (shouldFetchUsage) {
-        usage = usageRes.status === "fulfilled" ? usageRes.value : null;
+        usage = usageRes.status === 'fulfilled' ? usageRes.value : null;
       }
       if (shouldFetchIntegration) {
-        integration = integrationRes.status === "fulfilled" ? integrationRes.value : null;
+        integration = integrationRes.status === 'fulfilled' ? integrationRes.value : null;
       } else if (!supportsIntegration) {
         integration = null;
       }
       if (shouldFetchAgentRoutes) {
         agentProfilesCount =
-          profilesRes.status === "fulfilled" && Array.isArray(profilesRes.value?.profiles)
+          profilesRes.status === 'fulfilled' && Array.isArray(profilesRes.value?.profiles)
             ? profilesRes.value.profiles.length
             : null;
         agentBindingsCount =
-          bindingsRes.status === "fulfilled" && Array.isArray(bindingsRes.value?.bindings)
+          bindingsRes.status === 'fulfilled' && Array.isArray(bindingsRes.value?.bindings)
             ? bindingsRes.value.bindings.length
             : null;
-        if (profilesRes.status !== "fulfilled" || bindingsRes.status !== "fulfilled") {
-          agentRouteSummaryState = "unavailable";
+        if (profilesRes.status !== 'fulfilled' || bindingsRes.status !== 'fulfilled') {
+          agentRouteSummaryState = 'unavailable';
         } else if ((agentProfilesCount ?? 0) === 0) {
-          agentRouteSummaryState = "missing_profiles";
+          agentRouteSummaryState = 'missing_profiles';
         } else if ((agentBindingsCount ?? 0) === 0) {
-          agentRouteSummaryState = "default_only";
+          agentRouteSummaryState = 'default_only';
         } else {
-          agentRouteSummaryState = "configured";
+          agentRouteSummaryState = 'configured';
         }
       }
 
-      if (shouldFetchSupervisorLogs && supervisorLogsRes.status === "fulfilled") {
+      if (shouldFetchSupervisorLogs && supervisorLogsRes.status === 'fulfilled') {
         const diagnostics = parseSupervisorDiagnostics(supervisorLogsRes.value?.lines || []);
         recentSupervisorError = diagnostics.latestFailure;
         healthFailuresFromLogs = diagnostics.healthFailures;
@@ -591,7 +618,7 @@
       summaryBusy = false;
       if (pendingInteractiveRefresh) {
         pendingInteractiveRefresh = false;
-        void loadSummary("interactive");
+        void loadSummary('interactive');
       }
     }
   }
@@ -599,8 +626,8 @@
   function startPolling() {
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = setInterval(() => {
-      if (activeTab === "config") return;
-      void loadSummary("poll");
+      if (activeTab === 'config') return;
+      void loadSummary('poll');
     }, 4000);
   }
 
@@ -609,12 +636,12 @@
     pollTimer = null;
   }
 
-  async function runControlAction(action: "stop" | "update") {
+  async function runControlAction(action: 'stop' | 'update') {
     busyAction = action;
     try {
-      if (action === "stop") await api.stopInstance(component, name);
-      if (action === "update") await api.applyUpdate(component, name);
-      await loadSummary("interactive");
+      if (action === 'stop') await api.stopInstance(component, name);
+      if (action === 'update') await api.applyUpdate(component, name);
+      await loadSummary('interactive');
     } catch (err) {
       loadError = normalizeError(err);
     } finally {
@@ -626,14 +653,14 @@
     if (busyAction !== null) return; // Prevent duplicate clicks
     if (!instanceStatus) return;
     launchAction = action;
-    launchMode = defaultsLaunchMode || instanceStatus.launch_mode || "gateway";
+    launchMode = defaultsLaunchMode || instanceStatus.launch_mode || 'gateway';
     launchVerbose = defaultsVerbose;
     launchPersistDefaults = false;
     launchDialogOpen = true;
   }
 
   function closeLaunchDialog() {
-    if (busyAction === "start" || busyAction === "restart") return;
+    if (busyAction === 'start' || busyAction === 'restart') return;
     launchDialogOpen = false;
   }
 
@@ -642,7 +669,7 @@
   }
 
   function handleLaunchBackdropKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape" || event.key === "Enter" || event.key === " ") {
+    if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       closeLaunchDialog();
     }
@@ -653,7 +680,7 @@
     if (!instanceStatus) return;
     const mode = launchMode.trim();
     if (mode.length === 0) {
-      loadError = t("instanceDetail.launchModeRequired");
+      loadError = t('instanceDetail.launchModeRequired');
       return;
     }
 
@@ -669,13 +696,13 @@
         defaultsDirty = false;
       }
 
-      if (launchAction === "start") {
+      if (launchAction === 'start') {
         await api.startInstance(component, name, { launch_mode: mode, verbose: launchVerbose });
       } else {
         await api.restartInstance(component, name, { launch_mode: mode, verbose: launchVerbose });
       }
       launchDialogOpen = false;
-      await loadSummary("interactive");
+      await loadSummary('interactive');
     } catch (err) {
       loadError = normalizeError(err);
     } finally {
@@ -686,7 +713,7 @@
   async function saveDefaultSettings() {
     const mode = defaultsLaunchMode.trim();
     if (mode.length === 0) {
-      loadError = t("instanceDetail.defaultLaunchModeRequired");
+      loadError = t('instanceDetail.defaultLaunchModeRequired');
       return;
     }
 
@@ -698,7 +725,7 @@
         verbose: defaultsVerbose,
       });
       defaultsDirty = false;
-      await loadSummary("interactive");
+      await loadSummary('interactive');
     } catch (err) {
       loadError = normalizeError(err);
     } finally {
@@ -709,21 +736,21 @@
   function resetDefaultSettingsDraft() {
     if (!instanceStatus) return;
     defaultsAutoStart = !!instanceStatus.auto_start;
-    defaultsLaunchMode = instanceStatus.launch_mode || "gateway";
+    defaultsLaunchMode = instanceStatus.launch_mode || 'gateway';
     defaultsVerbose = !!instanceStatus.verbose;
     defaultsDirty = false;
   }
 
   async function runDelete() {
     if (busyAction !== null) return;
-    const msg = t("instanceDetail.confirmDelete")
-      .replace("{component}", component)
-      .replace("{name}", name);
+    const msg = t('instanceDetail.confirmDelete')
+      .replace('{component}', component)
+      .replace('{name}', name);
     if (!confirm(msg)) return;
-    busyAction = "delete";
+    busyAction = 'delete';
     try {
       await api.deleteInstance(component, name);
-      await goto("/instances");
+      await goto('/instances');
     } catch (err) {
       loadError = normalizeError(err);
     } finally {
@@ -732,17 +759,17 @@
   }
 
   function openFailureLogs() {
-    activateTab("logs");
-    logInitialSource = "nullhubx";
+    activateTab('logs');
+    logInitialSource = 'nullhubx';
     logViewerResetToken += 1;
   }
 
   async function handleAgentsSaved() {
-    await loadSummary("interactive");
+    await loadSummary('interactive');
   }
 
   function handleAgentRestartRequest() {
-    openLaunchDialog("restart");
+    openLaunchDialog('restart');
   }
 
   onMount(() => {
@@ -760,26 +787,26 @@
     if (routeKey === activeRouteKey) return;
     activeRouteKey = routeKey;
 
-    visitedTabs = ["overview"];
-    activeTab = "overview";
+    visitedTabs = ['overview'];
+    activeTab = 'overview';
     launchDialogOpen = false;
     instanceMissing = false;
-    loadError = "";
-    logInitialSource = "instance";
+    loadError = '';
+    logInitialSource = 'instance';
     logViewerResetToken += 1;
     summaryRequestToken += 1;
-    
+
     // Sync cache when route changes to avoid flash
     instanceStatus = data.initialStatus;
 
-    void loadSummary("interactive");
+    void loadSummary('interactive');
   });
 
   $effect(() => {
     instanceStatus;
     if (instanceStatus && !defaultsDirty) {
       defaultsAutoStart = !!instanceStatus.auto_start;
-      defaultsLaunchMode = instanceStatus.launch_mode || "gateway";
+      defaultsLaunchMode = instanceStatus.launch_mode || 'gateway';
       defaultsVerbose = !!instanceStatus.verbose;
     }
   });
@@ -789,33 +816,34 @@
     const routeKey = activeRouteKey;
     const currentUsageWindow = usageWindow;
 
-    if (tab !== "usage" && tab !== "integration") {
-      lastInteractiveAuxKey = "";
+    if (tab !== 'usage' && tab !== 'integration') {
+      lastInteractiveAuxKey = '';
       return;
     }
 
-    if (tab === "integration" && !supportsIntegration) {
-      lastInteractiveAuxKey = "";
+    if (tab === 'integration' && !supportsIntegration) {
+      lastInteractiveAuxKey = '';
       integration = null;
       return;
     }
 
     if (!routeKey) return;
 
-    const refreshKey = tab === "usage" ? `${routeKey}:${tab}:${currentUsageWindow}` : `${routeKey}:${tab}`;
+    const refreshKey =
+      tab === 'usage' ? `${routeKey}:${tab}:${currentUsageWindow}` : `${routeKey}:${tab}`;
     if (refreshKey === lastInteractiveAuxKey) return;
 
     lastInteractiveAuxKey = refreshKey;
-    void loadSummary("interactive");
+    void loadSummary('interactive');
   });
 
   $effect(() => {
     if (supportsIntegration) return;
-    if (activeTab === "integration") {
-      activeTab = "overview";
+    if (activeTab === 'integration') {
+      activeTab = 'overview';
     }
-    if (visitedTabs.includes("integration")) {
-      visitedTabs = visitedTabs.filter((tab) => tab !== "integration");
+    if (visitedTabs.includes('integration')) {
+      visitedTabs = visitedTabs.filter((tab) => tab !== 'integration');
     }
     integration = null;
   });
@@ -825,14 +853,14 @@
     const previousTab = lastPolledTab;
     lastPolledTab = currentTab;
 
-    if (previousTab === "config" && currentTab !== "config") {
-      void loadSummary("poll");
+    if (previousTab === 'config' && currentTab !== 'config') {
+      void loadSummary('poll');
     }
   });
 </script>
 
 <svelte:head>
-  <title>{component}/{name} - {t("instanceDetail.title")} - NullHubX</title>
+  <title>{component}/{name} - {t('instanceDetail.title')} - NullHubX</title>
 </svelte:head>
 
 <div class="page-shell instance-page">
@@ -860,11 +888,11 @@
     {canStart}
     {canStop}
     {canRestart}
-    onBackWorkspace={() => goto("/instances")}
-    onOpenStart={() => openLaunchDialog("start")}
-    onStop={() => runControlAction("stop")}
-    onOpenRestart={() => openLaunchDialog("restart")}
-    onUpdate={() => runControlAction("update")}
+    onBackWorkspace={() => goto('/instances')}
+    onOpenStart={() => openLaunchDialog('start')}
+    onStop={() => runControlAction('stop')}
+    onOpenRestart={() => openLaunchDialog('restart')}
+    onUpdate={() => runControlAction('update')}
     onDelete={runDelete}
     onOpenFailureLogs={openFailureLogs}
     onDefaultsAutoStartChange={(checked) => {
@@ -890,62 +918,72 @@
   {#if !instanceStatus}
     <div class="section-shell empty">
       {#if instanceMissing}
-        {t("instanceDetail.notFound")}
+        {t('instanceDetail.notFound')}
       {:else}
-        {t("instanceDetail.fetching")}
+        {t('instanceDetail.fetching')}
       {/if}
       <div class="empty-actions">
-        <button class="control-btn secondary" type="button" onclick={() => goto("/instances")}>{t("instanceDetail.backToWorkspace")}</button>
-        <button class="control-btn secondary" type="button" onclick={() => goto("/")}>{t("instanceDetail.backToOverview")}</button>
-        <button class="control-btn primary" onclick={() => void loadSummary("interactive")}>{t("instanceDetail.retryNow")}</button>
+        <button class="control-btn secondary" type="button" onclick={() => goto('/instances')}
+          >{t('instanceDetail.backToWorkspace')}</button
+        >
+        <button class="control-btn secondary" type="button" onclick={() => goto('/')}
+          >{t('instanceDetail.backToOverview')}</button
+        >
+        <button class="control-btn primary" onclick={() => void loadSummary('interactive')}
+          >{t('instanceDetail.retryNow')}</button
+        >
       </div>
     </div>
   {:else}
     <nav class="tabs">
       {#each tabs as tab}
-        <button type="button" class:active={activeTab === tab.key} onclick={() => activateTab(tab.key)}>{tab.label}</button>
+        <button
+          type="button"
+          class:active={activeTab === tab.key}
+          onclick={() => activateTab(tab.key)}>{tab.label}</button
+        >
       {/each}
     </nav>
 
     <section class="section-shell panel tab-panel-shell">
-      {#if hasVisitedTab("overview")}
-        <div class="tab-pane" hidden={activeTab !== "overview"}>
+      {#if hasVisitedTab('overview')}
+        <div class="tab-pane" hidden={activeTab !== 'overview'}>
           <div class="overview-grid">
             <section class="overview-card">
               <div class="overview-card-header">
-                <h3>{t("instanceDetail.overview.runtime")}</h3>
+                <h3>{t('instanceDetail.overview.runtime')}</h3>
               </div>
               <div class="overview-stat-grid">
                 <div class="overview-stat">
-                  <span>{t("instanceDetail.statusLabel")}</span>
+                  <span>{t('instanceDetail.statusLabel')}</span>
                   <strong>{statusLabel}</strong>
                 </div>
                 <div class="overview-stat">
-                  <span>{t("instanceDetail.overview.pid")}</span>
-                  <strong>{instanceStatus.pid ?? "-"}</strong>
+                  <span>{t('instanceDetail.overview.pid')}</span>
+                  <strong>{instanceStatus.pid ?? '-'}</strong>
                 </div>
                 <div class="overview-stat">
-                  <span>{t("instanceDetail.portLabel")}</span>
-                  <strong>{instanceStatus.port ?? "-"}</strong>
+                  <span>{t('instanceDetail.portLabel')}</span>
+                  <strong>{instanceStatus.port ?? '-'}</strong>
                 </div>
                 <div class="overview-stat">
-                  <span>{t("instanceDetail.versionLabel")}</span>
-                  <strong>{instanceStatus.version || "-"}</strong>
+                  <span>{t('instanceDetail.versionLabel')}</span>
+                  <strong>{instanceStatus.version || '-'}</strong>
                 </div>
                 <div class="overview-stat">
-                  <span>{t("instanceDetail.overview.uptime")}</span>
+                  <span>{t('instanceDetail.overview.uptime')}</span>
                   <strong>{formatDuration(instanceStatus.uptime_seconds)}</strong>
                 </div>
                 <div class="overview-stat">
-                  <span>{t("instanceDetail.launchMode")}</span>
-                  <strong>{instanceStatus.launch_mode || "-"}</strong>
+                  <span>{t('instanceDetail.launchMode')}</span>
+                  <strong>{instanceStatus.launch_mode || '-'}</strong>
                 </div>
                 <div class="overview-stat">
-                  <span>{t("instanceDetail.autoStart")}</span>
+                  <span>{t('instanceDetail.autoStart')}</span>
                   <strong>{formatBoolean(instanceStatus.auto_start)}</strong>
                 </div>
                 <div class="overview-stat">
-                  <span>{t("instanceDetail.verboseLog")}</span>
+                  <span>{t('instanceDetail.verboseLog')}</span>
                   <strong>{formatBoolean(instanceStatus.verbose)}</strong>
                 </div>
               </div>
@@ -953,10 +991,10 @@
 
             <section class="overview-card">
               <div class="overview-card-header">
-                <h3>{t("instanceDetail.overview.provider")}</h3>
+                <h3>{t('instanceDetail.overview.provider')}</h3>
                 {#if providerHealthRecord}
                   <span class={`overview-pill ${providerHealthTone(providerHealthRecord.status)}`}>
-                    {String(providerHealthRecord.status || t("instanceDetail.unknown"))}
+                    {String(providerHealthRecord.status || t('instanceDetail.unknown'))}
                   </span>
                 {/if}
               </div>
@@ -964,124 +1002,130 @@
               {#if providerHealthRecord}
                 <div class="overview-stat-grid">
                   <div class="overview-stat">
-                    <span>{t("instanceDetail.overview.providerName")}</span>
-                    <strong>{providerHealthRecord.provider || "-"}</strong>
+                    <span>{t('instanceDetail.overview.providerName')}</span>
+                    <strong>{providerHealthRecord.provider || '-'}</strong>
                   </div>
                   <div class="overview-stat">
-                    <span>{t("instanceDetail.overview.model")}</span>
-                    <strong>{providerHealthRecord.model || "-"}</strong>
+                    <span>{t('instanceDetail.overview.model')}</span>
+                    <strong>{providerHealthRecord.model || '-'}</strong>
                   </div>
                   <div class="overview-stat">
-                    <span>{t("instanceDetail.overview.configured")}</span>
+                    <span>{t('instanceDetail.overview.configured')}</span>
                     <strong>{formatBoolean(providerHealthRecord.configured)}</strong>
                   </div>
                   <div class="overview-stat">
-                    <span>{t("instanceDetail.overview.instanceRunning")}</span>
+                    <span>{t('instanceDetail.overview.instanceRunning')}</span>
                     <strong>{formatBoolean(providerHealthRecord.running)}</strong>
                   </div>
                   <div class="overview-stat">
-                    <span>{t("instanceDetail.overview.liveProbe")}</span>
+                    <span>{t('instanceDetail.overview.liveProbe')}</span>
                     <strong>{formatBoolean(providerHealthRecord.live_ok)}</strong>
                   </div>
                   <div class="overview-stat">
-                    <span>{t("instanceDetail.overview.statusCode")}</span>
-                    <strong>{providerHealthRecord.status_code ?? "-"}</strong>
+                    <span>{t('instanceDetail.overview.statusCode')}</span>
+                    <strong>{providerHealthRecord.status_code ?? '-'}</strong>
                   </div>
                   <div class="overview-stat wide">
-                    <span>{t("instanceDetail.overview.reason")}</span>
+                    <span>{t('instanceDetail.overview.reason')}</span>
                     <strong>{formatReason(providerHealthRecord.reason)}</strong>
                   </div>
                 </div>
               {:else}
-                <p class="overview-empty">{t("common.noData")}</p>
+                <p class="overview-empty">{t('common.noData')}</p>
               {/if}
             </section>
 
             <section class="overview-card">
               <div class="overview-card-header">
-                <h3>{t("instanceDetail.overview.onboarding")}</h3>
+                <h3>{t('instanceDetail.overview.onboarding')}</h3>
                 <span class="overview-pill neutral">{onboardingStateLabel}</span>
               </div>
 
               {#if onboardingRecord}
                 <div class="overview-stat-grid">
                   <div class="overview-stat">
-                    <span>{t("instanceDetail.onboardingStatusLabel")}</span>
+                    <span>{t('instanceDetail.onboardingStatusLabel')}</span>
                     <strong>{onboardingStateLabel}</strong>
                   </div>
                   <div class="overview-stat">
-                    <span>{t("instanceDetail.overview.supported")}</span>
+                    <span>{t('instanceDetail.overview.supported')}</span>
                     <strong>{formatBoolean(onboardingRecord.supported)}</strong>
                   </div>
                   <div class="overview-stat">
-                    <span>{t("instanceDetail.overview.bootstrapExists")}</span>
+                    <span>{t('instanceDetail.overview.bootstrapExists')}</span>
                     <strong>{formatBoolean(onboardingRecord.bootstrap_exists)}</strong>
                   </div>
                   <div class="overview-stat">
-                    <span>{t("instanceDetail.overview.seededAt")}</span>
+                    <span>{t('instanceDetail.overview.seededAt')}</span>
                     <strong>{formatDateTime(onboardingRecord.bootstrap_seeded_at)}</strong>
                   </div>
                   <div class="overview-stat">
-                    <span>{t("instanceDetail.overview.completedAt")}</span>
+                    <span>{t('instanceDetail.overview.completedAt')}</span>
                     <strong>{formatDateTime(onboardingRecord.onboarding_completed_at)}</strong>
                   </div>
                   <div class="overview-stat wide">
-                    <span>{t("instanceDetail.overview.starterMessage")}</span>
-                    <strong>{onboardingRecord.starter_message || "-"}</strong>
+                    <span>{t('instanceDetail.overview.starterMessage')}</span>
+                    <strong>{onboardingRecord.starter_message || '-'}</strong>
                   </div>
                 </div>
               {:else}
-                <p class="overview-empty">{t("common.noData")}</p>
+                <p class="overview-empty">{t('common.noData')}</p>
               {/if}
             </section>
           </div>
         </div>
       {/if}
 
-      {#if hasVisitedTab("agents")}
-        <div class="tab-pane" hidden={activeTab !== "agents"}>
-        <InstanceAgentsPanel
-          {component}
-          {name}
-          active={activeTab === "agents"}
-          runtimeStatus={statusText}
-          {canRestart}
-          onSaved={handleAgentsSaved}
-          onRequestRestart={handleAgentRestartRequest}
-        />
+      {#if hasVisitedTab('agents')}
+        <div class="tab-pane" hidden={activeTab !== 'agents'}>
+          <InstanceAgentsPanel
+            {component}
+            {name}
+            active={activeTab === 'agents'}
+            runtimeStatus={statusText}
+            {canRestart}
+            onSaved={handleAgentsSaved}
+            onRequestRestart={handleAgentRestartRequest}
+          />
         </div>
       {/if}
 
-      {#if hasVisitedTab("config")}
-        <div class="tab-pane" hidden={activeTab !== "config"}>
-          <ConfigEditor {component} {name} active={activeTab === "config"} onAction={loadSummary} />
+      {#if hasVisitedTab('config')}
+        <div class="tab-pane" hidden={activeTab !== 'config'}>
+          <ConfigEditor {component} {name} active={activeTab === 'config'} onAction={loadSummary} />
         </div>
       {/if}
 
-      {#if hasVisitedTab("logs")}
-        <div class="tab-pane" hidden={activeTab !== "logs"}>
-        <LogViewer
-          {component}
-          {name}
-          active={activeTab === "logs"}
-          initialSource={logInitialSource}
-          resetToken={logViewerResetToken}
-        />
+      {#if hasVisitedTab('logs')}
+        <div class="tab-pane" hidden={activeTab !== 'logs'}>
+          <LogViewer
+            {component}
+            {name}
+            active={activeTab === 'logs'}
+            initialSource={logInitialSource}
+            resetToken={logViewerResetToken}
+          />
         </div>
       {/if}
 
-      {#if hasVisitedTab("usage")}
-        <div class="tab-pane" hidden={activeTab !== "usage"}>
+      {#if hasVisitedTab('usage')}
+        <div class="tab-pane" hidden={activeTab !== 'usage'}>
           <div class="usage-shell">
             <div class="usage-toolbar">
               <div class="usage-heading">
-                <h3>{t("instanceDetail.tabs.usage")}</h3>
+                <h3>{t('instanceDetail.tabs.usage')}</h3>
                 <p>
-                  {t("instanceDetail.usage.generatedAt")}: {formatEpochSeconds(usageRecord?.generated_at)}
+                  {t('instanceDetail.usage.generatedAt')}: {formatEpochSeconds(
+                    usageRecord?.generated_at,
+                  )}
                 </p>
               </div>
 
-              <div class="usage-window-switch" role="tablist" aria-label={t("instanceDetail.usage.windowLabel")}>
+              <div
+                class="usage-window-switch"
+                role="tablist"
+                aria-label={t('instanceDetail.usage.windowLabel')}
+              >
                 {#each usageWindowOptions as option}
                   <button
                     type="button"
@@ -1100,19 +1144,19 @@
 
             <div class="usage-summary-grid">
               <div class="usage-summary-card">
-                <span>{t("instanceDetail.usage.totalRequests")}</span>
+                <span>{t('instanceDetail.usage.totalRequests')}</span>
                 <strong>{formatCount(usageTotals?.requests)}</strong>
               </div>
               <div class="usage-summary-card">
-                <span>{t("instanceDetail.usage.totalTokens")}</span>
+                <span>{t('instanceDetail.usage.totalTokens')}</span>
                 <strong>{formatCount(usageTotals?.total_tokens)}</strong>
               </div>
               <div class="usage-summary-card">
-                <span>{t("instanceDetail.usage.promptTokens")}</span>
+                <span>{t('instanceDetail.usage.promptTokens')}</span>
                 <strong>{formatCount(usageTotals?.prompt_tokens)}</strong>
               </div>
               <div class="usage-summary-card">
-                <span>{t("instanceDetail.usage.completionTokens")}</span>
+                <span>{t('instanceDetail.usage.completionTokens')}</span>
                 <strong>{formatCount(usageTotals?.completion_tokens)}</strong>
               </div>
             </div>
@@ -1122,13 +1166,13 @@
                 <table class="usage-table">
                   <thead>
                     <tr>
-                      <th>{t("instanceDetail.usage.provider")}</th>
-                      <th>{t("instanceDetail.usage.model")}</th>
-                      <th>{t("instanceDetail.usage.requests")}</th>
-                      <th>{t("instanceDetail.usage.promptTokens")}</th>
-                      <th>{t("instanceDetail.usage.completionTokens")}</th>
-                      <th>{t("instanceDetail.usage.totalTokens")}</th>
-                      <th>{t("instanceDetail.usage.lastUsed")}</th>
+                      <th>{t('instanceDetail.usage.provider')}</th>
+                      <th>{t('instanceDetail.usage.model')}</th>
+                      <th>{t('instanceDetail.usage.requests')}</th>
+                      <th>{t('instanceDetail.usage.promptTokens')}</th>
+                      <th>{t('instanceDetail.usage.completionTokens')}</th>
+                      <th>{t('instanceDetail.usage.totalTokens')}</th>
+                      <th>{t('instanceDetail.usage.lastUsed')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1147,88 +1191,96 @@
                 </table>
               </div>
             {:else}
-              <p class="overview-empty">{t("instanceDetail.usage.empty")}</p>
+              <p class="overview-empty">{t('instanceDetail.usage.empty')}</p>
             {/if}
           </div>
         </div>
       {/if}
 
-      {#if hasVisitedTab("history")}
-        <div class="tab-pane" hidden={activeTab !== "history"}>
-          <InstanceHistoryPanel {component} {name} active={activeTab === "history"} />
+      {#if hasVisitedTab('history')}
+        <div class="tab-pane" hidden={activeTab !== 'history'}>
+          <InstanceHistoryPanel {component} {name} active={activeTab === 'history'} />
         </div>
       {/if}
 
-      {#if hasVisitedTab("memory")}
-        <div class="tab-pane" hidden={activeTab !== "memory"}>
-          <InstanceMemoryPanel {component} {name} active={activeTab === "memory"} />
+      {#if supportsRuntimeCapabilities && hasVisitedTab('capabilities')}
+        <div class="tab-pane" hidden={activeTab !== 'capabilities'}>
+          <InstanceCapabilitiesPanel {component} {name} active={activeTab === 'capabilities'} />
         </div>
       {/if}
 
-      {#if hasVisitedTab("skills")}
-        <div class="tab-pane" hidden={activeTab !== "skills"}>
-          <InstanceSkillsPanel {component} {name} active={activeTab === "skills"} />
+      {#if hasVisitedTab('memory')}
+        <div class="tab-pane" hidden={activeTab !== 'memory'}>
+          <InstanceMemoryPanel {component} {name} active={activeTab === 'memory'} />
         </div>
       {/if}
 
-      {#if supportsIntegration && hasVisitedTab("integration")}
-        <div class="tab-pane" hidden={activeTab !== "integration"}>
+      {#if hasVisitedTab('skills')}
+        <div class="tab-pane" hidden={activeTab !== 'skills'}>
+          <InstanceSkillsPanel {component} {name} active={activeTab === 'skills'} />
+        </div>
+      {/if}
+
+      {#if supportsIntegration && hasVisitedTab('integration')}
+        <div class="tab-pane" hidden={activeTab !== 'integration'}>
           <div class="integration-shell">
             <div class="integration-heading">
-              <h3>{t("instanceDetail.tabs.integration")}</h3>
-              <p>{t("instanceDetail.integration.kind")}: {integrationKind || "-"}</p>
+              <h3>{t('instanceDetail.tabs.integration')}</h3>
+              <p>{t('instanceDetail.integration.kind')}: {integrationKind || '-'}</p>
             </div>
 
-            {#if integrationKind === "nullboiler"}
+            {#if integrationKind === 'nullboiler'}
               <div class="integration-grid">
                 <section class="integration-card">
                   <div class="integration-card-header">
-                    <h4>{t("instanceDetail.integration.linkSummary")}</h4>
-                    <span class={`overview-pill ${integrationRecord?.configured ? "success" : "neutral"}`}>
+                    <h4>{t('instanceDetail.integration.linkSummary')}</h4>
+                    <span
+                      class={`overview-pill ${integrationRecord?.configured ? 'success' : 'neutral'}`}
+                    >
                       {integrationRecord?.configured
-                        ? t("instanceDetail.integration.configured")
-                        : t("instanceDetail.integration.notConfigured")}
+                        ? t('instanceDetail.integration.configured')
+                        : t('instanceDetail.integration.notConfigured')}
                     </span>
                   </div>
                   <div class="overview-stat-grid">
                     <div class="overview-stat">
-                      <span>{t("instanceDetail.integration.trackerName")}</span>
-                      <strong>{integrationLinkedTracker?.name || "-"}</strong>
+                      <span>{t('instanceDetail.integration.trackerName')}</span>
+                      <strong>{integrationLinkedTracker?.name || '-'}</strong>
                     </div>
                     <div class="overview-stat">
-                      <span>{t("instanceDetail.integration.trackerPort")}</span>
-                      <strong>{integrationLinkedTracker?.port ?? "-"}</strong>
+                      <span>{t('instanceDetail.integration.trackerPort')}</span>
+                      <strong>{integrationLinkedTracker?.port ?? '-'}</strong>
                     </div>
                     <div class="overview-stat">
-                      <span>{t("instanceDetail.integration.pipelineId")}</span>
-                      <strong>{integrationCurrentLink?.pipeline_id || "-"}</strong>
+                      <span>{t('instanceDetail.integration.pipelineId')}</span>
+                      <strong>{integrationCurrentLink?.pipeline_id || '-'}</strong>
                     </div>
                     <div class="overview-stat">
-                      <span>{t("instanceDetail.integration.claimRole")}</span>
-                      <strong>{integrationCurrentLink?.claim_role || "-"}</strong>
+                      <span>{t('instanceDetail.integration.claimRole')}</span>
+                      <strong>{integrationCurrentLink?.claim_role || '-'}</strong>
                     </div>
                     <div class="overview-stat">
-                      <span>{t("instanceDetail.integration.successTrigger")}</span>
-                      <strong>{integrationCurrentLink?.success_trigger || "-"}</strong>
+                      <span>{t('instanceDetail.integration.successTrigger')}</span>
+                      <strong>{integrationCurrentLink?.success_trigger || '-'}</strong>
                     </div>
                     <div class="overview-stat">
-                      <span>{t("instanceDetail.integration.maxConcurrentTasks")}</span>
-                      <strong>{integrationCurrentLink?.max_concurrent_tasks ?? "-"}</strong>
+                      <span>{t('instanceDetail.integration.maxConcurrentTasks')}</span>
+                      <strong>{integrationCurrentLink?.max_concurrent_tasks ?? '-'}</strong>
                     </div>
                     <div class="overview-stat">
-                      <span>{t("instanceDetail.integration.agentId")}</span>
-                      <strong>{integrationCurrentLink?.agent_id || "-"}</strong>
+                      <span>{t('instanceDetail.integration.agentId')}</span>
+                      <strong>{integrationCurrentLink?.agent_id || '-'}</strong>
                     </div>
                     <div class="overview-stat">
-                      <span>{t("instanceDetail.integration.workflowFile")}</span>
-                      <strong>{integrationCurrentLink?.workflow_file || "-"}</strong>
+                      <span>{t('instanceDetail.integration.workflowFile')}</span>
+                      <strong>{integrationCurrentLink?.workflow_file || '-'}</strong>
                     </div>
                   </div>
                 </section>
 
                 <section class="integration-card">
                   <div class="integration-card-header">
-                    <h4>{t("instanceDetail.integration.availableTrackers")}</h4>
+                    <h4>{t('instanceDetail.integration.availableTrackers')}</h4>
                   </div>
                   {#if integrationAvailableTrackers.length > 0}
                     <div class="integration-list">
@@ -1236,27 +1288,36 @@
                         <article class="integration-list-card">
                           <div class="integration-list-header">
                             <strong>{tracker.name}</strong>
-                            <span class={`overview-pill ${tracker.running ? "success" : "neutral"}`}>
+                            <span
+                              class={`overview-pill ${tracker.running ? 'success' : 'neutral'}`}
+                            >
                               {tracker.running
-                                ? t("instanceDetail.integration.running")
-                                : t("instanceDetail.integration.stopped")}
+                                ? t('instanceDetail.integration.running')
+                                : t('instanceDetail.integration.stopped')}
                             </span>
                           </div>
                           <div class="integration-list-meta">
-                            <span>{t("instanceDetail.integration.trackerPort")}: {tracker.port ?? "-"}</span>
-                            <span>{t("instanceDetail.integration.pipelineCount")}: {formatCount(tracker.pipelineCount)}</span>
+                            <span
+                              >{t('instanceDetail.integration.trackerPort')}: {tracker.port ??
+                                '-'}</span
+                            >
+                            <span
+                              >{t('instanceDetail.integration.pipelineCount')}: {formatCount(
+                                tracker.pipelineCount,
+                              )}</span
+                            >
                           </div>
                         </article>
                       {/each}
                     </div>
                   {:else}
-                    <p class="overview-empty">{t("instanceDetail.integration.noTrackers")}</p>
+                    <p class="overview-empty">{t('instanceDetail.integration.noTrackers')}</p>
                   {/if}
                 </section>
 
                 <section class="integration-card">
                   <div class="integration-card-header">
-                    <h4>{t("instanceDetail.integration.trackerSnapshot")}</h4>
+                    <h4>{t('instanceDetail.integration.trackerSnapshot')}</h4>
                   </div>
                   {#if integrationTrackerEntries.length > 0}
                     <div class="integration-snapshot-grid">
@@ -1268,13 +1329,15 @@
                       {/each}
                     </div>
                   {:else}
-                    <p class="overview-empty">{t("instanceDetail.integration.noTrackerSnapshot")}</p>
+                    <p class="overview-empty">
+                      {t('instanceDetail.integration.noTrackerSnapshot')}
+                    </p>
                   {/if}
                 </section>
 
                 <section class="integration-card">
                   <div class="integration-card-header">
-                    <h4>{t("instanceDetail.integration.queueSnapshot")}</h4>
+                    <h4>{t('instanceDetail.integration.queueSnapshot')}</h4>
                   </div>
                   {#if integrationQueueEntries.length > 0}
                     <div class="integration-snapshot-grid">
@@ -1286,15 +1349,15 @@
                       {/each}
                     </div>
                   {:else}
-                    <p class="overview-empty">{t("instanceDetail.integration.noQueueSnapshot")}</p>
+                    <p class="overview-empty">{t('instanceDetail.integration.noQueueSnapshot')}</p>
                   {/if}
                 </section>
               </div>
-            {:else if integrationKind === "nulltickets"}
+            {:else if integrationKind === 'nulltickets'}
               <div class="integration-grid">
                 <section class="integration-card">
                   <div class="integration-card-header">
-                    <h4>{t("instanceDetail.integration.queueSnapshot")}</h4>
+                    <h4>{t('instanceDetail.integration.queueSnapshot')}</h4>
                   </div>
                   {#if integrationQueueEntries.length > 0}
                     <div class="integration-snapshot-grid">
@@ -1306,13 +1369,13 @@
                       {/each}
                     </div>
                   {:else}
-                    <p class="overview-empty">{t("instanceDetail.integration.noQueueSnapshot")}</p>
+                    <p class="overview-empty">{t('instanceDetail.integration.noQueueSnapshot')}</p>
                   {/if}
                 </section>
 
                 <section class="integration-card">
                   <div class="integration-card-header">
-                    <h4>{t("instanceDetail.integration.linkedBoilers")}</h4>
+                    <h4>{t('instanceDetail.integration.linkedBoilers')}</h4>
                   </div>
                   {#if integrationLinkedBoilers.length > 0}
                     <div class="integration-list">
@@ -1321,7 +1384,7 @@
                           <div class="integration-list-header">
                             <strong>{boiler.name}</strong>
                             <span class="overview-pill neutral">
-                              {t("instanceDetail.integration.trackerPort")}: {boiler.port ?? "-"}
+                              {t('instanceDetail.integration.trackerPort')}: {boiler.port ?? '-'}
                             </span>
                           </div>
 
@@ -1335,18 +1398,20 @@
                               {/each}
                             </div>
                           {:else}
-                            <p class="overview-empty">{t("instanceDetail.integration.noTrackerSnapshot")}</p>
+                            <p class="overview-empty">
+                              {t('instanceDetail.integration.noTrackerSnapshot')}
+                            </p>
                           {/if}
                         </article>
                       {/each}
                     </div>
                   {:else}
-                    <p class="overview-empty">{t("instanceDetail.integration.noLinkedBoilers")}</p>
+                    <p class="overview-empty">{t('instanceDetail.integration.noLinkedBoilers')}</p>
                   {/if}
                 </section>
               </div>
             {:else}
-              <p class="overview-empty">{t("common.noData")}</p>
+              <p class="overview-empty">{t('common.noData')}</p>
             {/if}
           </div>
         </div>
@@ -1360,35 +1425,55 @@
     class="modal-backdrop"
     role="button"
     tabindex="0"
-    aria-label={t("instanceDetail.closeLaunchDialog")}
+    aria-label={t('instanceDetail.closeLaunchDialog')}
     onclick={handleLaunchBackdropClick}
     onkeydown={handleLaunchBackdropKeydown}
   >
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="launch-dialog-title">
-      <h3 id="launch-dialog-title">{launchAction === "start" ? t("instanceDetail.launchDialog.start") : t("instanceDetail.launchDialog.restart")}</h3>
-      <p class="modal-desc">{t("instanceDetail.launchDialogDesc")}</p>
+      <h3 id="launch-dialog-title">
+        {launchAction === 'start'
+          ? t('instanceDetail.launchDialog.start')
+          : t('instanceDetail.launchDialog.restart')}
+      </h3>
+      <p class="modal-desc">{t('instanceDetail.launchDialogDesc')}</p>
 
       <label class="field">
-        <span>{t("instanceDetail.launchDialog.launchMode")}</span>
-        <input type="text" bind:value={launchMode} placeholder={t("instanceDetail.launchModePlaceholder")} />
+        <span>{t('instanceDetail.launchDialog.launchMode')}</span>
+        <input
+          type="text"
+          bind:value={launchMode}
+          placeholder={t('instanceDetail.launchModePlaceholder')}
+        />
       </label>
 
       <label class="field-toggle">
         <input type="checkbox" bind:checked={launchVerbose} />
-        <span>{t("instanceDetail.launchDialog.verbose")}</span>
+        <span>{t('instanceDetail.launchDialog.verbose')}</span>
       </label>
 
       <label class="field-toggle persist">
         <input type="checkbox" bind:checked={launchPersistDefaults} />
-        <span>{t("instanceDetail.launchDialog.persistDefaults")}</span>
+        <span>{t('instanceDetail.launchDialog.persistDefaults')}</span>
       </label>
 
       <div class="modal-actions">
-        <button class="control-btn secondary" onclick={closeLaunchDialog} disabled={busyAction === "start" || busyAction === "restart"}>
-          {t("instanceDetail.launchDialog.cancel")}
+        <button
+          class="control-btn secondary"
+          onclick={closeLaunchDialog}
+          disabled={busyAction === 'start' || busyAction === 'restart'}
+        >
+          {t('instanceDetail.launchDialog.cancel')}
         </button>
-        <button class="control-btn primary" onclick={confirmLaunchAction} disabled={busyAction === "start" || busyAction === "restart"}>
-          {busyAction === launchAction ? t("instanceDetail.executing") : launchAction === "start" ? t("instanceDetail.confirmStart") : t("instanceDetail.confirmRestart")}
+        <button
+          class="control-btn primary"
+          onclick={confirmLaunchAction}
+          disabled={busyAction === 'start' || busyAction === 'restart'}
+        >
+          {busyAction === launchAction
+            ? t('instanceDetail.executing')
+            : launchAction === 'start'
+              ? t('instanceDetail.confirmStart')
+              : t('instanceDetail.confirmRestart')}
         </button>
       </div>
     </div>

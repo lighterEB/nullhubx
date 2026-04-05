@@ -249,6 +249,16 @@ pub fn handleMemory(allocator: std.mem.Allocator, s: *state_mod.State, paths: pa
     return command_service.runInstanceCliJson(allocator, s, paths, component, name, args.items);
 }
 
+pub fn handleCapabilities(
+    allocator: std.mem.Allocator,
+    s: *state_mod.State,
+    paths: paths_mod.Paths,
+    component: []const u8,
+    name: []const u8,
+) ApiResponse {
+    return @import("capabilities.zig").handleGet(allocator, s, paths, component, name);
+}
+
 pub fn handleSkills(allocator: std.mem.Allocator, s: *state_mod.State, paths: paths_mod.Paths, component: []const u8, name: []const u8, target: []const u8) ApiResponse {
     _ = s.getInstance(component, name) orelse return helpers.notFound();
     if (legacy.queryParamBool(target, "catalog")) return handleSkillsCatalog(allocator, component);

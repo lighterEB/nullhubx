@@ -8,10 +8,10 @@ export default {
     agents: 'Agents',
     connections: 'Connections',
     hub: 'Hub',
-    settings: 'Settings'
+    settings: 'Settings',
   },
   topbar: {
-    liveSync: 'Live Sync'
+    liveSync: 'Live Sync',
   },
   overview: {
     title: 'NullHubX Overview',
@@ -23,14 +23,14 @@ export default {
     managementEntries: 'Admin Entries',
     recentInstances: 'Recent Instances',
     enterInstances: 'Go to Instances',
-    emptyState: 'No instances. Go to Hub to install components.'
+    emptyState: 'No instances. Go to Hub to install components.',
   },
   statusBar: {
     instances: 'Instances',
     running: 'running',
     connectionError: 'Connection Error',
     operational: 'System Operational',
-    idle: 'System Idle'
+    idle: 'System Idle',
   },
   common: {
     loading: 'Loading...',
@@ -56,7 +56,7 @@ export default {
     noData: 'No data',
     comingSoon: 'Coming Soon',
     enabled: 'Enabled',
-    disabled: 'Disabled'
+    disabled: 'Disabled',
   },
   status: {
     pending: 'Pending',
@@ -69,17 +69,18 @@ export default {
     cancelled: 'Cancelled',
     failed: 'Failed',
     restarting: 'Restarting',
-    unknown: 'Unknown'
+    unknown: 'Unknown',
   },
   instanceCard: {
-    confirmDelete: 'Are you sure you want to delete instance {component}/{name}? This action cannot be undone.',
+    confirmDelete:
+      'Are you sure you want to delete instance {component}/{name}? This action cannot be undone.',
     stopping: 'Stopping...',
     starting: 'Starting...',
     stop: 'Stop',
     start: 'Start',
     delete: 'Delete',
     gateway: 'Gateway',
-    version: 'Version'
+    version: 'Version',
   },
   configEditor: {
     notFound: 'Configuration not found, initialized with empty object',
@@ -92,7 +93,7 @@ export default {
     uiMode: 'UI Mode',
     rawMode: 'Raw JSON',
     switchToUi: 'Switch to UI Mode',
-    switchToRaw: 'Switch to Raw Mode'
+    switchToRaw: 'Switch to Raw Mode',
   },
   configEditorUi: {
     channelsHeading: 'Channels',
@@ -105,25 +106,28 @@ export default {
     moveDown: 'Move Down',
     removeEntry: 'Remove Entry',
     memoryTitle: 'Memory',
-    memoryDesc: 'Memory is being split into a dedicated configuration module. Use this subtree editor until the full visual IA lands.',
+    memoryDesc:
+      'Memory is being split into a dedicated configuration module. Use this subtree editor until the full visual IA lands.',
     memoryConfiguredGroups: 'Configured Groups',
     memoryNoGroups: 'No memory groups configured yet.',
     memoryStructuredCoverage: 'Structured Coverage',
     memoryStructuredFields: 'fields mapped into the dedicated memory module',
     memoryRawFallbackTitle: 'Scoped Raw Fallback',
-    memoryRawFallbackDesc: 'This editor only touches the memory subtree, so you no longer need to switch the entire configuration page into raw mode.',
+    memoryRawFallbackDesc:
+      'This editor only touches the memory subtree, so you no longer need to switch the entire configuration page into raw mode.',
     memoryRawLabel: 'Memory Raw JSON',
     memoryRawHint: 'Valid JSON object only. Leave blank to remove the memory section.',
     memoryObjectError: 'Memory configuration must be a JSON object',
     peripheralsTitle: 'Peripherals',
-    peripheralsDesc: 'Manage datasheet paths and peripheral board declarations in one dedicated module.',
+    peripheralsDesc:
+      'Manage datasheet paths and peripheral board declarations in one dedicated module.',
     peripheralsBoardsLabel: 'boards',
     apiKey: 'API Key',
     baseUrl: 'Base URL',
     userAgent: 'User-Agent',
     nativeTools: 'Native Tools',
     cliChannelEnabled: 'CLI channel enabled',
-    accountLabel: 'Account'
+    accountLabel: 'Account',
   },
   channelList: {
     title: 'Channels',
@@ -133,7 +137,7 @@ export default {
     addChannel: 'Add Channel',
     useSaved: 'Use Saved',
     enterValue: 'Enter value...',
-    commaSeparatedValues: 'Comma-separated values...'
+    commaSeparatedValues: 'Comma-separated values...',
   },
   providerList: {
     title: 'Providers',
@@ -154,13 +158,13 @@ export default {
     codexCliHint: 'Loads models from your local Codex cache in ~/.codex/models_cache.json.',
     openaiCodexHint: 'Uses ChatGPT/Codex auth from ~/.codex/auth.json. No API key required here.',
     modelPlaceholder: 'e.g. anthropic/claude-sonnet-4',
-    codexModelPlaceholder: 'e.g. gpt-5.4'
+    codexModelPlaceholder: 'e.g. gpt-5.4',
   },
   wizardStep: {
     recommended: 'recommended',
     noMatches: 'No matches',
     enterSecret: 'Enter secret...',
-    enterValue: 'Enter value...'
+    enterValue: 'Enter value...',
   },
   wizard: {
     title: 'Install {component}',
@@ -180,7 +184,7 @@ export default {
     advanced: 'Advanced',
     validating: 'Validating...',
     installing: 'Installing...',
-    installComplete: 'Installation complete!'
+    installComplete: 'Installation complete!',
   },
   hub: {
     title: 'Hub',
@@ -197,7 +201,7 @@ export default {
     importing: 'Importing...',
     notify: 'Notify me',
     importFailed: 'Import failed: {error}',
-    installNewComponent: 'Install New Component'
+    installNewComponent: 'Install New Component',
   },
   componentCard: {
     alpha: 'ALPHA',
@@ -216,7 +220,7 @@ export default {
     installCta: 'Install ->',
     importing: 'Importing...',
     importCta: 'Import ->',
-    installed: 'Installed'
+    installed: 'Installed',
   },
   settings: {
     title: 'Settings',
@@ -247,10 +251,44 @@ export default {
     serviceStatusUpdateFailed: 'Failed to update service status',
     serviceEnabled: 'Service enabled',
     serviceDisabled: 'Service disabled',
+    capabilityMatrix: 'Capability Matrix',
+    capabilityMatrixHint:
+      'Tracks hub bridge support, runtime-detected support, and UI productization state for managed nullclaw surfaces.',
+    capabilitySurface: 'Surface',
+    capabilityCategory: 'Category',
+    capabilitySummary: 'Summary',
+    capabilityBridge: 'Hub Bridge',
+    capabilityRuntimeState: 'Runtime Support',
+    capabilityUiState: 'UI State',
+    capabilityNotes: 'Notes',
+    capabilityDimensions: 'Capability dimensions',
+    capabilityNoData: 'Capability matrix unavailable',
+    capabilityYes: 'Yes',
+    capabilityNo: 'No',
+    capabilityLoadFailed: 'Failed to load capability matrix',
+    capabilityStates: {
+      implemented: 'Implemented',
+      partial: 'Partial',
+      missing: 'Missing',
+      cliOnly: 'CLI Only',
+    },
+    capabilityRuntime: {
+      unknown: 'Unknown',
+      supported: 'Supported',
+      notApplicable: 'N/A',
+      planned: 'Planned',
+    },
+    capabilityUi: {
+      global: 'Global',
+      instance: 'Per-instance',
+      globalReadOnly: 'Global read-only',
+      placeholder: 'Placeholder',
+      missing: 'Missing',
+    },
     saving: 'Saving...',
     saveSettings: 'Save Settings',
     settingsSaved: 'Settings saved',
-    error: 'Error: {message}'
+    error: 'Error: {message}',
   },
   connections: {
     title: 'Connections',
@@ -263,6 +301,8 @@ export default {
     providerLabel: 'Provider',
     defaultModel: 'Default Model',
     validationStatus: 'Validation Status',
+    linkedInstances: 'Linked Instances',
+    linkStatus: 'Link Status',
     validationPassed: 'Passed',
     validationFailed: 'Failed',
     validationPending: 'Not validated',
@@ -271,15 +311,67 @@ export default {
     lastValidated: 'Last Validated',
     addProvider: 'Add Provider',
     addChannel: 'Add Channel',
+    createProvider: 'Create Provider',
+    saveProvider: 'Save Provider',
+    editProvider: 'Edit Provider',
+    providerCreateHint:
+      'Create and validate a saved provider record that can be reused across managed instances.',
+    providerEditHint:
+      'Update display name, model, or rotate credentials for an existing saved provider.',
+    providerCreated: 'Provider {provider} created.',
+    providerUpdated: 'Provider {name} updated.',
+    providerDeleted: 'Provider {name} deleted.',
+    providerValidated: 'Provider {name} validated successfully.',
+    providerValidationFailed: 'Provider validation failed.',
+    providerValidationFailedWithReason: 'Provider {name} validation failed: {reason}',
+    providerSaveFailed: 'Failed to save provider.',
+    providerDeleteFailed: 'Failed to delete provider.',
+    providerRequired: 'Provider is required.',
+    apiKey: 'API Key',
+    providerApiKeyHintCreate:
+      'Use the provider secret required to validate and save this connection.',
+    providerApiKeyHintEdit:
+      'Leave blank to keep the existing secret. Enter a new one only when rotating credentials.',
+    providerApiKeyOptional: 'Leave blank to keep the current key',
+    channelConfig: 'Channel Config JSON',
+    channelConfigHint: 'Provide the exact config object stored for this channel account.',
+    createChannel: 'Create Channel',
+    saveChannel: 'Save Channel',
+    editChannel: 'Edit Channel',
+    channelCreateHint:
+      'Create and validate a saved channel record that can be reused during onboarding and routing setup.',
+    channelEditHint:
+      'Update the display name, scoped account, or stored config for an existing saved channel.',
+    channelCreated: 'Channel {channel} created.',
+    channelUpdated: 'Channel {name} updated.',
+    channelDeleted: 'Channel {name} deleted.',
+    channelLoadFailed: 'Failed to load channel config for editing.',
+    channelValidated: 'Channel {name} validated successfully.',
+    channelValidationFailed: 'Channel validation failed.',
+    channelValidationFailedWithReason: 'Channel {name} validation failed: {reason}',
+    channelSaveFailed: 'Failed to save channel.',
+    channelDeleteFailed: 'Failed to delete channel.',
+    channelTypeRequired: 'Channel type is required.',
+    accountRequired: 'Account is required.',
+    configInvalid: 'Config JSON is invalid.',
+    configMustBeObject: 'Config JSON must be an object.',
+    cancelEdit: 'Cancel Edit',
+    edit: 'Edit',
+    delete: 'Delete',
+    confirmDeleteProvider: 'Delete saved provider {name}? This cannot be undone.',
+    confirmDeleteChannel: 'Delete saved channel {name}? This cannot be undone.',
+    validationReviewHint: 'Saved records currently failing validation',
     validate: 'Validate',
     validated: 'Validated',
     notValidated: 'Not validated',
+    linked: 'Linked',
+    orphaned: 'Orphaned',
     inUse: 'In use',
-    notInUse: 'Not in use'
+    notInUse: 'Not in use',
   },
   agents: {
     title: 'Agents',
-    subtitle: 'Manage your AI agents',
+    subtitle: 'Fleet view for nullclaw agent profiles and routing coverage',
     createAgent: 'Create Agent',
     noAgents: 'No agents configured',
     noAgentsHint: 'Create your first agent to get started',
@@ -288,7 +380,29 @@ export default {
     provider: 'Provider',
     systemPrompt: 'System Prompt',
     bindings: 'Bindings',
-    channels: 'Channels'
+    channels: 'Channels',
+    nullclawInstances: 'NullClaw Instances',
+    nullclawInstancesDesc: 'Managed nullclaw runtimes visible to the hub',
+    configuredInstances: 'Configured Routes',
+    defaultFallbackInstances: 'Default Fallback',
+    unavailableInstances: 'Unavailable',
+    workspaceTitle: 'Fleet Agent Workspace',
+    workspaceHint:
+      'Review per-instance profile/binding coverage, spot default-only routing, and jump into the instance workspace to edit.',
+    searchPlaceholder: 'Search instance, profile, default model, or channel',
+    noNullclawInstances: 'No managed nullclaw instances yet',
+    noNullclawInstancesHint:
+      'Install or import a nullclaw instance before using the fleet agents workspace.',
+    emptyFiltered: 'No instances match the current search.',
+    openInstanceWorkspace: 'Open Instance Workspace',
+    profilesCount: 'Profiles',
+    bindingsCount: 'Bindings',
+    runtimeStatus: 'Runtime Status',
+    defaultPrimary: 'Default Primary Model',
+    defaultPrimaryMissing: 'No default primary model',
+    channelCoverage: 'Channel Coverage',
+    profileIds: 'Profile IDs',
+    loadFailed: 'Failed to load agent summary',
   },
   agentsPanel: {
     requestFailed: 'Request failed',
@@ -303,8 +417,10 @@ export default {
     channelRequired: 'Channel is required.',
     peerKindRequired: 'Peer kind is required.',
     peerIdRequired: 'Peer ID is required.',
-    duplicateRoute: 'Duplicate binding detected. The same agent and exact routing scope are listed more than once.',
-    conflictingScope: 'Conflicting binding scope detected. A channel/account/peer scope can route to only one agent.',
+    duplicateRoute:
+      'Duplicate binding detected. The same agent and exact routing scope are listed more than once.',
+    conflictingScope:
+      'Conflicting binding scope detected. A channel/account/peer scope can route to only one agent.',
     profilesInvalidSave: 'Profiles have validation issues. Fix them before saving.',
     profilesSaved: 'Profiles saved ({count}).',
     bindingsInvalidSave: 'Bindings have validation issues. Fix them before saving.',
@@ -312,13 +428,15 @@ export default {
     bindingsSaved: 'Bindings saved ({count}).',
     noChangesToSave: 'There are no pending changes to save.',
     profilesInvalidTab: 'Profiles have validation issues. Switched to the Profiles tab.',
-    bindingsUnsavedProfileAll: 'Bindings reference unpersisted profiles. Save Profiles first or use "Save All Changes".',
+    bindingsUnsavedProfileAll:
+      'Bindings reference unpersisted profiles. Save Profiles first or use "Save All Changes".',
     bindingsInvalidTab: 'Bindings have validation issues. Switched to the Bindings tab.',
     savedAll: 'Profiles and bindings saved.',
     savedProfilesOnly: 'Profiles saved (bindings unchanged).',
     savedBindingsOnly: 'Bindings saved (profiles unchanged).',
     title: 'Agent Workspace',
-    subtitle: 'Manage profiles and bindings inside this instance. Save in the order "Profiles -> Bindings".',
+    subtitle:
+      'Manage profiles and bindings inside this instance. Save in the order "Profiles -> Bindings".',
     refresh: 'Refresh',
     refreshing: 'Refreshing...',
     saveAll: 'Save All Changes',
@@ -329,7 +447,8 @@ export default {
     modified: 'Modified',
     loading: 'Loading agent configuration...',
     profilesTitle: 'Profiles',
-    profilesSubtitle: 'Profiles map to `agents.list[]`; the default primary model lives at `agents.defaults.model.primary`.',
+    profilesSubtitle:
+      'Profiles map to `agents.list[]`; the default primary model lives at `agents.defaults.model.primary`.',
     addProfile: 'Add Profile',
     saveProfiles: 'Save Profiles',
     defaultPrimaryModel: 'Default Primary Model',
@@ -341,12 +460,16 @@ export default {
     temperature: 'Temperature',
     maxDepth: 'Max Depth',
     systemPrompt: 'System Prompt',
-    providerHintMissing: 'Provider suggestions come from `models.providers.*` in this instance config.',
+    providerHintMissing:
+      'Provider suggestions come from `models.providers.*` in this instance config.',
     providerHintAvailable: 'Configured providers: {providers}',
-    modelHint: 'Use the model id for the selected provider. The default primary model above still uses `provider/model`.',
-    modelHintWithProvider: 'Use the model id for provider `{provider}`. The default primary model above still uses `provider/model`.',
+    modelHint:
+      'Use the model id for the selected provider. The default primary model above still uses `provider/model`.',
+    modelHintWithProvider:
+      'Use the model id for provider `{provider}`. The default primary model above still uses `provider/model`.',
     bindingsTitle: 'Bindings',
-    bindingsSubtitle: 'Bindings route channels and peers to a target profile. Legacy `#topic:` values are converted to `:thread:` on save.',
+    bindingsSubtitle:
+      'Bindings route channels and peers to a target profile. Legacy `#topic:` values are converted to `:thread:` on save.',
     addBinding: 'Add Binding',
     saveBindings: 'Save Bindings',
     unsavedBindingsTitle: 'Detected {count} bindings referencing unsaved profiles.',
@@ -363,25 +486,37 @@ export default {
     customChannelOption: 'Custom: {channel}',
     channelHintAvailable: 'Configured channels: {channels}',
     channelHintMissing: 'No configured channels were detected in this instance config yet.',
-    accountHintSelectChannel: 'Select a channel first, then scope this rule to a specific configured account if needed.',
-    accountHintAvailable: 'Configured accounts for {channel}: {accounts}. Leave blank only when you intentionally want any-account fallback.',
-    accountHintMissing: 'No configured accounts were detected for {channel}. Use the account key from the instance config if you want a scoped rule.',
-    peerHintDirect: 'For direct / DM routing on {channel}, use the exact sender or user id such as `{example}`.',
-    peerHintGroup: 'For group fallback or topic/thread routing on {channel}, use the exact group id. Thread-scoped routes can append `:thread:<id>` such as `{example}`.',
-    peerHintChannel: 'For channel / room routing on {channel}, use the exact room, feed, or channel id such as `{example}`.',
+    accountHintSelectChannel:
+      'Select a channel first, then scope this rule to a specific configured account if needed.',
+    accountHintAvailable:
+      'Configured accounts for {channel}: {accounts}. Leave blank only when you intentionally want any-account fallback.',
+    accountHintMissing:
+      'No configured accounts were detected for {channel}. Use the account key from the instance config if you want a scoped rule.',
+    peerHintDirect:
+      'For direct / DM routing on {channel}, use the exact sender or user id such as `{example}`.',
+    peerHintGroup:
+      'For group fallback or topic/thread routing on {channel}, use the exact group id. Thread-scoped routes can append `:thread:<id>` such as `{example}`.',
+    peerHintChannel:
+      'For channel / room routing on {channel}, use the exact room, feed, or channel id such as `{example}`.',
     templatesLabel: 'Quick templates',
     templates: {
       groupFallback: 'Group Fallback',
       topicExact: 'Topic / Thread',
-      dmDirect: 'DM / Direct'
+      dmDirect: 'DM / Direct',
     },
     routingGuideTitle: 'How bindings resolve',
-    routingGuideDesc: 'Bindings are routing rules inside this instance, not direct channel ownership.',
-    routingGuideSingleWinner: 'Each incoming message resolves to one agent. Bindings do not fan out a single message to multiple agents.',
-    routingGuideCurrentScope: 'This panel currently edits channel/account/exact-peer routes. Guild, team, and role-based routing still remain outside this contract.',
-    routingGuidePeerPriority: 'Within exact peer routes, an account-scoped rule wins before an any-account fallback for the same peer.',
-    routingGuideThreadFallback: 'Thread/topic routes like `<chat>:thread:<id>` override broader group-level fallback bindings for the same chat.',
-    routingGuideReservedTargets: '`main` and `default` are reserved compatibility targets. Prefer a named profile when you want an explicit role.',
+    routingGuideDesc:
+      'Bindings are routing rules inside this instance, not direct channel ownership.',
+    routingGuideSingleWinner:
+      'Each incoming message resolves to one agent. Bindings do not fan out a single message to multiple agents.',
+    routingGuideCurrentScope:
+      'This panel currently edits channel/account/exact-peer routes. Guild, team, and role-based routing still remain outside this contract.',
+    routingGuidePeerPriority:
+      'Within exact peer routes, an account-scoped rule wins before an any-account fallback for the same peer.',
+    routingGuideThreadFallback:
+      'Thread/topic routes like `<chat>:thread:<id>` override broader group-level fallback bindings for the same chat.',
+    routingGuideReservedTargets:
+      '`main` and `default` are reserved compatibility targets. Prefer a named profile when you want an explicit role.',
     unassignedAgent: 'unassigned agent',
     pendingChannel: 'pending channel',
     pendingPeerKind: 'pending peer kind',
@@ -395,26 +530,36 @@ export default {
       peerAnyAccount: 'Exact peer · any account',
       accountFallback: 'Account fallback',
       channelFallback: 'Channel fallback',
-      incomplete: 'Incomplete rule'
+      incomplete: 'Incomplete rule',
     },
     summary: {
-      peerScoped: 'Routes channel `{channel}` / account `{account}` / exact `{peerKind}` `{peerId}` to `{agentId}`.',
-      peerAnyAccount: 'Routes channel `{channel}` / any account / exact `{peerKind}` `{peerId}` to `{agentId}`.',
-      accountFallback: 'Routes channel `{channel}` / account `{account}` fallback traffic to `{agentId}`.',
+      peerScoped:
+        'Routes channel `{channel}` / account `{account}` / exact `{peerKind}` `{peerId}` to `{agentId}`.',
+      peerAnyAccount:
+        'Routes channel `{channel}` / any account / exact `{peerKind}` `{peerId}` to `{agentId}`.',
+      accountFallback:
+        'Routes channel `{channel}` / account `{account}` fallback traffic to `{agentId}`.',
       channelFallback: 'Routes all unmatched traffic on channel `{channel}` to `{agentId}`.',
-      incomplete: 'Complete the channel, agent, and peer fields to define the routing scope.'
+      incomplete: 'Complete the channel, agent, and peer fields to define the routing scope.',
     },
     advisory: {
-      sameMatchScope: 'Another binding targets the same channel/account/peer scope. Within the same routing tier, the first matching rule wins.',
-      reservedTarget: 'This binding points at reserved target `{target}`. Use a named profile if you need a dedicated role instead of compatibility fallback.',
-      accountScopedPeerWins: 'An any-account exact peer fallback also exists. This account-scoped rule will win when its account matches.',
-      anyAccountPeerFallback: 'A more specific account-scoped exact peer rule exists for the same peer and will win before this any-account fallback.',
-      threadOverridesGroup: 'A group-level fallback exists for this chat. This exact thread/topic rule will override it for the matching thread.',
-      groupFallbackUnderSpecificThreads: 'More specific thread/topic rules exist under this chat. They will override this broader group-level fallback.'
+      sameMatchScope:
+        'Another binding targets the same channel/account/peer scope. Within the same routing tier, the first matching rule wins.',
+      reservedTarget:
+        'This binding points at reserved target `{target}`. Use a named profile if you need a dedicated role instead of compatibility fallback.',
+      accountScopedPeerWins:
+        'An any-account exact peer fallback also exists. This account-scoped rule will win when its account matches.',
+      anyAccountPeerFallback:
+        'A more specific account-scoped exact peer rule exists for the same peer and will win before this any-account fallback.',
+      threadOverridesGroup:
+        'A group-level fallback exists for this chat. This exact thread/topic rule will override it for the matching thread.',
+      groupFallbackUnderSpecificThreads:
+        'More specific thread/topic rules exist under this chat. They will override this broader group-level fallback.',
     },
     preview: {
       title: 'Route Preview',
-      subtitle: 'Test the current draft without sending a real message. The current contract evaluates exact peer routes first, then parent chat fallback, then `main/default`.',
+      subtitle:
+        'Test the current draft without sending a real message. The current contract evaluates exact peer routes first, then parent chat fallback, then `main/default`.',
       statusMatched: 'Matched',
       statusFallback: 'Fallback',
       statusIncomplete: 'Incomplete',
@@ -423,8 +568,10 @@ export default {
       peerKindLabel: 'Preview Peer Kind',
       peerIdLabel: 'Preview Peer ID',
       rolesLabel: 'Preview Roles',
-      rolesHint: 'Roles are accepted here for future debugging, but contract v1 still ignores guild/team/roles during routing.',
-      rolesIgnored: 'The current preview ignored the supplied roles because contract v1 only evaluates channel/account/peer.',
+      rolesHint:
+        'Roles are accepted here for future debugging, but contract v1 still ignores guild/team/roles during routing.',
+      rolesIgnored:
+        'The current preview ignored the supplied roles because contract v1 only evaluates channel/account/peer.',
       resultLabel: 'Resolved Target',
       pendingTarget: 'Pending Input',
       traceTitle: 'Resolution Trace',
@@ -432,35 +579,45 @@ export default {
       bindingRef: 'Matched binding #{index}',
       stepMatched: 'Matched binding #{index}: {summary}',
       stepNoMatch: 'No binding matched at this tier.',
-      defaultFallbackDetail: 'No explicit binding matched. Runtime will fall back to the reserved `main/default` compatibility target.',
+      defaultFallbackDetail:
+        'No explicit binding matched. Runtime will fall back to the reserved `main/default` compatibility target.',
       incomplete: 'Provide channel, peer kind, and peer id to preview the resolved agent.',
       reason: {
         peerScoped: 'Matched an exact peer binding scoped to this account.',
-        peerAnyAccount: 'Matched an exact peer binding that applies to any account on this channel.',
-        groupScoped: 'No thread-specific rule matched, so the request fell back to a parent chat binding scoped to this account.',
-        groupAnyAccount: 'No thread-specific scoped binding matched, so the request fell back to a parent chat binding for any account.',
-        defaultFallback: 'No explicit binding matched this request, so routing falls back to `main/default`.'
+        peerAnyAccount:
+          'Matched an exact peer binding that applies to any account on this channel.',
+        groupScoped:
+          'No thread-specific rule matched, so the request fell back to a parent chat binding scoped to this account.',
+        groupAnyAccount:
+          'No thread-specific scoped binding matched, so the request fell back to a parent chat binding for any account.',
+        defaultFallback:
+          'No explicit binding matched this request, so routing falls back to `main/default`.',
       },
       tiers: {
         peerScoped: 'Exact peer · scoped account',
         peerAnyAccount: 'Exact peer · any account',
         groupScoped: 'Parent chat · scoped account',
         groupAnyAccount: 'Parent chat · any account',
-        defaultFallback: 'main/default'
-      }
+        defaultFallback: 'main/default',
+      },
     },
     feedback: {
-      noChangesDetail: 'The instance configuration already matches the current Profiles and Bindings draft.',
-      runtimeRunning: 'The agent config is saved, but a running instance may still be using the previous agent routing. Restart the instance if you need deterministic application now.',
-      runtimeFailed: 'The agent config is saved. Restart the instance when you are ready to re-apply the updated agent setup.',
-      runtimeStopped: 'The agent config is saved. It will be used the next time this instance starts.',
-      runtimeUnknown: 'The agent config is saved. Runtime application still depends on the component and current instance state.',
+      noChangesDetail:
+        'The instance configuration already matches the current Profiles and Bindings draft.',
+      runtimeRunning:
+        'The agent config is saved, but a running instance may still be using the previous agent routing. Restart the instance if you need deterministic application now.',
+      runtimeFailed:
+        'The agent config is saved. Restart the instance when you are ready to re-apply the updated agent setup.',
+      runtimeStopped:
+        'The agent config is saved. It will be used the next time this instance starts.',
+      runtimeUnknown:
+        'The agent config is saved. Runtime application still depends on the component and current instance state.',
       summaryRefreshed: 'The instance summary counters were refreshed after this save.',
       summaryRefreshedAgain: 'Instance summary refreshed again.',
       meta: 'apply_state={applyState} · runtime_effect={runtimeEffect}',
       refreshSummary: 'Refresh Summary',
-      restartInstance: 'Restart Instance'
-    }
+      restartInstance: 'Restart Instance',
+    },
   },
   instances: {
     title: 'Instances Workspace',
@@ -471,7 +628,7 @@ export default {
     searchPlaceholder: 'Search component/instance',
     emptyState: 'No instances. Go to Hub to install components.',
     running: 'Running',
-    total: 'Total'
+    total: 'Total',
   },
   orchestration: {
     title: 'Orchestration',
@@ -506,19 +663,21 @@ export default {
     loading: 'Loading',
     unavailableState: 'Unavailable',
     refreshing: 'Refreshing...',
-    refresh: 'Refresh'
+    refresh: 'Refresh',
   },
   moduleFrame: {
     loading: 'Loading module surface...',
     loaded: 'Loaded',
-    failed: 'Module failed to load'
+    failed: 'Module failed to load',
   },
   instanceDetail: {
     title: 'Instance Detail',
-    subtitle: 'Manage runtime controls, defaults, health, logs, and integrations for this instance.',
+    subtitle:
+      'Manage runtime controls, defaults, health, logs, and integrations for this instance.',
     backToWorkspace: 'Back to Workspace',
     backToOverview: 'Back to Overview',
-    confirmDelete: 'Are you sure you want to delete instance {component}/{name}? This action cannot be undone.',
+    confirmDelete:
+      'Are you sure you want to delete instance {component}/{name}? This action cannot be undone.',
     deleting: 'Deleting...',
     delete: 'Delete Instance',
     starting: 'Starting...',
@@ -545,7 +704,7 @@ export default {
       default_only: 'No explicit bindings yet; routing falls back to main/default.',
       missing_profiles: 'No saved profiles yet.',
       unavailable: 'Route summary is temporarily unavailable.',
-      unknown: 'Route summary not loaded yet.'
+      unknown: 'Route summary not loaded yet.',
     },
     recentEventsLabel: 'Recent Supervisor Event',
     defaultsTitle: 'Runtime Defaults',
@@ -556,7 +715,8 @@ export default {
     verboseLog: 'Verbose Logs',
     resetChanges: 'Reset Changes',
     failedBannerTitle: 'Instance entered failed state',
-    failedBannerDesc: 'Supervisor detected repeated failures or unhealthy state. Review the latest nullhubx logs before restarting.',
+    failedBannerDesc:
+      'Supervisor detected repeated failures or unhealthy state. Review the latest nullhubx logs before restarting.',
     viewFailureLogs: 'View Failure Logs',
     notFound: 'Instance not found.',
     fetching: 'Loading instance summary...',
@@ -567,7 +727,8 @@ export default {
     launchModeRequired: 'Launch mode is required',
     defaultLaunchModeRequired: 'Default launch mode is required',
     closeLaunchDialog: 'Close launch options dialog',
-    launchDialogDesc: 'Adjust launch options for this run. You can optionally persist them as new defaults.',
+    launchDialogDesc:
+      'Adjust launch options for this run. You can optionally persist them as new defaults.',
     executing: 'Executing...',
     confirmStart: 'Start Instance',
     confirmRestart: 'Restart Instance',
@@ -588,7 +749,7 @@ export default {
       bootstrapExists: 'Bootstrap Seeded',
       seededAt: 'Seeded At',
       completedAt: 'Completed At',
-      starterMessage: 'Starter Message'
+      starterMessage: 'Starter Message',
     },
     usage: {
       windowLabel: 'Usage window',
@@ -606,8 +767,8 @@ export default {
         '24h': '24H',
         '7d': '7D',
         '30d': '30D',
-        all: 'All'
-      }
+        all: 'All',
+      },
     },
     integration: {
       kind: 'Kind',
@@ -634,7 +795,7 @@ export default {
       queueSnapshot: 'Queue Snapshot',
       noQueueSnapshot: 'Queue snapshot is not available.',
       linkedBoilers: 'Linked Boilers',
-      noLinkedBoilers: 'No linked boiler instances.'
+      noLinkedBoilers: 'No linked boiler instances.',
     },
     launchDialog: {
       start: 'Start',
@@ -642,7 +803,7 @@ export default {
       launchMode: 'Launch Mode',
       verbose: 'Verbose Logs',
       persistDefaults: 'Save as Defaults',
-      cancel: 'Cancel'
+      cancel: 'Cancel',
     },
     tabs: {
       overview: 'Overview',
@@ -651,9 +812,10 @@ export default {
       logs: 'Logs',
       usage: 'Usage',
       history: 'History',
+      capabilities: 'Capabilities',
       memory: 'Memory',
       skills: 'Skills',
-      integration: 'Integration'
+      integration: 'Integration',
     },
     statusLabels: {
       running: 'Running',
@@ -662,8 +824,8 @@ export default {
       stopping: 'Stopping',
       failed: 'Failed',
       restarting: 'Restarting',
-      unknown: 'Unknown'
-    }
+      unknown: 'Unknown',
+    },
   },
   wizardPage: {
     title: 'Install {component}',
@@ -673,7 +835,7 @@ export default {
     helpText: 'Need help? Check the documentation.',
     unableToLoad: 'Unable to Load Wizard',
     backToComponents: 'Back to Components',
-    loading: 'Loading wizard...'
+    loading: 'Loading wizard...',
   },
   historyPanel: {
     unavailable: 'History unavailable.',
@@ -694,7 +856,7 @@ export default {
     loadingOlder: 'Loading...',
     loadOlder: 'Load Older',
     loadingMessages: 'Loading messages...',
-    emptySession: 'This session has no messages.'
+    emptySession: 'This session has no messages.',
   },
   memoryPanel: {
     statsUnavailable: 'Memory stats unavailable.',
@@ -727,7 +889,30 @@ export default {
     searching: 'Searching...',
     searchAction: 'Search',
     noResults: 'No results found for "{query}".',
-    hint: 'Search memory here when you need a specific fact or snippet.'
+    hint: 'Search memory here when you need a specific fact or snippet.',
+  },
+  capabilitiesPanel: {
+    title: 'Runtime Capabilities',
+    subtitle: 'Manifest reported by the managed nullclaw runtime for this instance.',
+    refresh: 'Refresh',
+    loading: 'Loading runtime capabilities...',
+    unavailable: 'Runtime capabilities are unavailable.',
+    loadFailed: 'Failed to load runtime capabilities.',
+    runtimeVersion: 'Runtime Version',
+    activeMemoryBackend: 'Active Memory Backend',
+    channelsCount: 'Channels',
+    runtimeTools: 'Runtime Tools',
+    channelsTitle: 'Channels',
+    channel: 'Channel',
+    buildEnabled: 'Build Enabled',
+    configured: 'Configured',
+    configuredCount: 'Configured Count',
+    memoryTitle: 'Memory Engines',
+    memoryEngine: 'Memory Engine',
+    toolsTitle: 'Tools',
+    runtimeLoadedTools: 'Runtime Loaded',
+    optionalEnabledTools: 'Optional Enabled',
+    optionalDisabledTools: 'Optional Disabled',
   },
   skillsPanel: {
     unavailable: 'Skills unavailable.',
@@ -751,7 +936,8 @@ export default {
     subtitle: 'Prompt skills available inside this instance workspace.',
     refresh: 'Refresh',
     recommendedTitle: 'Recommended',
-    recommendedSubtitle: 'Install recommended skills so this instance understands the Null ecosystem tools.',
+    recommendedSubtitle:
+      'Install recommended skills so this instance understands the Null ecosystem tools.',
     loadingRecommended: 'Loading recommended skills...',
     recommendedBadge: 'Recommended',
     defaultBadge: 'Default',
@@ -776,7 +962,7 @@ export default {
     instructions: 'Instructions',
     bytes: '{count} bytes',
     missingDependencies: 'Missing dependencies: {deps}',
-    remove: 'Remove'
+    remove: 'Remove',
   },
   logViewer: {
     title: 'Logs',
@@ -788,16 +974,16 @@ export default {
     clear: 'Clear',
     autoScroll: 'Auto Scroll',
     loadFailed: 'Failed to load logs',
-    emptyLogs: 'No {source} logs available'
+    emptyLogs: 'No {source} logs available',
   },
   configSchema: {
     options: {},
-    literals: {}
+    literals: {},
   },
   error: {
     requestFailed: 'Request Failed',
     timeout: 'Request timeout ({seconds}s): {path}',
     statusFetchFailed: 'Status fetch failed: {error}',
-    loadFailed: 'Load failed: {error}'
-  }
+    loadFailed: 'Load failed: {error}',
+  },
 };

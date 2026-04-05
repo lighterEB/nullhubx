@@ -34,6 +34,304 @@ const Document = struct {
     routes: []const RouteSpec,
 };
 
+const CapabilitySummaryState = enum {
+    implemented,
+    partial,
+    missing,
+    cli_only,
+};
+
+const RuntimeDetectedSupport = enum {
+    unknown,
+    supported,
+    not_applicable,
+    planned,
+};
+
+const UiProductizationState = enum {
+    global,
+    instance,
+    global_read_only,
+    placeholder,
+    missing,
+};
+
+const CapabilitySurface = struct {
+    id: []const u8,
+    category: []const u8,
+    label: []const u8,
+    summary_state: CapabilitySummaryState,
+    hub_bridge_support: bool,
+    runtime_detected_support: RuntimeDetectedSupport,
+    ui_productization_state: UiProductizationState,
+    route_ids: []const []const u8 = &.{},
+    ui_routes: []const []const u8 = &.{},
+    notes: []const u8 = "",
+};
+
+const CapabilityFlags = struct {
+    orchestration_proxy: bool,
+    service_management: bool,
+    instance_runtime_logs: bool,
+    instance_runtime_capabilities: bool,
+    instance_history: bool,
+    instance_memory_read: bool,
+    instance_skills: bool,
+    instance_usage: bool,
+    instance_onboarding: bool,
+    saved_providers: bool,
+    saved_channels: bool,
+};
+
+const CapabilityModel = struct {
+    version: u32,
+    dimensions: []const []const u8,
+    summary_states: []const []const u8,
+    runtime_detected_states: []const []const u8,
+    ui_productization_states: []const []const u8,
+};
+
+const CapabilityDocument = struct {
+    version: u32,
+    capabilities: CapabilityFlags,
+    capability_model: CapabilityModel,
+    surfaces: []const CapabilitySurface,
+    notes: struct {
+        capability_checks: []const u8,
+        summary_state_semantics: []const u8,
+        runtime_detection_semantics: []const u8,
+    },
+};
+
+const capability_dimensions = [_][]const u8{
+    "hub_bridge_support",
+    "runtime_detected_support",
+    "ui_productization_state",
+    "summary_state",
+};
+
+const capability_summary_states = [_][]const u8{
+    "implemented",
+    "partial",
+    "missing",
+    "cli_only",
+};
+
+const capability_runtime_states = [_][]const u8{
+    "unknown",
+    "supported",
+    "not_applicable",
+    "planned",
+};
+
+const capability_ui_states = [_][]const u8{
+    "global",
+    "instance",
+    "global_read_only",
+    "placeholder",
+    "missing",
+};
+
+const capability_flags = CapabilityFlags{
+    .orchestration_proxy = true,
+    .service_management = true,
+    .instance_runtime_logs = true,
+    .instance_runtime_capabilities = true,
+    .instance_history = true,
+    .instance_memory_read = true,
+    .instance_skills = true,
+    .instance_usage = true,
+    .instance_onboarding = true,
+    .saved_providers = true,
+    .saved_channels = true,
+};
+
+const capability_surfaces = [_]CapabilitySurface{
+    .{
+        .id = "instance_history",
+        .category = "nullclaw_instance",
+        .label = "Conversation history",
+        .summary_state = .implemented,
+        .hub_bridge_support = true,
+        .runtime_detected_support = .unknown,
+        .ui_productization_state = .instance,
+        .route_ids = &.{"instances.history"},
+        .ui_routes = &.{"/instances/[component]/[name]#history"},
+        .notes = "Managed per-instance history browsing is already bridged and productized in the instance detail view.",
+    },
+    .{
+        .id = "instance_memory",
+        .category = "nullclaw_instance",
+        .label = "Memory inspection",
+        .summary_state = .implemented,
+        .hub_bridge_support = true,
+        .runtime_detected_support = .unknown,
+        .ui_productization_state = .instance,
+        .route_ids = &.{"instances.memory"},
+        .ui_routes = &.{"/instances/[component]/[name]#memory"},
+        .notes = "Stats, listing, and search are exposed through the instance detail memory panel.",
+    },
+    .{
+        .id = "instance_skills",
+        .category = "nullclaw_instance",
+        .label = "Skills management",
+        .summary_state = .implemented,
+        .hub_bridge_support = true,
+        .runtime_detected_support = .unknown,
+        .ui_productization_state = .instance,
+        .route_ids = &.{
+            "instances.skills",
+            "instances.skills.catalog",
+            "instances.skills.install",
+            "instances.skills.remove",
+        },
+        .ui_routes = &.{"/instances/[component]/[name]#skills"},
+        .notes = "Install, remove, and catalog flows exist for managed nullclaw workspaces.",
+    },
+    .{
+        .id = "instance_agents",
+        .category = "nullclaw_instance",
+        .label = "Agent profiles and bindings",
+        .summary_state = .implemented,
+        .hub_bridge_support = true,
+        .runtime_detected_support = .unknown,
+        .ui_productization_state = .instance,
+        .route_ids = &.{
+            "instances.agents.profiles.get",
+            "instances.agents.profiles.put",
+            "instances.agents.bindings.get",
+            "instances.agents.bindings.put",
+        },
+        .ui_routes = &.{"/instances/[component]/[name]#agents"},
+        .notes = "Per-instance agent routing is already a first-class editing surface.",
+    },
+    .{
+        .id = "saved_providers",
+        .category = "hub_catalog",
+        .label = "Saved providers",
+        .summary_state = .partial,
+        .hub_bridge_support = true,
+        .runtime_detected_support = .not_applicable,
+        .ui_productization_state = .global,
+        .route_ids = &.{
+            "providers.list",
+            "providers.create",
+            "providers.update",
+            "providers.delete",
+            "providers.validate",
+        },
+        .ui_routes = &.{"/connections"},
+        .notes = "The global Connections workspace now supports CRUD, validation, and linked/orphaned instance visibility for saved providers.",
+    },
+    .{
+        .id = "saved_channels",
+        .category = "hub_catalog",
+        .label = "Saved channels",
+        .summary_state = .partial,
+        .hub_bridge_support = true,
+        .runtime_detected_support = .not_applicable,
+        .ui_productization_state = .global,
+        .route_ids = &.{
+            "channels.list",
+            "channels.create",
+            "channels.update",
+            "channels.delete",
+            "channels.validate",
+        },
+        .ui_routes = &.{"/connections"},
+        .notes = "The global Connections workspace now supports CRUD, validation, and linked/orphaned instance visibility for saved channels.",
+    },
+    .{
+        .id = "global_agents_workspace",
+        .category = "fleet_operations",
+        .label = "Global agents workspace",
+        .summary_state = .partial,
+        .hub_bridge_support = true,
+        .runtime_detected_support = .not_applicable,
+        .ui_productization_state = .global,
+        .route_ids = &.{
+            "instances.agents.profiles.get",
+            "instances.agents.bindings.get",
+        },
+        .ui_routes = &.{"/agents"},
+        .notes = "The fleet-wide Agents route now summarizes per-instance profiles and bindings, but editing still lives in the instance workspace.",
+    },
+    .{
+        .id = "orchestration_proxy",
+        .category = "ecosystem",
+        .label = "Orchestration proxy",
+        .summary_state = .implemented,
+        .hub_bridge_support = true,
+        .runtime_detected_support = .not_applicable,
+        .ui_productization_state = .global,
+        .route_ids = &.{"orchestration.proxy"},
+        .ui_routes = &.{"/orchestration"},
+        .notes = "NullBoiler and NullTickets orchestration APIs are proxied and surfaced globally.",
+    },
+    .{
+        .id = "runtime_models",
+        .category = "nullclaw_runtime",
+        .label = "Runtime model catalog management",
+        .summary_state = .missing,
+        .hub_bridge_support = false,
+        .runtime_detected_support = .planned,
+        .ui_productization_state = .missing,
+        .notes = "nullclaw exposes model catalog commands, but NullHubX does not yet bridge them.",
+    },
+    .{
+        .id = "runtime_auth_status",
+        .category = "nullclaw_runtime",
+        .label = "Runtime auth status",
+        .summary_state = .missing,
+        .hub_bridge_support = false,
+        .runtime_detected_support = .planned,
+        .ui_productization_state = .missing,
+        .notes = "Auth status remains runtime-only today.",
+    },
+    .{
+        .id = "runtime_doctor",
+        .category = "nullclaw_runtime",
+        .label = "Runtime diagnostics",
+        .summary_state = .missing,
+        .hub_bridge_support = false,
+        .runtime_detected_support = .planned,
+        .ui_productization_state = .missing,
+        .notes = "nullclaw doctor exists in the runtime CLI, but the hub does not yet expose it.",
+    },
+    .{
+        .id = "runtime_channel_control",
+        .category = "nullclaw_runtime",
+        .label = "Channel status and control",
+        .summary_state = .missing,
+        .hub_bridge_support = false,
+        .runtime_detected_support = .planned,
+        .ui_productization_state = .missing,
+        .notes = "Saved channel records exist, but live channel control is not yet bridged into the hub.",
+    },
+    .{
+        .id = "runtime_capabilities_probe",
+        .category = "nullclaw_runtime",
+        .label = "Runtime capability probe",
+        .summary_state = .implemented,
+        .hub_bridge_support = true,
+        .runtime_detected_support = .supported,
+        .ui_productization_state = .instance,
+        .route_ids = &.{"instances.capabilities"},
+        .ui_routes = &.{"/instances/[component]/[name]#capabilities"},
+        .notes = "NullHubX can now invoke `nullclaw capabilities --json` per instance and expose the runtime manifest in the instance workspace.",
+    },
+    .{
+        .id = "diagnostic_console",
+        .category = "nullclaw_runtime",
+        .label = "Bounded diagnostic console",
+        .summary_state = .partial,
+        .hub_bridge_support = true,
+        .runtime_detected_support = .unknown,
+        .ui_productization_state = .missing,
+        .notes = "NullHubX can seed a web channel configuration, but the bounded diagnostic console remains unshipped.",
+    },
+};
+
 const component_param = ParamSpec{
     .name = "component",
     .location = "path",
@@ -756,6 +1054,16 @@ const routes = [_]RouteSpec{
         .response = "Memory stats or memory entry list depending on query mode.",
     },
     .{
+        .id = "instances.capabilities",
+        .method = "GET",
+        .path_template = "/api/instances/{component}/{name}/capabilities",
+        .category = "instances",
+        .summary = "Read runtime capabilities reported by the managed component binary.",
+        .auth_mode = "optional_bearer",
+        .path_params = common_instance_params[0..],
+        .response = "Runtime capability manifest JSON.",
+    },
+    .{
         .id = "instances.skills",
         .method = "GET",
         .path_template = "/api/instances/{component}/{name}/skills",
@@ -1026,22 +1334,21 @@ pub fn handleRoutes(allocator: std.mem.Allocator) helpers.ApiResponse {
 }
 
 pub fn handleCapabilities(allocator: std.mem.Allocator) helpers.ApiResponse {
-    const body = std.json.Stringify.valueAlloc(allocator, .{
-        .version = 1,
-        .capabilities = .{
-            .orchestration_proxy = true,
-            .service_management = true,
-            .instance_runtime_logs = true,
-            .instance_history = true,
-            .instance_memory_read = true,
-            .instance_skills = true,
-            .instance_usage = true,
-            .instance_onboarding = true,
-            .saved_providers = true,
-            .saved_channels = true,
+    const body = std.json.Stringify.valueAlloc(allocator, CapabilityDocument{
+        .version = 2,
+        .capabilities = capability_flags,
+        .capability_model = .{
+            .version = 1,
+            .dimensions = capability_dimensions[0..],
+            .summary_states = capability_summary_states[0..],
+            .runtime_detected_states = capability_runtime_states[0..],
+            .ui_productization_states = capability_ui_states[0..],
         },
+        .surfaces = capability_surfaces[0..],
         .notes = .{
-            .capability_checks = "Prefer these flags over inferring feature availability from instance existence.",
+            .capability_checks = "Prefer these flags and surfaces over inferring feature availability from instance existence alone.",
+            .summary_state_semantics = "summary_state is a product summary for the hub surface; the underlying bridge/runtime/UI axes remain separate to avoid misleading parity claims.",
+            .runtime_detection_semantics = "runtime_detected_support describes whether the installed runtime has been explicitly proven to support the surface; unknown and planned are intentionally distinct.",
         },
     }, .{
         .whitespace = .indent_2,
@@ -1085,4 +1392,8 @@ test "handleCapabilities returns capability document" {
     try std.testing.expectEqualStrings("200 OK", resp.status);
     try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"orchestration_proxy\": true") != null);
     try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"instance_history\": true") != null);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"capability_model\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"surfaces\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"global_agents_workspace\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, resp.body, "\"runtime_models\"") != null);
 }
