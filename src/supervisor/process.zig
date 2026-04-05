@@ -196,7 +196,7 @@ pub fn isAliveEx(pid: std.process.Child.Id) AliveStatus {
         return .{ .alive = false, .reaped = false };
     }
     // Avoid std.posix.waitpid() because it panics on ECHILD; query the raw syscall wrapper directly.
-    var status: u32 = 0;
+    var status: c_int = 0;
     while (true) {
         const rc = std.posix.system.waitpid(pid, &status, @intCast(std.c.W.NOHANG));
         switch (std.posix.errno(rc)) {
